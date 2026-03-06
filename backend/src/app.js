@@ -34,30 +34,14 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 
 // ─── 2. CORS Configuration ───────────────────────────────────────────────────
-const isDev = (process.env.NODE_ENV || 'development') === 'development';
-
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',')
-  .map(origin => origin.trim());
-
 app.use(cors({
-  origin: (origin, callback) => {
-
-    // Allow Postman / curl / mobile apps
-    if (!origin) return callback(null, true);
-
-    // In development allow any localhost port
-    if (isDev && /^http:\/\/localhost(:\d+)?$/.test(origin)) {
-      return callback(null, true);
-    }
-
-    // Production whitelist
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS: origin ${origin} not allowed`));
-  },
+  origin: [
+    "http://localhost:5173",
+    "https://fannex.vercel.app",
+    "https://fannex.in",
+    "https://www.fannex.in",
+    "https://fannex.onrender.com"
+  ],
   credentials: true
 }));
 
