@@ -1,0 +1,6 @@
+/* App.css — intentionally minimal. All global styles live in index.css */
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}

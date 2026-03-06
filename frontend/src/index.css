@@ -1,0 +1,257 @@
+/* ── Google Font — must be first ────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  /* Brand palette */
+  --color-brand-50: #fdf2fb;
+  --color-brand-100: #fae8f7;
+  --color-brand-200: #f5d1ef;
+  --color-brand-300: #edaae2;
+  --color-brand-400: #e07ace;
+  --color-brand-500: #cc52b8;
+  /* primary */
+  --color-brand-600: #ae3499;
+  --color-brand-700: #8e287c;
+  --color-brand-800: #752365;
+  --color-brand-900: #612155;
+  --color-brand-950: #3d0c35;
+
+  /* Dark surface palette */
+  --color-surface-50: #f8f8f8;
+  --color-surface-100: #eaeaea;
+  --color-surface-900: #111114;
+  --color-surface-800: #18181c;
+  --color-surface-700: #222228;
+  --color-surface-600: #2c2c35;
+  --color-surface-500: #3a3a46;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Radius */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+
+/* ── Base styles ──────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-surface-900);
+  color: #e8e8f0;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-800);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-brand-700);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-500);
+}
+
+/* ── Utility: glass card ──────────────────────────────────────────────────── */
+.glass {
+  background: rgba(34, 34, 40, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ── Utility: gradient text ───────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #cc52b8 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Utility: brand button ────────────────────────────────────────────────── */
+.btn-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  background: linear-gradient(135deg, #cc52b8 0%, #7c3aed 100%);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(204, 82, 184, 0.35);
+}
+
+.btn-brand:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(204, 82, 184, 0.5);
+}
+
+.btn-brand:active {
+  transform: translateY(0);
+}
+
+/* Secondary outline button */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: var(--color-brand-400);
+  border: 1.5px solid var(--color-brand-500);
+}
+
+.btn-outline:hover {
+  background: rgba(204, 82, 184, 0.1);
+  transform: translateY(-1px);
+}
+
+/* ── Form inputs ──────────────────────────────────────────────────────────── */
+.input-dark {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-700);
+  border: 1.5px solid var(--color-surface-500);
+  border-radius: 0.625rem;
+  color: #e8e8f0;
+  font-size: 0.9375rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.input-dark::placeholder {
+  color: #6b7280;
+}
+
+.input-dark:focus {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px rgba(204, 82, 184, 0.15);
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-700) 25%, var(--color-surface-600) 50%, var(--color-surface-700) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 0.5rem;
+}
+
+/* ── Like button pop animation ────────────────────────────────────────────── */
+@keyframes heartPop {
+  0% {
+    transform: scale(1);
+  }
+
+  25% {
+    transform: scale(1.35);
+  }
+
+  50% {
+    transform: scale(0.95);
+  }
+
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+.like-btn-pop {
+  animation: heartPop 0.4s ease-out;
+}
+
+/* ── Responsive touch targets ──────────────────────────────────────────────── */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* min tap target on mobile */
+@media (max-width: 640px) {
+
+  button,
+  a {
+    min-height: 40px;
+  }
+}
+
+/* ── Safe-area padding (notch / home bar) ─────────────────────────────────── */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Responsive table helper ──────────────────────────────────────────────── */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Hide scrollbar but keep scroll ──────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
