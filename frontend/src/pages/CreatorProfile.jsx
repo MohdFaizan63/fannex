@@ -368,8 +368,8 @@ export default function CreatorProfile() {
                                 {/* ── Back arrow (top-left) ── */}
                                 <button
                                     onClick={() => navigate(-1)}
-                                    className="absolute top-3 left-3 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
-                                    style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                    className="absolute top-3 left-3 z-20 w-9 h-9 flex items-center justify-center transition-opacity hover:opacity-70"
+                                    style={{ background: 'none', border: 'none' }}
                                     title="Go back"
                                 >
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -381,8 +381,8 @@ export default function CreatorProfile() {
                                 <div className="absolute top-3 right-3 z-20">
                                     <button
                                         onClick={() => setShowMenu(v => !v)}
-                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-all"
-                                        style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                        className="w-9 h-9 flex items-center justify-center transition-opacity hover:opacity-70"
+                                        style={{ background: 'none', border: 'none' }}
                                         title="More options"
                                     >
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
