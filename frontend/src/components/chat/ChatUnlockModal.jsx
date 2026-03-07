@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import chatService from '../../services/chatService';
+import './chat.css';
 
 /**
- * ChatUnlockModal — launched when user tries to open a chat they haven't paid for.
+ * ChatUnlockModal — Premium unlock modal with payment flow.
  * Creates Razorpay order, opens Razorpay checkout, verifies, calls onSuccess(chatId).
  */
 export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onSuccess, onClose }) {
@@ -14,14 +15,12 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
         setLoading(true);
         setError('');
         try {
-            // Guard: Razorpay SDK must be loaded
             if (!window.Razorpay) {
                 setError('Payment system not loaded. Please refresh the page.');
                 setLoading(false);
                 return;
             }
 
-            // 1. Create Razorpay order
             const { data } = await chatService.createUnlockOrder(creatorId);
 
             if (data.alreadyUnlocked) {
@@ -31,7 +30,6 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
 
             const { order, keyId } = data;
 
-            // 2. Open Razorpay checkout
             const result = await new Promise((resolve, reject) => {
                 const rzp = new window.Razorpay({
                     key: keyId,
@@ -47,7 +45,6 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
                 rzp.open();
             });
 
-            // 3. Verify & unlock
             const verifyRes = await chatService.verifyUnlock({
                 razorpay_order_id: result.razorpay_order_id,
                 razorpay_payment_id: result.razorpay_payment_id,
@@ -58,9 +55,8 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
             onSuccess(verifyRes.data.chatId);
         } catch (err) {
             if (err.message === 'dismissed') {
-                // User closed Razorpay modal — don't show error
+                // User closed Razorpay modal
             } else {
-                // Show the actual backend error message when available
                 const msg =
                     err?.response?.data?.message ||
                     err?.message ||
@@ -78,51 +74,113 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+                style={{
+                    position: 'fixed', inset: 0, zIndex: 50,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: 16,
+                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                }}
                 onClick={onClose}
             >
                 <motion.div
-                    initial={{ scale: 0.85, opacity: 0, y: 20 }}
+                    initial={{ scale: 0.88, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.85, opacity: 0 }}
-                    transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                    className="bg-[#0f0f1a] border border-white/10 rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl"
+                    exit={{ scale: 0.88, opacity: 0 }}
+                    transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+                    style={{
+                        background: '#0a0a14',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 24,
+                        padding: '36px 28px 28px',
+                        width: '100%',
+                        maxWidth: 380,
+                        textAlign: 'center',
+                        boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Icon */}
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-600 to-pink-600 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-violet-500/30">
-                        <span className="text-2xl">💬</span>
+                    <div style={{
+                        width: 64, height: 64, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 20px',
+                        boxShadow: '0 8px 24px rgba(124,58,237,0.35)',
+                    }}>
+                        <span style={{ fontSize: 26 }}>💬</span>
                     </div>
 
-                    <h2 className="text-white font-black text-xl mb-2">Chat with {creatorName}</h2>
-                    <p className="text-white/50 text-sm mb-6">
+                    <h2 style={{ color: '#fff', fontWeight: 900, fontSize: 20, margin: '0 0 6px', letterSpacing: '-0.3px' }}>
+                        Chat with {creatorName}
+                    </h2>
+                    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, margin: '0 0 24px', lineHeight: 1.5 }}>
                         Unlock a private conversation for a one-time fee
                     </p>
 
                     {/* Price display */}
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6">
-                        <div className="text-3xl font-black text-white mb-1">₹{chatPrice}</div>
-                        <div className="text-white/40 text-xs">one-time · chat forever</div>
+                    <div style={{
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 18,
+                        padding: '20px 16px',
+                        marginBottom: 24,
+                    }}>
+                        <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' }}>
+                            ₹{chatPrice}
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 4, fontWeight: 500 }}>
+                            one-time • chat forever
+                        </div>
                     </div>
 
-                    {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+                    {error && (
+                        <div className="chat-alert chat-alert--error" style={{ marginBottom: 16 }}>
+                            {error}
+                        </div>
+                    )}
 
                     <button
                         onClick={handlePay}
                         disabled={loading}
-                        className="w-full py-4 rounded-2xl font-bold text-white text-base bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-violet-500/30"
+                        style={{
+                            width: '100%',
+                            padding: '16px 0',
+                            borderRadius: 16,
+                            fontWeight: 700,
+                            fontSize: 15,
+                            fontFamily: 'inherit',
+                            color: '#fff',
+                            background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
+                            border: 'none',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 4px 16px rgba(124,58,237,0.3)',
+                        }}
                     >
                         {loading ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Processing...
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <span className="chat-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                                Processing…
                             </span>
                         ) : `Unlock Chat — ₹${chatPrice}`}
                     </button>
 
                     <button
                         onClick={onClose}
-                        className="mt-4 text-white/30 text-sm hover:text-white/60 transition-colors"
+                        style={{
+                            marginTop: 16,
+                            color: 'rgba(255,255,255,0.3)',
+                            fontSize: 13,
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            transition: 'color 0.15s ease',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
                     >
                         Cancel
                     </button>

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import chatService from '../../services/chatService';
+import './chat.css';
 
 const GIFT_OPTIONS = [50, 100, 500, 1000, 5000, 10000];
 
 /**
- * GiftPanel — bottom sheet showing gift amounts.
+ * GiftPanel — Premium bottom-sheet with gift amount options.
  * Triggers Razorpay payment then posts confirmation.
  */
 export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) {
@@ -18,11 +19,9 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
         setLoading(true);
         setError('');
         try {
-            // 1. Create order
             const { data } = await chatService.createGiftOrder(chatId, selected);
             const { order, keyId } = data;
 
-            // 2. Open Razorpay
             const result = await new Promise((resolve, reject) => {
                 const rzp = new window.Razorpay({
                     key: keyId,
@@ -38,7 +37,6 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                 rzp.open();
             });
 
-            // 3. Verify gift
             const verifyRes = await chatService.verifyGift({
                 razorpay_order_id: result.razorpay_order_id,
                 razorpay_payment_id: result.razorpay_payment_id,
@@ -51,7 +49,7 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
             onClose();
         } catch (err) {
             if (err.message === 'dismissed') {
-                // User closed modal — no error
+                // User closed modal
             } else {
                 const msg =
                     err?.response?.data?.message ||
@@ -70,46 +68,101 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+                style={{
+                    position: 'fixed', inset: 0, zIndex: 50,
+                    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+                    WebkitBackdropFilter: 'blur(6px)',
+                }}
                 onClick={onClose}
             >
                 <motion.div
                     initial={{ y: '100%' }}
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
-                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="w-full max-w-lg bg-[#0f0f1a] border border-white/10 rounded-t-3xl p-6 pb-10"
+                    transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                    style={{
+                        width: '100%', maxWidth: 480,
+                        background: '#0a0a14',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '24px 24px 0 0',
+                        padding: '16px 20px 28px',
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Handle bar */}
-                    <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-6" />
+                    <div style={{
+                        width: 40, height: 4, background: 'rgba(255,255,255,0.15)',
+                        borderRadius: 999, margin: '0 auto 20px',
+                    }} />
 
-                    <h3 className="text-white font-bold text-lg text-center mb-1">Send a Gift 🎁</h3>
-                    <p className="text-white/40 text-sm text-center mb-6">to {creatorName}</p>
+                    <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, textAlign: 'center', margin: '0 0 4px' }}>
+                        Send a Gift 🎁
+                    </h3>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center', margin: '0 0 20px' }}>
+                        to {creatorName}
+                    </p>
 
-                    <div className="grid grid-cols-3 gap-3 mb-6">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
                         {GIFT_OPTIONS.map((amt) => (
-                            <button
+                            <motion.button
                                 key={amt}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => setSelected(amt)}
-                                className={`py-3 rounded-2xl font-bold text-sm transition-all duration-200 ${selected === amt
-                                    ? 'bg-gradient-to-br from-violet-600 to-pink-600 text-white scale-105 shadow-lg shadow-violet-500/30'
-                                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                                    }`}
+                                style={{
+                                    padding: '14px 0',
+                                    borderRadius: 16,
+                                    fontWeight: 700,
+                                    fontSize: 14,
+                                    fontFamily: 'inherit',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    background: selected === amt
+                                        ? 'linear-gradient(135deg, #7c3aed, #cc52b8)'
+                                        : 'rgba(255,255,255,0.04)',
+                                    border: selected === amt
+                                        ? 'none'
+                                        : '1px solid rgba(255,255,255,0.08)',
+                                    color: selected === amt
+                                        ? '#fff'
+                                        : 'rgba(255,255,255,0.65)',
+                                    boxShadow: selected === amt
+                                        ? '0 4px 16px rgba(124,58,237,0.3)'
+                                        : 'none',
+                                    transform: selected === amt ? 'scale(1.03)' : 'scale(1)',
+                                }}
                             >
                                 ₹{amt.toLocaleString('en-IN')}
-                            </button>
+                            </motion.button>
                         ))}
                     </div>
 
-                    {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
+                    {error && (
+                        <div className="chat-alert chat-alert--error" style={{ marginBottom: 12 }}>
+                            {error}
+                        </div>
+                    )}
 
                     <button
                         onClick={handleSendGift}
                         disabled={!selected || loading}
-                        className="w-full py-4 rounded-2xl font-bold text-white bg-gradient-to-r from-violet-600 to-pink-600 disabled:opacity-40 disabled:cursor-not-allowed hover:from-violet-500 hover:to-pink-500 transition-all duration-200 text-base"
+                        style={{
+                            width: '100%',
+                            padding: '15px 0',
+                            borderRadius: 16,
+                            fontWeight: 700,
+                            fontSize: 15,
+                            fontFamily: 'inherit',
+                            color: '#fff',
+                            background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
+                            border: 'none',
+                            cursor: !selected || loading ? 'not-allowed' : 'pointer',
+                            opacity: !selected || loading ? 0.4 : 1,
+                            transition: 'opacity 0.2s ease, transform 0.15s ease',
+                            boxShadow: '0 4px 16px rgba(124,58,237,0.3)',
+                        }}
                     >
-                        {loading ? 'Processing...' : selected ? `Send ₹${selected.toLocaleString('en-IN')} Gift` : 'Select an amount'}
+                        {loading ? 'Processing…' : selected ? `Send ₹${selected.toLocaleString('en-IN')} Gift` : 'Select an amount'}
                     </button>
                 </motion.div>
             </motion.div>

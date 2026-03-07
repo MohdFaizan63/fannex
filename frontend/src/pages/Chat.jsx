@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import chatService, { connectSocket, getSocket } from '../services/chatService';
 import ChatWindow from '../components/chat/ChatWindow';
 import GiftPanel from '../components/chat/GiftPanel';
 import WalletRechargeModal from '../components/WalletRechargeModal';
 import api from '../services/api';
+import '../components/chat/chat.css';
 
 export default function Chat() {
     const { chatId } = useParams();
@@ -24,6 +25,7 @@ export default function Chat() {
     const [page, setPage] = useState(1);
     const typingTimeout = useRef(null);
     const socketRef = useRef(null);
+    const textareaRef = useRef(null);
 
     // Lock body to 100% height so keyboard-resize works on Android Chrome
     useEffect(() => {
@@ -75,9 +77,6 @@ export default function Chat() {
 
         socket.on('new_message', (msg) => {
             setMessages(prev => {
-                // If this message was sent by the current user, it was already
-                // added optimistically. Replace the placeholder (opt-*) with the
-                // confirmed server message so we don't show it twice.
                 const optimisticIdx = prev.findIndex(
                     (m) =>
                         m._id?.toString().startsWith('opt-') &&
@@ -86,10 +85,9 @@ export default function Chat() {
                 );
                 if (optimisticIdx !== -1) {
                     const updated = [...prev];
-                    updated[optimisticIdx] = msg; // swap placeholder → confirmed
+                    updated[optimisticIdx] = msg;
                     return updated;
                 }
-                // Message from the other party — just append it
                 return [...prev, msg];
             });
             socket.emit('mark_seen', { chatId });
@@ -104,7 +102,6 @@ export default function Chat() {
         });
 
         socket.on('user_online', ({ userId, online }) => {
-            // Mark other party online (we'd need their id — simplified check)
             setIsOtherOnline(online);
         });
 
@@ -116,7 +113,7 @@ export default function Chat() {
     }, [chatId]);
 
     // ── Send message ───────────────────────────────────────────────────────────
-    const handleSend = () => {
+    const handleSend = useCallback(() => {
         const trimmed = text.trim();
         if (!trimmed) return;
 
@@ -134,203 +131,162 @@ export default function Chat() {
         }]);
 
         setText('');
-    };
+        // Reset textarea height
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+        }
+    }, [text, chatId, user._id]);
 
     // ── Typing indicator ───────────────────────────────────────────────────────
-    const handleTyping = (e) => {
+    const handleTyping = useCallback((e) => {
         setText(e.target.value);
+        // Auto-expand textarea
+        const ta = e.target;
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
+
         const socket = getSocket();
         socket?.emit('typing', { chatId, isTyping: true });
         clearTimeout(typingTimeout.current);
         typingTimeout.current = setTimeout(() => {
             socket?.emit('typing', { chatId, isTyping: false });
         }, 1500);
-    };
+    }, [chatId]);
 
-    const handleGiftSent = (msg) => {
+    const handleGiftSent = useCallback((msg) => {
         setMessages(prev => [...prev, msg]);
-    };
+    }, []);
+
+    const handleScrollTop = useCallback(() => {
+        setPage(p => {
+            const next = p + 1;
+            loadMessages(next);
+            return next;
+        });
+    }, [loadMessages]);
 
     if (loading) {
         return (
-            <div style={{ height: '100%', background: '#080810', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            <div className="chat-loading">
+                <div className="chat-spinner" />
+                <span className="chat-loading-text">Loading messages…</span>
             </div>
         );
     }
 
     return (
-        <div style={{
-            height: '100%',
-            background: '#000',
-            display: 'flex',
-            flexDirection: 'column',
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-            overflow: 'hidden',
-        }}>
-            {/* ── Header — Instagram style ───────────────────────────────────── */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 8px 10px 4px',
-                background: '#000',
-                flexShrink: 0,
-            }}>
+        <div className="chat-container">
+            {/* ── Header ───────────────────────────────────────────────────── */}
+            <div className="chat-header">
                 {/* Back arrow */}
-                <button onClick={() => navigate(-1)} style={{
-                    color: '#fff', background: 'none', border: 'none',
-                    padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                }}>
+                <button onClick={() => navigate(-1)} className="chat-header-back" aria-label="Go back">
                     <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
 
                 {/* Avatar */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <div style={{
-                        width: 42, height: 42, borderRadius: '50%',
-                        background: '#3a3a3a',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontWeight: 700, fontSize: 16,
-                    }}>
+                <div className="chat-header-avatar">
+                    <div className="chat-header-avatar-circle">
                         {otherName[0]?.toUpperCase()}
                     </div>
-                    {isOtherOnline && (
-                        <span style={{
-                            position: 'absolute', bottom: 0, right: 0,
-                            width: 12, height: 12, borderRadius: '50%',
-                            background: '#3bc753', border: '2px solid #000',
-                        }} />
-                    )}
+                    {isOtherOnline && <span className="chat-header-online-dot" />}
                 </div>
 
                 {/* Name + status */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, lineHeight: 1.2, letterSpacing: '-0.1px' }}>
-                        {otherName}
-                    </div>
-                    <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 1 }}>
+                <div className="chat-header-info">
+                    <div className="chat-header-name">{otherName}</div>
+                    <div className={`chat-header-status ${isOtherOnline ? 'chat-header-status--online' : 'chat-header-status--offline'}`}>
                         {isOtherOnline ? 'Active now' : 'Offline'}
                     </div>
                 </div>
 
                 {/* Right: wallet */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                <div className="chat-header-actions">
                     {walletBalance !== null && (
-                        <button onClick={() => setShowWallet(true)} style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-                            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
-                            color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
-                        }}>
+                        <button onClick={() => setShowWallet(true)} className="chat-wallet-btn">
                             <span>💳</span><span>₹{walletBalance}</span>
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Thin separator */}
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
-
-            {/* ── Messages ──────────────────────────────────────────────────────── */}
+            {/* ── Messages ──────────────────────────────────────────────────── */}
             <ChatWindow
                 messages={messages}
                 currentUserId={user?._id}
                 otherName={otherName}
                 isTyping={isTyping}
-                onScrollTop={() => {
-                    setPage(p => {
-                        const next = p + 1;
-                        loadMessages(next);
-                        return next;
-                    });
-                }}
+                onScrollTop={handleScrollTop}
             />
 
-            {/* ── Input bar — Instagram style ─────────────────────────────────── */}
-            <div style={{
-                background: '#000',
-                padding: '8px 12px 10px',
-                display: 'flex', alignItems: 'center', gap: 10,
-                flexShrink: 0,
-            }}>
-                {/* Gift button — left (acts like Instagram's camera) */}
-                <button onClick={() => setShowGifts(true)} style={{
-                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(45deg,#833ab4,#fd1d1d,#fcb045)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: 'none', cursor: 'pointer', fontSize: 18,
-                }}>
+            {/* ── Input bar ─────────────────────────────────────────────────── */}
+            <div className="chat-input-bar">
+                {/* Gift button */}
+                <button onClick={() => setShowGifts(true)} className="chat-gift-trigger" aria-label="Send a gift">
                     🎁
                 </button>
 
                 {/* Pill input area */}
-                <div style={{
-                    flex: 1, display: 'flex', alignItems: 'center',
-                    background: 'transparent',
-                    border: '1.5px solid rgba(255,255,255,0.25)',
-                    borderRadius: 24, padding: '8px 14px',
-                    minHeight: 42,
-                }}>
+                <div className="chat-input-field-wrap">
                     <textarea
+                        ref={textareaRef}
                         value={text}
                         onChange={handleTyping}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                        placeholder="Message..."
+                        placeholder="Type a message…"
                         rows={1}
-                        style={{
-                            flex: 1, background: 'transparent', color: '#fff',
-                            fontSize: 14, resize: 'none', outline: 'none', border: 'none',
-                            maxHeight: 80, overflowY: 'auto', lineHeight: 1.4,
-                            '::placeholder': { color: 'rgba(255,255,255,0.4)' },
-                        }}
+                        className="chat-input-textarea"
                     />
                 </div>
 
-                {/* Right icons — show send icon if typing, else mic+image+emoji */}
-                {text.trim() ? (
-                    <motion.button
-                        whileTap={{ scale: 0.88 }}
-                        onClick={handleSend}
-                        style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            color: '#3897f0', fontWeight: 700, fontSize: 14, flexShrink: 0,
-                            padding: '4px 2px',
-                        }}
-                    >
-                        Send
-                    </motion.button>
-                ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                        {/* Mic */}
-                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex' }}>
-                            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <rect x="9" y="2" width="6" height="12" rx="3" strokeWidth={1.8} />
-                                <path strokeLinecap="round" strokeWidth={1.8} d="M5 10a7 7 0 0014 0M12 19v3M8 22h8" />
+                {/* Right: send button or action icons */}
+                <AnimatePresence mode="wait">
+                    {text.trim() ? (
+                        <motion.button
+                            key="send"
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 15, stiffness: 400 }}
+                            onClick={handleSend}
+                            className="chat-send-btn"
+                            aria-label="Send message"
+                        >
+                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#fff" />
                             </svg>
-                        </button>
-                        {/* Image */}
-                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex' }}>
-                            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <rect x="3" y="3" width="18" height="18" rx="3" strokeWidth={1.8} />
-                                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-                                <path strokeLinecap="round" strokeWidth={1.8} d="M21 15l-5-5L5 21" />
-                            </svg>
-                        </button>
-                        {/* Sticker/emoji */}
-                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex' }}>
-                            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="9" strokeWidth={1.8} />
-                                <path strokeLinecap="round" strokeWidth={1.8} d="M8 13s1.5 2 4 2 4-2 4-2" />
-                                <circle cx="9" cy="10" r="1" fill="currentColor" />
-                                <circle cx="15" cy="10" r="1" fill="currentColor" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
+                        </motion.button>
+                    ) : (
+                        <motion.div
+                            key="actions"
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 15, stiffness: 400 }}
+                            className="chat-action-icons"
+                        >
+                            {/* Mic */}
+                            <button className="chat-action-icon" aria-label="Voice note">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <rect x="9" y="2" width="6" height="12" rx="3" strokeWidth={1.8} />
+                                    <path strokeLinecap="round" strokeWidth={1.8} d="M5 10a7 7 0 0014 0M12 19v3M8 22h8" />
+                                </svg>
+                            </button>
+                            {/* Image */}
+                            <button className="chat-action-icon" aria-label="Send image">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <rect x="3" y="3" width="18" height="18" rx="3" strokeWidth={1.8} />
+                                    <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+                                    <path strokeLinecap="round" strokeWidth={1.8} d="M21 15l-5-5L5 21" />
+                                </svg>
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
-            {/* ── Gift panel ─────────────────────────────────────────────────── */}
+            {/* ── Gift panel ───────────────────────────────────────────────── */}
             {showGifts && (
                 <GiftPanel
                     chatId={chatId}
@@ -340,7 +296,7 @@ export default function Chat() {
                 />
             )}
 
-            {/* ── Wallet Recharge Modal ──────────────────────────────────────── */}
+            {/* ── Wallet Recharge Modal ────────────────────────────────────── */}
             {showWallet && (
                 <WalletRechargeModal
                     currentBalance={walletBalance ?? 0}
