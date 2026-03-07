@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * ChatWindow — renders the scrollable message list in iMessage style.
- * - Right bubble: messages sent by currentUserId
- * - Left bubble: messages from the other party
- * - Gift messages: special 🎁 card
+ * ChatWindow — Instagram DM style message list.
  */
 export default function ChatWindow({ messages, currentUserId, otherName, isTyping, onScrollTop }) {
     const bottomRef = useRef(null);
@@ -14,44 +11,88 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
 
+    // Group messages to show timestamp between groups > 10 minutes apart
+    const shouldShowTimestamp = (msg, prevMsg) => {
+        if (!prevMsg) return true;
+        const diff = new Date(msg.createdAt) - new Date(prevMsg.createdAt);
+        return diff > 10 * 60 * 1000; // 10 minutes
+    };
+
+    const formatTimestamp = (date) => {
+        const d = new Date(date);
+        const now = new Date();
+        const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+        if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (diffDays === 1) return `Yesterday, ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) +
+            ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
     return (
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
-            style={{ overscrollBehavior: 'contain' }}
-            onScroll={(e) => {
-                if (e.target.scrollTop === 0) onScrollTop?.();
-            }}>
+        <div
+            style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 0 4px' }}
+            onScroll={(e) => { if (e.target.scrollTop === 0) onScrollTop?.(); }}
+        >
             {messages.map((msg, i) => {
                 const isMine = msg.senderId === currentUserId || msg.senderId?._id === currentUserId;
+                const prevMsg = messages[i - 1];
+                const nextMsg = messages[i + 1];
+                const prevIsSame = prevMsg && (prevMsg.senderId === msg.senderId || prevMsg.senderId?._id === msg.senderId?._id);
+                const nextIsSame = nextMsg && (nextMsg.senderId === msg.senderId || nextMsg.senderId?._id === msg.senderId?._id);
+                const showTime = shouldShowTimestamp(msg, prevMsg);
+                const isLast = !nextIsSame;
+
                 return (
-                    <MessageBubble
-                        key={msg._id || i}
-                        msg={msg}
-                        isMine={isMine}
-                        otherName={otherName}
-                        prevMsg={messages[i - 1]}
-                    />
+                    <div key={msg._id || i}>
+                        {/* Centered timestamp */}
+                        {showTime && (
+                            <div style={{ textAlign: 'center', margin: '12px 0 6px', color: 'rgba(255,255,255,0.38)', fontSize: 11 }}>
+                                {formatTimestamp(msg.createdAt)}
+                            </div>
+                        )}
+                        <MessageBubble
+                            msg={msg}
+                            isMine={isMine}
+                            otherName={otherName}
+                            showAvatar={!isMine && isLast}
+                            prevIsSame={prevIsSame}
+                        />
+                    </div>
                 );
             })}
 
-            {/* Typing indicator */}
+            {/* Typing indicator — Instagram dots style */}
             <AnimatePresence>
                 {isTyping && (
                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
-                        className="flex items-end gap-2"
+                        style={{ display: 'flex', alignItems: 'flex-end', gap: 6, padding: '2px 16px 4px' }}
                     >
-                        <div className="w-7 h-7 rounded-full bg-violet-600/30 flex items-center justify-center text-xs flex-shrink-0">
+                        {/* Avatar */}
+                        <div style={{
+                            width: 28, height: 28, borderRadius: '50%',
+                            background: '#3a3a3a',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0,
+                        }}>
                             {otherName?.[0]?.toUpperCase()}
                         </div>
-                        <div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1 items-center">
-                            {[0, 1, 2].map((dot) => (
-                                <span
-                                    key={dot}
-                                    className="w-1.5 h-1.5 rounded-full bg-white/50 inline-block animate-bounce"
-                                    style={{ animationDelay: `${dot * 0.15}s` }}
-                                />
+                        {/* Dots bubble */}
+                        <div style={{
+                            background: '#262626', borderRadius: 22,
+                            padding: '12px 16px',
+                            display: 'flex', gap: 4, alignItems: 'center',
+                        }}>
+                            {[0, 1, 2].map(dot => (
+                                <span key={dot} style={{
+                                    width: 7, height: 7, borderRadius: '50%',
+                                    background: 'rgba(255,255,255,0.5)',
+                                    display: 'inline-block',
+                                    animation: 'bounceDot 1.2s infinite',
+                                    animationDelay: `${dot * 0.2}s`,
+                                }} />
                             ))}
                         </div>
                     </motion.div>
@@ -59,77 +100,126 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
             </AnimatePresence>
 
             <div ref={bottomRef} />
+
+            <style>{`
+                @keyframes bounceDot {
+                    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+                    30% { transform: translateY(-5px); opacity: 1; }
+                }
+            `}</style>
         </div>
     );
 }
 
-function MessageBubble({ msg, isMine, otherName, prevMsg }) {
-    const sameAuthor = prevMsg && (prevMsg.senderId === msg.senderId || prevMsg.senderId?._id === msg.senderId?._id);
+function MessageBubble({ msg, isMine, otherName, showAvatar, prevIsSame }) {
     const time = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const mt = prevIsSame ? 2 : 8;
 
+    // Gift bubble
     if (msg.type === 'gift') {
         return (
             <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
+                initial={{ scale: 0.85, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', damping: 15 }}
-                className={`flex ${isMine ? 'justify-end' : 'justify-start'} my-2`}
+                transition={{ type: 'spring', damping: 16 }}
+                style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', margin: `${mt}px 16px` }}
             >
-                <div className="rounded-3xl overflow-hidden border border-violet-500/30 max-w-[220px] shadow-lg shadow-violet-500/20"
-                    style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(236,72,153,0.2))' }}>
-                    <div className="p-4 text-center">
-                        <motion.div
-                            animate={{ scale: [1, 1.2, 1], rotate: [-5, 5, -5, 0] }}
-                            transition={{ duration: 0.6, delay: 0.2 }}
-                            className="text-4xl mb-2"
-                        >🎁</motion.div>
-                        <div className="text-white font-black text-xl">₹{msg.giftAmount?.toLocaleString('en-IN')}</div>
-                        <div className="text-violet-300 text-xs mt-1 font-medium">Gift sent</div>
+                <div style={{
+                    borderRadius: 20, overflow: 'hidden', maxWidth: 200,
+                    background: 'linear-gradient(135deg,rgba(124,58,237,0.25),rgba(236,72,153,0.2))',
+                    border: '1px solid rgba(124,58,237,0.3)',
+                }}>
+                    <div style={{ padding: '14px 18px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 32, marginBottom: 6 }}>🎁</div>
+                        <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>₹{msg.giftAmount?.toLocaleString('en-IN')}</div>
+                        <div style={{ color: 'rgba(196,148,255,0.9)', fontSize: 11, marginTop: 2 }}>Gift sent</div>
                     </div>
-                    <div className="text-center text-white/30 text-[10px] pb-2">{time}</div>
+                    <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.28)', fontSize: 10, paddingBottom: 8 }}>{time}</div>
                 </div>
             </motion.div>
         );
     }
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'} ${sameAuthor ? 'mt-0.5' : 'mt-3'}`}
-        >
-            {/* Avatar — only for other party */}
-            {!isMine && !sameAuthor ? (
-                <div className="w-7 h-7 rounded-full bg-violet-600/40 flex-shrink-0 flex items-center justify-center text-xs text-white font-bold">
-                    {otherName?.[0]?.toUpperCase()}
-                </div>
-            ) : <div className="w-7 flex-shrink-0" />}
+    // — Tail shape logic (Instagram style: rounded except corner near avatar/tail) —
+    // Sent (right): all rounded, slightly less rounded at bottom-right
+    // Received (left): all rounded, slightly less rounded at bottom-left
 
-            <div className={`flex flex-col gap-0.5 max-w-[72%] ${isMine ? 'items-end' : 'items-start'}`}>
-                {/* Image message */}
-                {msg.type === 'image' ? (
-                    <div className={`rounded-2xl overflow-hidden ${isMine ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
-                        <img src={msg.content} alt="shared" className="max-w-xs max-h-60 object-cover" />
-                    </div>
-                ) : (
-                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isMine
-                        ? 'bg-gradient-to-br from-violet-600 to-violet-700 text-white rounded-br-sm'
-                        : 'bg-white/8 border border-white/10 text-white rounded-bl-sm'
-                        }`}>
-                        {msg.content}
-                    </div>
-                )}
+    const sentBg = 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)'; // Instagram gradient for sent
+    const receivedBg = '#262626';
 
-                {/* Timestamp + seen */}
-                <div className={`flex items-center gap-1 text-[10px] text-white/30 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                    <span>{time}</span>
-                    {isMine && (
-                        <span className={msg.seen ? 'text-violet-400' : 'text-white/25'}>
-                            {msg.seen ? '✓✓' : '✓'}
-                        </span>
+    const sentRadius = prevIsSame ? '18px' : '18px 18px 4px 18px';
+    const receivedRadius = prevIsSame ? '18px' : '18px 18px 18px 4px';
+
+    // Image message
+    if (msg.type === 'image') {
+        return (
+            <div style={{
+                display: 'flex', flexDirection: isMine ? 'row-reverse' : 'row',
+                alignItems: 'flex-end', gap: 6, margin: `${mt}px 12px`,
+            }}>
+                {/* Spacer / avatar */}
+                <div style={{ width: 28, flexShrink: 0 }}>
+                    {showAvatar && (
+                        <div style={{
+                            width: 28, height: 28, borderRadius: '50%',
+                            background: '#3a3a3a',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontSize: 11, fontWeight: 700,
+                        }}>
+                            {otherName?.[0]?.toUpperCase()}
+                        </div>
                     )}
                 </div>
+                <div style={{
+                    borderRadius: 16, overflow: 'hidden',
+                    maxWidth: 220,
+                }}>
+                    <img src={msg.content} alt="shared" style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15 }}
+            style={{
+                display: 'flex',
+                flexDirection: isMine ? 'row-reverse' : 'row',
+                alignItems: 'flex-end',
+                gap: 6,
+                margin: `${mt}px 12px`,
+            }}
+        >
+            {/* Avatar (received only, last in group) */}
+            <div style={{ width: 28, flexShrink: 0 }}>
+                {!isMine && showAvatar && (
+                    <div style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        background: '#3a3a3a',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontSize: 11, fontWeight: 700,
+                    }}>
+                        {otherName?.[0]?.toUpperCase()}
+                    </div>
+                )}
+            </div>
+
+            {/* Bubble */}
+            <div style={{
+                maxWidth: '72%',
+                padding: '10px 14px',
+                borderRadius: isMine ? sentRadius : receivedRadius,
+                background: isMine ? sentBg : receivedBg,
+                color: '#fff',
+                fontSize: 14,
+                lineHeight: 1.45,
+                wordBreak: 'break-word',
+                boxShadow: isMine ? '0 1px 4px rgba(0,0,0,0.3)' : 'none',
+            }}>
+                {msg.content}
             </div>
         </motion.div>
     );
