@@ -249,6 +249,7 @@ export default function CreatorProfile() {
     const [modalIndex, setModalIndex] = useState(-1);
     const [showGate, setShowGate] = useState(false);
     const [showGift, setShowGift] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
 
     // ── Load creator profile ─────────────────────────────────────────────────
     useEffect(() => {
@@ -355,13 +356,65 @@ export default function CreatorProfile() {
                         {/* ── LEFT: Main profile ─────────────────────────────────── */}
                         <div className="flex-1 min-w-0">
 
-                            {/* Cover */}
+                            {/* Cover + nav overlay */}
                             <div className="relative h-48 sm:h-64 overflow-hidden bg-surface-800"
                                 style={{ background: coverImage ? undefined : 'linear-gradient(135deg,#3a0060,#0d0020 55%,#1a0040)' }}>
                                 {coverImage && <img src={coverImage} alt="cover" loading="lazy" className="w-full h-full object-cover"
                                     style={{ objectPosition: `center ${coverImagePosition ?? 50}%` }} />}
+                                {/* Gradient fade at bottom */}
                                 <div className="absolute inset-x-0 bottom-0 h-24"
                                     style={{ background: 'linear-gradient(to bottom, transparent, var(--color-surface-950,#050208))' }} />
+
+                                {/* ── Back arrow (top-left) ── */}
+                                <button
+                                    onClick={() => navigate(-1)}
+                                    className="absolute top-3 left-3 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all"
+                                    style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                    title="Go back"
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="15 18 9 12 15 6" />
+                                    </svg>
+                                </button>
+
+                                {/* ── 3-dot menu (top-right) ── */}
+                                <div className="absolute top-3 right-3 z-20">
+                                    <button
+                                        onClick={() => setShowMenu(v => !v)}
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-all"
+                                        style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                        title="More options"
+                                    >
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                                            <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                                        </svg>
+                                    </button>
+
+                                    {/* Dropdown */}
+                                    {showMenu && (
+                                        <>
+                                            {/* Backdrop to close */}
+                                            <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                                            <div className="absolute right-0 top-11 z-20 rounded-xl overflow-hidden"
+                                                style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', minWidth: 180, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+                                            >
+                                                <button
+                                                    onClick={() => {
+                                                        setShowMenu(false);
+                                                        window.location.href = `mailto:admin@fannex.in?subject=Report Creator: ${username}&body=I want to report the creator @${username} on Fannex.%0A%0AReason: `;
+                                                    }}
+                                                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium transition-colors hover:bg-white/5"
+                                                    style={{ color: '#ff6b6b' }}
+                                                >
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
+                                                    </svg>
+                                                    Report this user
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Profile header */}
