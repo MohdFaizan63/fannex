@@ -68,9 +68,6 @@ export default function PostLightbox({
         ? activePost.mediaUrls[0]
         : (activePost?.mediaUrls?.[0] ?? activePost?.mediaUrl);
     const isVideo = activePost?.mediaType === 'video';
-    const hasPrev = posts && localIdx > 0;
-    const hasNext = posts && localIdx < posts.length - 1;
-
     // album sub-index
     const [albumIdx, setAlbumIdx] = useState(0);
     const albumLen = isAlbum ? activePost.mediaUrls.length : 1;
@@ -81,18 +78,16 @@ export default function PostLightbox({
     const ty0 = useRef(null);
     const moved = useRef(false);
 
-    const goTo = useCallback((i) => { setLocalIdx(i); setAlbumIdx(0); onChange?.(i); }, [onChange]);
+    // Navigation is locked to the opened card only — never jumps to another post
     const goPrev = useCallback(() => {
-        if (isAlbum && albumIdx > 0) { setAlbumIdx(i => i - 1); return; }
-        if (hasPrev) goTo(localIdx - 1);
-    }, [isAlbum, albumIdx, hasPrev, localIdx, goTo]);
+        if (isAlbum && albumIdx > 0) setAlbumIdx(i => i - 1);
+    }, [isAlbum, albumIdx]);
     const goNext = useCallback(() => {
-        if (isAlbum && albumIdx < albumLen - 1) { setAlbumIdx(i => i + 1); return; }
-        if (hasNext) goTo(localIdx + 1);
-    }, [isAlbum, albumIdx, albumLen, hasNext, localIdx, goTo]);
+        if (isAlbum && albumIdx < albumLen - 1) setAlbumIdx(i => i + 1);
+    }, [isAlbum, albumIdx, albumLen]);
 
-    const canPrev = (isAlbum && albumIdx > 0) || hasPrev;
-    const canNext = (isAlbum && albumIdx < albumLen - 1) || hasNext;
+    const canPrev = isAlbum && albumIdx > 0;
+    const canNext = isAlbum && albumIdx < albumLen - 1;
 
     useEffect(() => {
         const onKey = (e) => {
@@ -134,8 +129,8 @@ export default function PostLightbox({
 
     if (!activePost) return null;
 
-    const totalSlides = isAlbum ? albumLen : (posts?.length ?? 1);
-    const slideIdx = isAlbum ? albumIdx : localIdx;
+    const totalSlides = isAlbum ? albumLen : 1;
+    const slideIdx = isAlbum ? albumIdx : 0;
 
     // Non-passive touchmove ref — needed to call preventDefault (stops scroll/shake jitter)
     const mediaRef = useRef(null);
