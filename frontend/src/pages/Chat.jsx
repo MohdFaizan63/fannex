@@ -25,6 +25,24 @@ export default function Chat() {
     const typingTimeout = useRef(null);
     const socketRef = useRef(null);
 
+    // Lock body to 100% height so keyboard-resize works on Android Chrome
+    useEffect(() => {
+        const html = document.documentElement;
+        const body = document.body;
+        const prevHtmlStyle = { height: html.style.height, overflow: html.style.overflow };
+        const prevBodyStyle = { height: body.style.height, overflow: body.style.overflow };
+        html.style.height = '100%';
+        html.style.overflow = 'hidden';
+        body.style.height = '100%';
+        body.style.overflow = 'hidden';
+        return () => {
+            html.style.height = prevHtmlStyle.height;
+            html.style.overflow = prevHtmlStyle.overflow;
+            body.style.height = prevBodyStyle.height;
+            body.style.overflow = prevBodyStyle.overflow;
+        };
+    }, []);
+
     // Fetch wallet balance on mount
     useEffect(() => {
         api.get('/payments/wallet-balance')
@@ -135,7 +153,7 @@ export default function Chat() {
 
     if (loading) {
         return (
-            <div style={{ position: 'fixed', inset: 0, background: '#080810', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ height: '100%', background: '#080810', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
@@ -143,8 +161,7 @@ export default function Chat() {
 
     return (
         <div style={{
-            position: 'fixed',
-            inset: 0,
+            height: '100%',
             background: '#080810',
             display: 'flex',
             flexDirection: 'column',
