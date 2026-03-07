@@ -391,23 +391,28 @@ export default function CreatorProfile() {
                                     </div>
                                     <p className="text-surface-500 text-sm mt-0.5">@{username}</p>
 
-                                    {/* Stats row — Fanvue style with icons, ABOVE bio */}
+                                    {/* Stats row — icon + number only */}
                                     <div className="flex items-center gap-4 mt-2.5" style={{ fontSize: 13 }}>
-                                        {/* Posts */}
+                                        {/* Photo posts */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                                             </svg>
-                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.length}</strong>
-                                            <span>posts</span>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType !== 'video').length || posts.length}</strong>
                                         </span>
-                                        {/* Subscribers */}
+                                        {/* Videos */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                                <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z" />
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" />
+                                            </svg>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType === 'video').length}</strong>
+                                        </span>
+                                        {/* Subscribers — person icon */}
+                                        <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                                             </svg>
                                             <strong style={{ color: '#fff', fontWeight: 700 }}>{totalSubscribers.toLocaleString('en-IN')}</strong>
-                                            <span>subscribers</span>
                                         </span>
                                     </div>
 
