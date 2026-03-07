@@ -413,16 +413,12 @@ export default function Home() {
                             {/* My Subscriptions — only shown if user has active subscriptions */}
                             {hasSubscriptions && (
                                 <Link to="/subscriptions"
-                                    className="group relative px-10 py-4 rounded-full font-semibold text-base text-white overflow-hidden transition-all duration-300 hover:scale-105"
-                                    style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 0 40px rgba(124,58,237,0.4)' }}>
-                                    <motion.div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        style={{ background: 'linear-gradient(135deg, #8b5cf6, #c084fc)' }} />
-                                    <span className="relative z-10 flex items-center gap-2">
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                                        </svg>
-                                        My Subscriptions
-                                    </span>
+                                    className="px-10 py-4 rounded-full font-medium text-base text-white/60 border border-white/10 hover:border-white/25 hover:text-white transition-all duration-300 hover:scale-[1.02] flex items-center gap-2"
+                                    style={{ backdropFilter: 'blur(20px)', background: 'rgba(255,255,255,0.04)' }}>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg>
+                                    My Subscriptions
                                 </Link>
                             )}
                         </motion.div>
