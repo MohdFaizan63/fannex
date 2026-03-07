@@ -14,38 +14,42 @@ function timeAgo(date) {
 }
 
 /**
- * PostLightbox — full-screen media viewer with prev/next navigation + touch swipe
+ * PostLightbox — full-screen immersive media viewer (Instagram / Fanvue style)
  *
  * Props:
- *  posts       – array of post objects  (optional — enables prev/next)
+ *  posts        – array of post objects  (optional — enables prev/next)
  *  currentIndex – index in `posts` array (optional)
- *  post        – single post object (used when no posts array)
- *  creator     – { displayName, username, profileImage }
- *  onClose     – () => void
- *  onChange    – (newIndex) => void  (optional)
+ *  post         – single post object (used when no posts array)
+ *  creator      – { displayName, username, profileImage }
+ *  onClose      – () => void
+ *  onChange     – (newIndex) => void  (optional)
  */
-export default function PostLightbox({ post, posts, currentIndex, creator, onClose, onChange, currentUser, isSubscribed, onGate }) {
-    // Support both single-post mode and array navigation mode
+export default function PostLightbox({
+    post, posts, currentIndex, creator, onClose, onChange, currentUser, isSubscribed, onGate,
+}) {
     const [localIdx, setLocalIdx] = useState(currentIndex ?? 0);
+    const [uiVisible, setUiVisible] = useState(true);       // tap-to-toggle UI
+    const [showComments, setShowComments] = useState(false);
+
     const activePost = posts ? posts[localIdx] : post;
-    const mediaUrl = Array.isArray(activePost?.mediaUrls) ? activePost.mediaUrls[0] : activePost?.mediaUrl;
+
+    // Support albums per-post
+    const mediaUrls = activePost?.mediaUrls?.length > 1 ? activePost.mediaUrls : null;  // album
+    const mediaUrl = mediaUrls ? mediaUrls[0] : (Array.isArray(activePost?.mediaUrls) ? activePost.mediaUrls[0] : activePost?.mediaUrl);
     const isVideo = activePost?.mediaType === 'video';
     const hasPrev = posts && localIdx > 0;
     const hasNext = posts && localIdx < posts.length - 1;
 
-    // Touch swipe tracking
+    // Touch swipe
     const touchStartX = useRef(null);
     const touchStartY = useRef(null);
+    const touchMoved = useRef(false);
 
-    const goTo = useCallback((idx) => {
-        setLocalIdx(idx);
-        onChange?.(idx);
-    }, [onChange]);
-
+    const goTo = useCallback((idx) => { setLocalIdx(idx); onChange?.(idx); }, [onChange]);
     const goPrev = useCallback(() => { if (hasPrev) goTo(localIdx - 1); }, [hasPrev, localIdx, goTo]);
     const goNext = useCallback(() => { if (hasNext) goTo(localIdx + 1); }, [hasNext, localIdx, goTo]);
 
-    // Keyboard navigation
+    // Keyboard
     const handleKey = useCallback((e) => {
         if (e.key === 'Escape') onClose();
         if (e.key === 'ArrowLeft') goPrev();
@@ -61,167 +65,238 @@ export default function PostLightbox({ post, posts, currentIndex, creator, onClo
         };
     }, [handleKey]);
 
-    // Touch swipe handlers
+    // Touch handlers
     const onTouchStart = (e) => {
         touchStartX.current = e.touches[0].clientX;
         touchStartY.current = e.touches[0].clientY;
+        touchMoved.current = false;
     };
-
+    const onTouchMove = (e) => {
+        if (touchStartX.current === null) return;
+        const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
+        const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
+        if (dx > 8 || dy > 8) touchMoved.current = true;
+    };
     const onTouchEnd = (e) => {
         if (touchStartX.current === null) return;
         const dx = e.changedTouches[0].clientX - touchStartX.current;
         const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-        // Only trigger if horizontal swipe is dominant and meaningful
         if (Math.abs(dx) > 50 && Math.abs(dx) > dy * 1.5) {
-            if (dx < 0) goNext();
-            else goPrev();
+            // horizontal swipe
+            if (dx < 0) goNext(); else goPrev();
+        } else if (!touchMoved.current) {
+            // tap → toggle UI
+            setUiVisible((v) => !v);
         }
         touchStartX.current = null;
         touchStartY.current = null;
+        touchMoved.current = false;
     };
 
     if (!activePost) return null;
 
+    const totalPosts = posts?.length ?? 1;
+    const isAlbum = activePost.mediaType === 'album' && mediaUrls?.length > 1;
+
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/92 backdrop-blur-md"
-            onClick={(e) => e.target === e.currentTarget && onClose()}
+            className="fixed inset-0 z-[100] bg-black flex flex-col"
+            style={{ touchAction: 'pan-y' }}
         >
-            {/* Close button */}
-            <button
-                onClick={onClose}
-                className="absolute top-4 right-4 z-20 w-11 h-11 rounded-full bg-black/60 border border-white/10 text-white hover:bg-white/10 transition-all flex items-center justify-center"
-                aria-label="Close"
-            >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-
-            {/* ── Prev Arrow ────────────────────────────────── */}
-            {hasPrev && (
-                <button
-                    onClick={goPrev}
-                    className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/60 border border-white/15 text-white hover:bg-white/15 active:scale-95 transition-all flex items-center justify-center shadow-xl"
-                    aria-label="Previous"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-            )}
-
-            {/* ── Next Arrow ─────────────────────────────────── */}
-            {hasNext && (
-                <button
-                    onClick={goNext}
-                    className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/60 border border-white/15 text-white hover:bg-white/15 active:scale-95 transition-all flex items-center justify-center shadow-xl"
-                    aria-label="Next"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
-                </button>
-            )}
-
-            {/* ── Dot indicators ─────────────────────────────── */}
-            {posts && posts.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
-                    {posts.map((_, i) => (
-                        <button
-                            key={i}
-                            onClick={() => goTo(i)}
-                            className={`w-2 h-2 rounded-full transition-all ${i === localIdx ? 'bg-white scale-125' : 'bg-white/30 hover:bg-white/60'}`}
-                            aria-label={`Go to ${i + 1}`}
-                        />
-                    ))}
-                </div>
-            )}
-
-            {/* Main layout */}
+            {/* ── Top gradient overlay ───────────────────────────────────────── */}
             <div
-                className="flex flex-col lg:flex-row w-full max-w-5xl max-h-screen h-full lg:h-auto lg:max-h-[90vh] overflow-hidden rounded-none lg:rounded-2xl"
+                className="absolute top-0 left-0 right-0 z-20 pointer-events-none"
+                style={{
+                    height: '90px',
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
+                    opacity: uiVisible ? 1 : 0,
+                    transition: 'opacity 0.25s ease',
+                }}
+            />
+
+            {/* ── Top controls bar ──────────────────────────────────────────── */}
+            <div
+                className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4"
+                style={{
+                    height: '56px',
+                    opacity: uiVisible ? 1 : 0,
+                    transition: 'opacity 0.25s ease',
+                    pointerEvents: uiVisible ? 'auto' : 'none',
+                }}
+            >
+                {/* Left: post index or spacer */}
+                <div className="w-11 flex items-center justify-start">
+                    {totalPosts > 1 && (
+                        <span className="text-xs font-semibold text-white/70">
+                            {localIdx + 1}/{totalPosts}
+                        </span>
+                    )}
+                </div>
+
+                {/* Center: creator name */}
+                <span className="text-sm font-semibold text-white/90 truncate max-w-[160px]">
+                    {creator?.displayName || ''}
+                </span>
+
+                {/* Right: close */}
+                <button
+                    onClick={onClose}
+                    className="w-11 h-11 flex items-center justify-center rounded-full text-white transition-all"
+                    style={{ background: 'rgba(0,0,0,0.45)' }}
+                    aria-label="Close"
+                >
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* ── Media section ─────────────────────────────────────────────── */}
+            <div
+                className="flex-1 relative flex items-center justify-center overflow-hidden select-none"
+                style={{ background: '#000' }}
                 onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
             >
-                {/* ── Media panel ───────────────────────────────── */}
-                <div className="flex-1 bg-black flex items-center justify-center min-h-[50vh] lg:min-h-0 relative overflow-hidden select-none">
-                    {activePost.mediaType === 'album' && activePost.mediaUrls?.length > 1 ? (
-                        <AlbumCarousel
-                            urls={activePost.mediaUrls}
-                            alt={activePost.caption || 'Album'}
-                            className="w-full h-full"
+                {isAlbum ? (
+                    <AlbumCarousel
+                        urls={activePost.mediaUrls}
+                        alt={activePost.caption || 'Album'}
+                        className="w-full h-full"
+                    />
+                ) : mediaUrl ? (
+                    isVideo ? (
+                        <video
+                            key={mediaUrl}
+                            src={mediaUrl}
+                            controls
+                            autoPlay
+                            preload="metadata"
+                            className="w-full"
+                            style={{ maxHeight: '75vh', objectFit: 'contain' }}
                         />
-                    ) : mediaUrl ? (
-                        isVideo ? (
-                            <video
-                                key={mediaUrl}
-                                src={mediaUrl}
-                                controls
-                                autoPlay
-                                className="max-w-full max-h-full object-contain"
-                                style={{ maxHeight: '90vh' }}
-                            />
-                        ) : (
-                            <img
-                                key={mediaUrl}
-                                src={mediaUrl}
-                                alt={activePost.caption || ''}
-                                className="max-w-full max-h-full object-contain"
-                                style={{ maxHeight: '90vh' }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                                draggable={false}
-                            />
-                        )
                     ) : (
-                        <div className="text-6xl opacity-30">🖼️</div>
-                    )}
+                        <img
+                            key={mediaUrl}
+                            src={mediaUrl}
+                            alt={activePost.caption || ''}
+                            loading="lazy"
+                            draggable={false}
+                            className="w-full"
+                            style={{ maxHeight: '75vh', objectFit: 'cover', borderRadius: 0 }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                    )
+                ) : (
+                    <div className="text-6xl opacity-30">🖼️</div>
+                )}
 
-                    {/* Locked badge */}
-                    {activePost.isLocked && (
-                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/70 px-3 py-1 rounded-full text-xs text-brand-300 font-semibold border border-brand-500/30">
+                {/* ── Prev arrow ─────────────────────────────────────────── */}
+                {hasPrev && uiVisible && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                        aria-label="Previous"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center transition-all active:scale-90"
+                        style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', opacity: 0.85 }}
+                    >
+                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                )}
+
+                {/* ── Next arrow ─────────────────────────────────────────── */}
+                {hasNext && uiVisible && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); goNext(); }}
+                        aria-label="Next"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center transition-all active:scale-90"
+                        style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', opacity: 0.85 }}
+                    >
+                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                )}
+
+                {/* ── Locked badge ───────────────────────────────────────── */}
+                {activePost.isLocked && (
+                    <div className="absolute top-16 left-0 right-0 flex justify-center z-10">
+                        <span className="flex items-center gap-1.5 bg-black/70 px-3 py-1.5 rounded-full text-xs text-brand-300 font-semibold border border-brand-500/30">
                             🔒 Subscribers only
-                        </div>
-                    )}
+                        </span>
+                    </div>
+                )}
 
-                    {/* Counter badge */}
-                    {posts && posts.length > 1 && (
-                        <div className="absolute top-3 left-3 bg-black/60 px-2.5 py-1 rounded-full text-xs text-white/70 font-medium">
-                            {localIdx + 1} / {posts.length}
-                        </div>
-                    )}
-                </div>
+                {/* ── Dot indicators (over media, above bottom panel) ─────── */}
+                {posts && posts.length > 1 && (
+                    <div
+                        className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-1.5"
+                        style={{ opacity: uiVisible ? 1 : 0, transition: 'opacity 0.25s ease' }}
+                    >
+                        {posts.map((_, i) => (
+                            <button
+                                key={i}
+                                onClick={(e) => { e.stopPropagation(); goTo(i); }}
+                                aria-label={`Go to ${i + 1}`}
+                                style={{
+                                    width: 6, height: 6,
+                                    borderRadius: '50%',
+                                    background: i === localIdx ? '#fff' : 'rgba(255,255,255,0.4)',
+                                    transform: i === localIdx ? 'scale(1.3)' : 'scale(1)',
+                                    transition: 'all 0.2s ease',
+                                    padding: 0, border: 'none', cursor: 'pointer',
+                                }}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
 
-                {/* ── Info panel ────────────────────────────────── */}
-                <div className="w-full lg:w-80 flex-shrink-0 bg-[#0d0d12] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col max-h-48 lg:max-h-none overflow-y-auto">
-
-                    {/* Creator header */}
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 flex-shrink-0">
+            {/* ── Bottom content panel ──────────────────────────────────────── */}
+            <div
+                className="relative flex-shrink-0"
+                style={{
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.97) 80%, rgba(0,0,0,0.6) 100%)',
+                    paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+                }}
+            >
+                <div className="px-4 pt-4 pb-2">
+                    {/* Creator row */}
+                    <div className="flex items-center gap-3 mb-2">
                         {creator?.profileImage ? (
-                            <img src={creator.profileImage} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-brand-500/30 flex-shrink-0" />
+                            <img
+                                src={creator.profileImage}
+                                alt=""
+                                loading="lazy"
+                                className="shrink-0 object-cover"
+                                style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(204,82,184,0.4)' }}
+                            />
                         ) : (
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                            <div
+                                className="shrink-0 flex items-center justify-center text-white font-bold text-sm"
+                                style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #cc52b8, #7c3aed)' }}
+                            >
                                 {creator?.displayName?.charAt(0)?.toUpperCase() || '?'}
                             </div>
                         )}
-                        <div className="min-w-0">
-                            <p className="text-white text-sm font-semibold truncate">{creator?.displayName}</p>
-                            <p className="text-surface-500 text-xs">@{creator?.username}</p>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-semibold leading-tight truncate">{creator?.displayName}</p>
+                            <p className="text-white/50 text-xs">@{creator?.username}</p>
                         </div>
-                        <span className="ml-auto text-surface-600 text-xs flex-shrink-0">{timeAgo(activePost.createdAt)}</span>
+                        <span className="text-white/40 text-xs shrink-0">{timeAgo(activePost.createdAt)}</span>
                     </div>
 
                     {/* Caption */}
-                    <div className="flex-1 px-4 py-3 overflow-y-auto">
-                        {activePost.caption ? (
-                            <p className="text-surface-300 text-sm leading-relaxed">{activePost.caption}</p>
-                        ) : (
-                            <p className="text-surface-600 text-sm italic">No caption</p>
-                        )}
-                    </div>
+                    {activePost.caption && (
+                        <p className="text-white/80 text-sm leading-relaxed mb-3 line-clamp-3">
+                            {activePost.caption}
+                        </p>
+                    )}
 
-                    {/* Like + Comment actions */}
-                    <div className="px-4 py-3 border-t border-white/5 flex items-center gap-4 text-sm flex-shrink-0">
+                    {/* Actions row */}
+                    <div className="flex items-center gap-5 py-2 border-t border-white/8">
                         <LikeButton
                             postId={activePost._id}
                             initialLiked={!!activePost.isLiked}
@@ -229,22 +304,34 @@ export default function PostLightbox({ post, posts, currentIndex, creator, onClo
                             isSubscribed={isSubscribed ?? true}
                             onGate={onGate}
                         />
-                        <span className="flex items-center gap-1.5 text-surface-500">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <button
+                            onClick={() => setShowComments((v) => !v)}
+                            className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors text-sm"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
-                            {activePost.commentsCount ?? 0}
-                        </span>
-                        {activePost.mediaType === 'video' && (
-                            <span className="ml-auto px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 text-xs">🎬 Video</span>
-                        )}
+                            <span>{activePost.commentsCount ?? 0}</span>
+                        </button>
                         {activePost.isLocked && (
-                            <span className="ml-auto px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 text-xs">🔒 Locked</span>
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-medium text-brand-300" style={{ background: 'rgba(204,82,184,0.15)', border: '1px solid rgba(204,82,184,0.25)' }}>
+                                🔒 Locked
+                            </span>
+                        )}
+                        {activePost.mediaType === 'video' && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-medium text-violet-300" style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.25)' }}>
+                                🎬 Video
+                            </span>
                         )}
                     </div>
+                </div>
 
-                    {/* Inline comments */}
-                    <div className="flex-1 overflow-y-auto border-t border-white/5">
+                {/* Inline comments (expandable) */}
+                {showComments && (
+                    <div
+                        className="border-t border-white/8 overflow-y-auto"
+                        style={{ maxHeight: '45vh', background: 'rgba(0,0,0,0.6)' }}
+                    >
                         <CommentSection
                             postId={activePost._id}
                             creatorId={activePost.creatorId?._id || activePost.creatorId}
@@ -254,7 +341,7 @@ export default function PostLightbox({ post, posts, currentIndex, creator, onClo
                             compact
                         />
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
