@@ -25,23 +25,22 @@
 
 /* ── Chat Container ────────────────────────────────────────────────────────── */
 .chat-container {
-    height: 100dvh;
+    /* 100vh first as true fallback, 100dvh overrides in modern browsers (excludes browser chrome) */
     height: 100vh;
-    /* fallback */
+    height: 100dvh;
     background: var(--chat-bg);
     display: flex;
     flex-direction: column;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     overflow: hidden;
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
     max-width: var(--chat-max-width-desktop);
     margin: 0 auto;
-}
-
-@supports (height: 100dvh) {
-    .chat-container {
-        height: 100dvh;
-    }
 }
 
 /* ── Chat Header ───────────────────────────────────────────────────────────── */
@@ -190,7 +189,9 @@
     padding: 6px 0 8px;
     will-change: scroll-position;
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    /* Do NOT use scroll-behavior:smooth here — causes jumpiness on mobile */
+    min-height: 0;
+    /* critical for flex child to shrink properly */
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -601,6 +602,7 @@
 
 /* ── Loading Spinner ───────────────────────────────────────────────────────── */
 .chat-loading {
+    height: 100vh;
     height: 100dvh;
     background: var(--chat-bg);
     display: flex;
