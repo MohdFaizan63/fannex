@@ -55,9 +55,9 @@ export default function CreatorProfileStep({ register, errors, watch, setValue, 
                     Username / Handle <span className="text-brand-500">*</span>
                 </label>
                 <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500 font-medium text-sm select-none">@</span>
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-400 font-semibold text-sm select-none pointer-events-none">@</span>
                     <input
-                        className="input-dark pl-8 pr-10"
+                        className="input-dark pl-9 pr-10"
                         placeholder="yourhandle"
                         {...register('username', {
                             required: 'Username is required',

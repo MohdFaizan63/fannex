@@ -33,18 +33,28 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * Send OTP verification code to user
  */
 const sendOtpEmail = async ({ name, email, otp }) => {
+    const otpDigits = String(otp).split('').map(d =>
+        `<td style="width:44px;height:52px;text-align:center;font-size:28px;font-weight:800;color:#ffffff;font-family:'Courier New',monospace;background:rgba(204,82,184,0.12);border:1px solid rgba(204,82,184,0.25);border-radius:10px;">${d}</td>`
+    ).join('\n                            <td style="width:8px;"></td>');
+
     const html = `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: auto; padding: 32px; background: #0f0f13; border-radius: 16px; border: 1px solid rgba(255,255,255,0.06);">
-            <h2 style="color: #cc52b8; margin: 0 0 8px 0; font-size: 22px;">${APP_NAME}</h2>
-            <p style="color: #e4e4e7; margin: 0 0 24px 0;">Hi <strong>${name}</strong>,</p>
-            <p style="color: #a1a1aa; margin: 0 0 20px 0; font-size: 14px;">Your verification code is:</p>
-            <div style="background: linear-gradient(135deg, rgba(204,82,184,0.15), rgba(124,58,237,0.15)); border: 1px solid rgba(204,82,184,0.3); border-radius: 12px; padding: 24px; text-align: center; margin: 0 0 24px 0;">
-                <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #ffffff; font-family: 'Courier New', monospace;">${otp}</span>
+        <div style="font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 0; background: #0a0a0f;">
+            <div style="padding: 40px 32px 32px; background: linear-gradient(180deg, #0f0f15 0%, #0a0a0f 100%); border-radius: 0 0 16px 16px;">
+                <h2 style="color: #cc52b8; margin: 0 0 24px 0; font-size: 20px; font-weight: 800; letter-spacing: -0.3px;">${APP_NAME}</h2>
+                <p style="color: #e4e4e7; margin: 0 0 6px 0; font-size: 16px;">Hi <strong>${name}</strong>,</p>
+                <p style="color: #a1a1aa; margin: 0 0 28px 0; font-size: 14px; line-height: 1.5;">Your verification code is:</p>
+                <table cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 28px; border-collapse: separate;">
+                    <tr>
+                        ${otpDigits}
+                    </tr>
+                </table>
+                <p style="color: #a1a1aa; font-size: 13px; margin: 0 0 8px 0; text-align: center;">This code will expire in <strong style="color: #e4e4e7;">10 minutes</strong>.</p>
+                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 28px; padding-top: 16px;">
+                    <p style="color: #52525b; font-size: 12px; margin: 0; text-align: center;">
+                        If you didn't request this code, you can safely ignore this email.
+                    </p>
+                </div>
             </div>
-            <p style="color: #a1a1aa; font-size: 13px; margin: 0 0 8px 0;">This code will expire in <strong style="color: #e4e4e7;">10 minutes</strong>.</p>
-            <p style="color: #71717a; font-size: 12px; margin: 24px 0 0 0; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px;">
-                If you didn't request this code, you can safely ignore this email.
-            </p>
         </div>
     `;
 

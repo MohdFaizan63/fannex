@@ -260,19 +260,27 @@ export default function Dashboard() {
 
                 {/* ── Profile link ──────────────────────────────────────────── */}
                 {profileUrl ? (
-                    <div className="glass rounded-2xl border border-white/5 px-4 py-3 mb-6 flex items-center gap-2">
-                        <span className="text-base flex-shrink-0">🔗</span>
-                        <a href={profileUrl} target="_blank" rel="noreferrer"
-                            className="flex-1 text-xs sm:text-sm text-brand-400 hover:text-brand-300 truncate font-mono">
-                            {profileUrl}
-                        </a>
-                        <button onClick={handleCopy}
-                            className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${copied
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                : 'bg-surface-700 text-surface-300 hover:bg-surface-600 hover:text-white border border-white/5'
-                                }`}>
-                            {copied ? '✓ Copied' : '⎘ Copy'}
-                        </button>
+                    <div className="glass rounded-2xl border border-white/5 p-4 mb-6">
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="text-base flex-shrink-0">🔗</span>
+                            <a href={profileUrl} target="_blank" rel="noreferrer"
+                                className="flex-1 text-xs sm:text-sm text-brand-400 hover:text-brand-300 break-all font-mono leading-relaxed">
+                                {profileUrl}
+                            </a>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleCopy}
+                                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all min-h-[44px] ${copied
+                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                    : 'bg-surface-700 text-surface-300 hover:bg-surface-600 hover:text-white border border-white/5'
+                                    }`}>
+                                {copied ? '✓ Copied' : '⎘ Copy Link'}
+                            </button>
+                            <a href={profileUrl} target="_blank" rel="noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold btn-outline min-h-[44px]">
+                                👁️ View Profile
+                            </a>
+                        </div>
                     </div>
                 ) : (
                     !loading && (

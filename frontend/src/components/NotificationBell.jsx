@@ -120,8 +120,8 @@ export default function NotificationBell() {
 
             {/* Dropdown panel */}
             {open && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-h-[28rem] overflow-hidden rounded-2xl glass border border-white/10 shadow-2xl shadow-black/30 z-50 flex flex-col"
-                    style={{ animation: 'fadeInDown 0.15s ease-out' }}>
+                <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-96 max-h-[400px] overflow-hidden rounded-2xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] z-50 flex flex-col sm:right-0 fixed sm:absolute right-4 sm:right-0 top-14 sm:top-auto"
+                    style={{ background: '#121212', animation: 'fadeInDown 0.15s ease-out' }}>
 
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">

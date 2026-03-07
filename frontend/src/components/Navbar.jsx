@@ -215,7 +215,7 @@ export default function Navbar() {
 
                     {/* ── Mobile menu ──────────────────────────────────────────────────── */}
                     {mobileOpen && (
-                        <div className="md:hidden glass border-t border-white/10 py-4 flex flex-col gap-3 px-2 animate-fade-in-up">
+                        <div className="md:hidden border-t border-white/10 py-4 flex flex-col gap-3 px-4 animate-fade-in-up bg-[rgba(18,18,18,0.97)] backdrop-blur-xl rounded-b-2xl shadow-2xl shadow-black/50">
                             <NavLink to="/" className={navLinkClass} end onClick={() => setMobileOpen(false)}>Home</NavLink>
                             <NavLink to="/explore" className={navLinkClass} onClick={() => setMobileOpen(false)}>Explore</NavLink>
                             {isCreator && <NavLink to="/dashboard" className={navLinkClass} onClick={() => setMobileOpen(false)}>Dashboard</NavLink>}
