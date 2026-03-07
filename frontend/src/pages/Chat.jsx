@@ -162,73 +162,77 @@ export default function Chat() {
     return (
         <div style={{
             height: '100%',
-            background: '#080810',
+            background: '#000',
             display: 'flex',
             flexDirection: 'column',
-            fontFamily: "'Inter', sans-serif",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             overflow: 'hidden',
         }}>
-            {/* ── Header ─────────────────────────────────────────────────────── */}
+            {/* ── Header — Instagram style ───────────────────────────────────── */}
             <div style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 16px',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
-                background: 'rgba(10,10,21,0.95)',
-                backdropFilter: 'blur(12px)',
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 8px 10px 4px',
+                background: '#000',
                 flexShrink: 0,
             }}>
-                <button onClick={() => navigate(-1)} style={{ color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}>
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                {/* Back arrow */}
+                <button onClick={() => navigate(-1)} style={{
+                    color: '#fff', background: 'none', border: 'none',
+                    padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                }}>
+                    <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
 
-                <div style={{ position: 'relative' }}>
+                {/* Avatar */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{
-                        width: 38, height: 38, borderRadius: '50%',
-                        background: 'rgba(124,58,237,0.4)',
+                        width: 42, height: 42, borderRadius: '50%',
+                        background: '#3a3a3a',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontWeight: 700, fontSize: 14,
+                        color: '#fff', fontWeight: 700, fontSize: 16,
                     }}>
                         {otherName[0]?.toUpperCase()}
                     </div>
                     {isOtherOnline && (
                         <span style={{
-                            position: 'absolute', bottom: -1, right: -1,
-                            width: 11, height: 11, borderRadius: '50%',
-                            background: '#4ade80', border: '2px solid #080810',
+                            position: 'absolute', bottom: 0, right: 0,
+                            width: 12, height: 12, borderRadius: '50%',
+                            background: '#3bc753', border: '2px solid #000',
                         }} />
                     )}
                 </div>
 
-                <div>
-                    <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{otherName}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.38)', fontSize: 11 }}>
-                        {isOtherOnline ? '🟢 Online' : 'Offline'}
+                {/* Name + status */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, lineHeight: 1.2, letterSpacing: '-0.1px' }}>
+                        {otherName}
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 1 }}>
+                        {isOtherOnline ? 'Active now' : 'Offline'}
                     </div>
                 </div>
 
-                {/* Right side: wallet + gift */}
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* Right: wallet */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                     {walletBalance !== null && (
-                        <button
-                            onClick={() => setShowWallet(true)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 5,
-                                padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-                                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                                color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
-                            }}
-                            title="Tap to recharge wallet"
-                        >
+                        <button onClick={() => setShowWallet(true)} style={{
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            padding: '5px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+                        }}>
                             <span>💳</span><span>₹{walletBalance}</span>
                         </button>
                     )}
-                    <button onClick={() => setShowGifts(true)} style={{ fontSize: 20, background: 'none', border: 'none', cursor: 'pointer' }} title="Send a gift">🎁</button>
                 </div>
             </div>
 
-            {/* ── Messages — flex-grows, scrolls internally ──────────────────── */}
+            {/* Thin separator */}
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+
+            {/* ── Messages ──────────────────────────────────────────────────────── */}
             <ChatWindow
                 messages={messages}
                 currentUserId={user?._id}
@@ -243,23 +247,30 @@ export default function Chat() {
                 }}
             />
 
-            {/* ── Input bar — anchored to bottom ─────────────────────────────── */}
+            {/* ── Input bar — Instagram style ─────────────────────────────────── */}
             <div style={{
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                background: 'rgba(10,10,21,0.95)',
-                backdropFilter: 'blur(12px)',
-                padding: '10px 16px',
-                display: 'flex', alignItems: 'flex-end', gap: 10,
+                background: '#000',
+                padding: '8px 12px 10px',
+                display: 'flex', alignItems: 'center', gap: 10,
                 flexShrink: 0,
             }}>
-                <button onClick={() => setShowGifts(true)} style={{ fontSize: 20, flexShrink: 0, marginBottom: 4, background: 'none', border: 'none', cursor: 'pointer' }}>🎁</button>
+                {/* Gift button — left (acts like Instagram's camera) */}
+                <button onClick={() => setShowGifts(true)} style={{
+                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                    background: 'linear-gradient(45deg,#833ab4,#fd1d1d,#fcb045)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: 'none', cursor: 'pointer', fontSize: 18,
+                }}>
+                    🎁
+                </button>
 
+                {/* Pill input area */}
                 <div style={{
-                    flex: 1,
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 24, padding: '10px 16px',
-                    minHeight: 44, maxHeight: 120, display: 'flex', alignItems: 'center',
+                    flex: 1, display: 'flex', alignItems: 'center',
+                    background: 'transparent',
+                    border: '1.5px solid rgba(255,255,255,0.25)',
+                    borderRadius: 24, padding: '8px 14px',
+                    minHeight: 42,
                 }}>
                     <textarea
                         value={text}
@@ -269,28 +280,54 @@ export default function Chat() {
                         rows={1}
                         style={{
                             flex: 1, background: 'transparent', color: '#fff',
-                            fontSize: 14, resize: 'none', outline: 'none',
-                            border: 'none', maxHeight: 80, overflowY: 'auto',
+                            fontSize: 14, resize: 'none', outline: 'none', border: 'none',
+                            maxHeight: 80, overflowY: 'auto', lineHeight: 1.4,
+                            '::placeholder': { color: 'rgba(255,255,255,0.4)' },
                         }}
                     />
                 </div>
 
-                <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={handleSend}
-                    disabled={!text.trim()}
-                    style={{
-                        width: 40, height: 40, flexShrink: 0, borderRadius: '50%',
-                        background: '#7c3aed', border: 'none', cursor: text.trim() ? 'pointer' : 'not-allowed',
-                        opacity: text.trim() ? 1 : 0.3,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'opacity 0.15s',
-                    }}
-                >
-                    <svg width="16" height="16" fill="white" viewBox="0 0 24 24" style={{ transform: 'rotate(90deg)' }}>
-                        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
-                    </svg>
-                </motion.button>
+                {/* Right icons — show send icon if typing, else mic+image+emoji */}
+                {text.trim() ? (
+                    <motion.button
+                        whileTap={{ scale: 0.88 }}
+                        onClick={handleSend}
+                        style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            color: '#3897f0', fontWeight: 700, fontSize: 14, flexShrink: 0,
+                            padding: '4px 2px',
+                        }}
+                    >
+                        Send
+                    </motion.button>
+                ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                        {/* Mic */}
+                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex' }}>
+                            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <rect x="9" y="2" width="6" height="12" rx="3" strokeWidth={1.8} />
+                                <path strokeLinecap="round" strokeWidth={1.8} d="M5 10a7 7 0 0014 0M12 19v3M8 22h8" />
+                            </svg>
+                        </button>
+                        {/* Image */}
+                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex' }}>
+                            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="18" height="18" rx="3" strokeWidth={1.8} />
+                                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+                                <path strokeLinecap="round" strokeWidth={1.8} d="M21 15l-5-5L5 21" />
+                            </svg>
+                        </button>
+                        {/* Sticker/emoji */}
+                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex' }}>
+                            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="9" strokeWidth={1.8} />
+                                <path strokeLinecap="round" strokeWidth={1.8} d="M8 13s1.5 2 4 2 4-2 4-2" />
+                                <circle cx="9" cy="10" r="1" fill="currentColor" />
+                                <circle cx="15" cy="10" r="1" fill="currentColor" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* ── Gift panel ─────────────────────────────────────────────────── */}
