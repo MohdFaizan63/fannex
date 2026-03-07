@@ -380,6 +380,24 @@ export default function CreatorProfile() {
                                     </button>
                                 </div>
 
+                                {/* Name + stats — ABOVE buttons */}
+                                <div className="mt-4">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h1 className="text-2xl font-black text-white">{displayName}</h1>
+                                        {creator.creatorType === 'ai' && (
+                                            <span className="px-2 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-semibold">AI</span>
+                                        )}
+                                    </div>
+                                    <p className="text-surface-500 text-sm mt-0.5">@{username}</p>
+
+                                    {bio && <p className="text-surface-300 text-sm mt-3 leading-relaxed max-w-prose">{bio}</p>}
+
+                                    <div className="flex items-center gap-6 mt-3 text-sm">
+                                        <span><strong className="text-white">{posts.length}</strong> <span className="text-surface-500">posts</span></span>
+                                        <span><strong className="text-white">{totalSubscribers.toLocaleString('en-IN')}</strong> <span className="text-surface-500">subscribers</span></span>
+                                    </div>
+                                </div>
+
                                 {/* ── Premium action button stack (Fanvue-style) ── */}
                                 <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
@@ -434,7 +452,6 @@ export default function CreatorProfile() {
 
                                     {/* 2. Secondary buttons row: Gift + Chat */}
                                     <div style={{ display: 'flex', gap: 10 }}>
-
                                         {/* Gift button */}
                                         <button
                                             onClick={() => setShowGift(true)}
@@ -461,24 +478,6 @@ export default function CreatorProfile() {
                                             isSubscribed={isSubscribed}
                                             variant="profile"
                                         />
-                                    </div>
-                                </div>
-
-                                {/* Name + stats */}
-                                <div className="mt-5">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <h1 className="text-2xl font-black text-white">{displayName}</h1>
-                                        {creator.creatorType === 'ai' && (
-                                            <span className="px-2 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-semibold">AI</span>
-                                        )}
-                                    </div>
-                                    <p className="text-surface-500 text-sm mt-0.5">@{username}</p>
-
-                                    {bio && <p className="text-surface-300 text-sm mt-3 leading-relaxed max-w-prose">{bio}</p>}
-
-                                    <div className="flex items-center gap-6 mt-4 text-sm">
-                                        <span><strong className="text-white">{posts.length}</strong> <span className="text-surface-500">posts</span></span>
-                                        <span><strong className="text-white">{totalSubscribers.toLocaleString('en-IN')}</strong> <span className="text-surface-500">subscribers</span></span>
                                     </div>
                                 </div>
                             </div>
