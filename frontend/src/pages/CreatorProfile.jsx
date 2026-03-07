@@ -389,7 +389,7 @@ export default function CreatorProfile() {
                                             <span className="px-2 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-semibold">AI</span>
                                         )}
                                     </div>
-                                    <p className="text-surface-500 text-sm mt-0.5">@{username}</p>
+                                    <p className="mt-0.5" style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>@{username}</p>
 
                                     {/* Stats row — icon + number only */}
                                     <div className="flex items-center gap-4 mt-2.5" style={{ fontSize: 13 }}>
@@ -505,14 +505,28 @@ export default function CreatorProfile() {
                             </div>
 
                             {/* ── Tabs ─────────────────────────────────────────── */}
-                            <div className="px-4 sm:px-6 mt-6">
-                                <div className="flex gap-0 border-b border-white/10">
+                            <div className="mt-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div className="flex">
                                     {TABS.map((tab) => (
                                         <button key={tab}
                                             onClick={() => setActiveTab(tab)}
-                                            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === tab
-                                                ? 'border-brand-500 text-brand-400'
-                                                : 'border-transparent text-surface-500 hover:text-white'}`}>
+                                            style={{
+                                                flex: 1,
+                                                padding: '14px 8px',
+                                                fontSize: 15,
+                                                fontWeight: activeTab === tab ? 800 : 600,
+                                                letterSpacing: '-0.01em',
+                                                color: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.5)',
+                                                background: 'none',
+                                                border: 'none',
+                                                borderBottom: activeTab === tab ? '3px solid #ec4899' : '3px solid transparent',
+                                                cursor: 'pointer',
+                                                transition: 'color 0.15s ease, border-color 0.15s ease',
+                                                textAlign: 'center',
+                                            }}
+                                            onMouseEnter={e => { if (activeTab !== tab) e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; }}
+                                            onMouseLeave={e => { if (activeTab !== tab) e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                                        >
                                             {tab}{tab === 'Posts' && ` (${posts.length})`}
                                             {tab === 'Media' && ` (${posts.filter((p) => p.mediaUrl || p.mediaUrls?.length).length})`}
                                         </button>
