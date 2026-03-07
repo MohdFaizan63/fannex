@@ -110,6 +110,25 @@ export default function AlbumCarousel({ urls = [], alt = '', className = '', loc
                 />
             )}
 
+            {/* Instagram-style dot indicators */}
+            <div
+                className="absolute bottom-2 left-0 right-0 flex justify-center items-center gap-[5px] z-20 pointer-events-none"
+            >
+                {urls.map((_, i) => (
+                    <span
+                        key={i}
+                        style={{
+                            display: 'inline-block',
+                            width: i === index ? '7px' : '5px',
+                            height: i === index ? '7px' : '5px',
+                            borderRadius: '50%',
+                            background: i === index ? '#6c63ff' : 'rgba(255,255,255,0.45)',
+                            transition: 'all 0.2s ease',
+                            flexShrink: 0,
+                        }}
+                    />
+                ))}
+            </div>
 
         </div>
     );
