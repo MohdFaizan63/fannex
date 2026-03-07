@@ -140,12 +140,12 @@ export default function PostLightbox({ post, posts, currentIndex, creator, onClo
 
             {/* Main layout */}
             <div
-                className="flex flex-col lg:flex-row w-full max-w-5xl max-h-[100dvh] lg:max-h-[90vh] overflow-hidden rounded-none lg:rounded-2xl"
+                className="flex flex-col lg:flex-row w-full max-w-5xl max-h-screen h-full lg:h-auto lg:max-h-[90vh] overflow-hidden rounded-none lg:rounded-2xl"
                 onTouchStart={onTouchStart}
                 onTouchEnd={onTouchEnd}
             >
                 {/* ── Media panel ───────────────────────────────── */}
-                <div className="flex-shrink-0 bg-black flex items-center justify-center min-h-[40vh] sm:min-h-[50vh] lg:min-h-0 lg:flex-1 relative overflow-hidden select-none">
+                <div className="flex-1 bg-black flex items-center justify-center min-h-[50vh] lg:min-h-0 relative overflow-hidden select-none">
                     {activePost.mediaType === 'album' && activePost.mediaUrls?.length > 1 ? (
                         <AlbumCarousel
                             urls={activePost.mediaUrls}
@@ -193,7 +193,7 @@ export default function PostLightbox({ post, posts, currentIndex, creator, onClo
                 </div>
 
                 {/* ── Info panel ────────────────────────────────── */}
-                <div className="w-full lg:w-80 flex-shrink-0 bg-[#0d0d12] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col flex-1 lg:flex-initial overflow-y-auto">
+                <div className="w-full lg:w-80 flex-shrink-0 bg-[#0d0d12] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col max-h-48 lg:max-h-none overflow-y-auto">
 
                     {/* Creator header */}
                     <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 flex-shrink-0">

@@ -437,7 +437,7 @@ export default function Home() {
         <div className="bg-[#030208] text-white overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
             {/* ── CINEMATIC HERO ───────────────────────────────────────────────── */}
-            <section ref={heroRef} className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
+            <section ref={heroRef} className="relative min-h-[85vh] sm:min-h-screen flex flex-col items-center justify-center overflow-hidden">
 
                 {/* Animated background canvas */}
                 <motion.div className="absolute inset-0 pointer-events-none" style={{ y: heroBgY, scale: heroScale }}>

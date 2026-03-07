@@ -227,24 +227,12 @@ a,
 }
 
 /* min tap target on mobile */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
 
   button,
   a {
-    min-height: 44px;
+    min-height: 40px;
   }
-
-  /* Prevent horizontal scroll globally */
-  html,
-  body {
-    overflow-x: hidden;
-  }
-
-  /* Consistent card radius */
-  .glass {
-    border-radius: 16px;
-  }
-
 }
 
 /* ── Safe-area padding (notch / home bar) ─────────────────────────────────── */
