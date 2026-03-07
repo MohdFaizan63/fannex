@@ -260,19 +260,42 @@ export default function Dashboard() {
 
                 {/* ── Profile link ──────────────────────────────────────────── */}
                 {profileUrl ? (
-                    <div className="glass rounded-2xl border border-white/5 px-4 py-3 mb-6 flex items-center gap-2">
-                        <span className="text-base flex-shrink-0">🔗</span>
+                    <div className="mb-6 rounded-2xl p-4" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        {/* Link row */}
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-base shrink-0">🔗</span>
+                            <a href={profileUrl} target="_blank" rel="noreferrer"
+                                className="flex-1 min-w-0 text-xs text-brand-400 hover:text-brand-300 font-mono"
+                                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {profileUrl}
+                            </a>
+                            <button
+                                onClick={handleCopy}
+                                className="shrink-0 flex items-center gap-1.5 text-xs font-semibold transition-all"
+                                style={{
+                                    background: copied ? 'rgba(34,197,94,0.15)' : '#1e1e1e',
+                                    color: copied ? '#4ade80' : '#a1a1aa',
+                                    borderRadius: '10px',
+                                    padding: '8px 14px',
+                                    border: copied ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(255,255,255,0.07)',
+                                }}
+                                onMouseEnter={(e) => { if (!copied) e.currentTarget.style.background = '#242424'; }}
+                                onMouseLeave={(e) => { if (!copied) e.currentTarget.style.background = '#1e1e1e'; }}
+                            >
+                                {copied ? '✓ Copied' : '⎘ Copy'}
+                            </button>
+                        </div>
+                        {/* View Profile button */}
                         <a href={profileUrl} target="_blank" rel="noreferrer"
-                            className="flex-1 text-xs sm:text-sm text-brand-400 hover:text-brand-300 truncate font-mono">
-                            {profileUrl}
+                            className="flex items-center justify-center w-full gap-2 text-sm font-semibold text-white/80 hover:text-white transition-colors"
+                            style={{
+                                height: '40px',
+                                borderRadius: '12px',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                            }}>
+                            👁️ View Profile
                         </a>
-                        <button onClick={handleCopy}
-                            className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${copied
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                : 'bg-surface-700 text-surface-300 hover:bg-surface-600 hover:text-white border border-white/5'
-                                }`}>
-                            {copied ? '✓ Copied' : '⎘ Copy'}
-                        </button>
                     </div>
                 ) : (
                     !loading && (

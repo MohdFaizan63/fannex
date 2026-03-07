@@ -101,18 +101,6 @@ export default function DashboardLayout() {
             {/* ── Main content area ────────────────────────────────────────────────── */}
             <div className="flex-1 flex flex-col lg:ml-64 min-w-0 overflow-hidden">
 
-                {/* Top bar (mobile only) */}
-                <header className="lg:hidden flex items-center justify-between h-14 px-4 glass border-b border-white/10 flex-shrink-0 sticky top-0 z-20">
-                    <button onClick={() => setOpen(true)}
-                        className="p-2 rounded-lg text-surface-400 hover:text-white hover:bg-white/10 transition-all"
-                        aria-label="Open sidebar">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </button>
-                    <Link to="/" className="text-lg font-black gradient-text">Fannex</Link>
-                    <div className="w-10" /> {/* balance */}
-                </header>
 
                 {/* Page content */}
                 <main className="flex-1 overflow-auto w-full">
