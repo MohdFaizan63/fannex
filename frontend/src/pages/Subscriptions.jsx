@@ -40,72 +40,113 @@ export default function Subscriptions() {
                         </Link>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {subs.map((sub) => {
                             const creator = sub.creator;
                             if (!creator) return null;
                             const expiresAt = sub.expiresAt ? new Date(sub.expiresAt) : null;
                             const isActive = sub.status === 'active';
                             return (
-                                <div
+                                <Link
                                     key={sub._id}
-                                    className="glass rounded-2xl border border-white/10 overflow-hidden shadow-xl hover:shadow-brand-500/10 transition-all hover:-translate-y-0.5"
+                                    to={`/creator/${creator.username}`}
+                                    className="block"
+                                    style={{ textDecoration: 'none' }}
                                 >
-                                    {/* Banner */}
-                                    <div className="relative h-28 overflow-hidden bg-gradient-to-br from-brand-600/40 via-violet-600/30 to-surface-800">
+                                    {/* Fanvue-style card: full-bleed cover, overlaid info */}
+                                    <div style={{
+                                        position: 'relative',
+                                        height: 180,
+                                        borderRadius: 16,
+                                        overflow: 'hidden',
+                                        background: 'linear-gradient(135deg,#2d0050,#0d0020)',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+                                        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                                    }}
+                                        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4)'; }}
+                                    >
+                                        {/* Cover photo */}
                                         {creator.coverImage && (
                                             <img
                                                 src={creator.coverImage}
                                                 alt="cover"
-                                                className="absolute inset-0 w-full h-full object-cover"
-                                                style={{ objectPosition: `center ${creator.coverImagePosition ?? 50}%` }}
+                                                style={{
+                                                    position: 'absolute', inset: 0,
+                                                    width: '100%', height: '100%',
+                                                    objectFit: 'cover',
+                                                    objectPosition: `center ${creator.coverImagePosition ?? 50}%`,
+                                                }}
                                             />
                                         )}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                    </div>
 
-                                    {/* Profile info */}
-                                    <div className="px-4 pb-4 -mt-8 relative">
-                                        <div className="flex items-end gap-3 mb-3">
+                                        {/* Dark gradient overlay at bottom */}
+                                        <div style={{
+                                            position: 'absolute', inset: 0,
+                                            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.05) 100%)',
+                                        }} />
+
+                                        {/* Top-right: View pill button */}
+                                        <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                                            <span style={{
+                                                background: 'rgba(255,255,255,0.15)',
+                                                backdropFilter: 'blur(8px)',
+                                                border: '1px solid rgba(255,255,255,0.25)',
+                                                color: '#fff',
+                                                fontSize: 12, fontWeight: 700,
+                                                padding: '5px 13px', borderRadius: 999,
+                                            }}>
+                                                {isActive ? 'Active' : 'Expired'}
+                                            </span>
+                                        </div>
+
+                                        {/* Bottom: avatar + name overlaid */}
+                                        <div style={{
+                                            position: 'absolute', bottom: 0, left: 0, right: 0,
+                                            padding: '12px 14px',
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                        }}>
+                                            {/* Avatar */}
                                             {creator.profileImage ? (
                                                 <img
                                                     src={creator.profileImage}
                                                     alt={creator.displayName}
-                                                    className="w-14 h-14 rounded-full object-cover border-4 border-surface-900 shadow-lg flex-shrink-0"
-                                                    style={{ objectPosition: `center ${creator.profileImagePosition ?? 50}%` }}
+                                                    style={{
+                                                        width: 44, height: 44, borderRadius: '50%',
+                                                        objectFit: 'cover', flexShrink: 0,
+                                                        border: '2.5px solid rgba(255,255,255,0.7)',
+                                                        objectPosition: `center ${creator.profileImagePosition ?? 50}%`,
+                                                    }}
                                                 />
                                             ) : (
-                                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-lg font-bold border-4 border-surface-900 shadow-lg flex-shrink-0">
+                                                <div style={{
+                                                    width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                                                    background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    color: '#fff', fontWeight: 700, fontSize: 16,
+                                                    border: '2.5px solid rgba(255,255,255,0.7)',
+                                                }}>
                                                     {creator.displayName?.charAt(0)?.toUpperCase() || '?'}
                                                 </div>
                                             )}
-                                            <div className="pb-1 min-w-0">
-                                                <p className="font-bold text-white text-sm truncate">{creator.displayName}</p>
-                                                <p className="text-surface-400 text-xs">@{creator.username}</p>
+                                            {/* Name + handle */}
+                                            <div style={{ minWidth: 0 }}>
+                                                <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: 0, lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+                                                    {creator.displayName}
+                                                </p>
+                                                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: 0, lineHeight: 1.4 }}>
+                                                    @{creator.username}
+                                                </p>
+                                                {expiresAt && (
+                                                    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, margin: 0 }}>
+                                                        {isActive ? 'Renews' : 'Expired'} {expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
-
-                                        {/* Status badge */}
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${isActive ? 'bg-green-500/15 text-green-400 border border-green-500/20' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-400' : 'bg-amber-400'} animate-pulse`} />
-                                                {isActive ? 'Active' : 'Expired'}
-                                            </span>
-                                            {expiresAt && (
-                                                <span className="text-xs text-surface-500">
-                                                    {isActive ? 'Renews' : 'Expired'} {expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <Link
-                                            to={`/creator/${creator.username}`}
-                                            className="btn-brand w-full py-2 text-sm block text-center rounded-xl"
-                                        >
-                                            View Creator →
-                                        </Link>
                                     </div>
-                                </div>
+                                </Link>
                             );
                         })}
                     </div>
