@@ -29,6 +29,12 @@ router.get('/status', protect, getCreatorApplicationStatus);
 router.use(protect);
 router.use(authorize('creator'));
 
+// Insights / analytics
+const { getProfileViews, getEarningsInsights, getOverview } = require('../controllers/insightsController');
+router.get('/insights/profile-views', getProfileViews);
+router.get('/insights/earnings', getEarningsInsights);
+router.get('/insights/overview', getOverview);
+
 router.get('/earnings', getMyEarnings);
 router.get('/my-subscribers', myCreatorSubscribers);
 router.post('/request-payout', validate(requestPayoutSchema), requestPayout);

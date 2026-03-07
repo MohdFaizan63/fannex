@@ -1,6 +1,7 @@
 const paginate = require('../utils/paginate');
 const CreatorProfile = require('../models/CreatorProfile');
 const Subscription = require('../models/Subscription');
+const ProfileView = require('../models/ProfileView');
 const { optimizeImageUrl } = require('../utils/optimizeMediaUrl');
 const {
     getMyEarningsService,
@@ -148,6 +149,13 @@ const getCreatorByUsername = async (req, res, next) => {
             });
             isSubscribed = !!sub;
         }
+
+        // Record profile view (fire-and-forget — don't block response)
+        const creatorUserId = profile.userId?._id || profile.userId;
+        ProfileView.create({
+            creatorId: creatorUserId,
+            visitorId: req.user?._id || null,
+        }).catch(() => { });
 
         res.json({
             success: true,

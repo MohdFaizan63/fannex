@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 // ── Sidebar navigation items by role ──────────────────────────────────────────
 const CREATOR_NAV = [
     { to: '/dashboard', icon: '📊', label: 'Dashboard' },
+    { to: '/insights', icon: '📈', label: 'Insights' },
     { to: '/upload', icon: '➕', label: 'New Post' },
     { to: '/earnings', icon: '💰', label: 'Earnings' },
     { to: '/creator/chat', icon: '💬', label: 'Chat' },

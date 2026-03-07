@@ -370,7 +370,7 @@ export default function Dashboard() {
                 )}
 
                 {/* ── Creator Studio card ───────────────────────────────────── */}
-                <div className="glass rounded-2xl border border-brand-500/20 p-4 sm:p-5 mb-6 flex items-center gap-3">
+                <div className="glass rounded-2xl border border-brand-500/20 p-4 sm:p-5 mb-4 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500/30 to-violet-600/30 border border-brand-500/20 flex items-center justify-center text-lg flex-shrink-0">💎</div>
                     <div className="flex-1 min-w-0">
                         <p className="text-white font-bold text-sm">Creator Studio</p>
@@ -385,6 +385,25 @@ export default function Dashboard() {
                         ✏️ <span className="hidden sm:inline">Change </span>Plan
                     </button>
                 </div>
+
+                {/* ── Profile Insights button ──────────────────────────────────── */}
+                <Link
+                    to="/insights"
+                    className="glass rounded-2xl border border-emerald-500/20 p-4 sm:p-5 mb-6 flex items-center gap-3 group hover:border-emerald-500/40 transition-all cursor-pointer block"
+                >
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/30 to-teal-600/30 border border-emerald-500/20 flex items-center justify-center text-lg flex-shrink-0">
+                        📈
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm group-hover:text-emerald-300 transition-colors">Profile Insights</p>
+                        <p className="text-surface-400 text-xs mt-0.5">
+                            Track visits, earnings & growth
+                        </p>
+                    </div>
+                    <div className="flex-shrink-0 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-emerald-500/40 text-emerald-300 group-hover:bg-emerald-500/10 transition-all">
+                        📊 <span className="hidden sm:inline">View </span>Stats
+                    </div>
+                </Link>
 
                 {/* ── Chat Settings card ────────────────────────────────────── */}
                 <div className="glass rounded-2xl border border-violet-500/20 p-4 sm:p-5 mb-6">
