@@ -180,47 +180,89 @@ function PostCard({ post, creator, isSubscribed, onSubscribe, onClick, currentUs
     );
 }
 
-// ─── Suggested creator card ───────────────────────────────────────────────────
-const GENRE_COLORS = { fitness: 'bg-green-500/20 text-green-400', gaming: 'bg-blue-500/20 text-blue-400', fashion: 'bg-pink-500/20 text-pink-400', education: 'bg-amber-500/20 text-amber-400', art: 'bg-purple-500/20 text-purple-400', music: 'bg-red-500/20 text-red-400', lifestyle: 'bg-cyan-500/20 text-cyan-400' };
-
+// ─── Suggested creator card (Fanvue-style full-bleed cover) ──────────────────
 function SuggestedCard({ creator }) {
-    const genreClass = GENRE_COLORS[creator.genre] || 'bg-surface-700/50 text-surface-400';
     return (
-        <Link to={`/creator/${creator.username}`}
-            className="glass rounded-xl border border-white/5 hover:border-brand-500/30 transition-all group overflow-hidden">
-            {/* Cover / gradient header */}
-            <div className="h-16 bg-gradient-to-br from-brand-600/40 via-violet-600/30 to-surface-800 relative">
-                {creator.coverImage && (
-                    <img src={creator.coverImage} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+        <Link to={`/creator/${creator.username}`} className="block" style={{ textDecoration: 'none' }}>
+            <div style={{
+                position: 'relative',
+                height: 140,
+                borderRadius: 14,
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg,#2d0050,#0d0020)',
+                cursor: 'pointer',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,0,0,0.45)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.35)'; }}
+            >
+                {/* Cover photo */}
+                {creator.coverImage ? (
+                    <img src={creator.coverImage} alt="" loading="lazy"
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                    <div style={{ position: 'absolute', inset: 0, opacity: 0.3, background: 'radial-gradient(circle at 30% 50%, #cc52b8, transparent 60%)' }} />
                 )}
-            </div>
-            {/* Profile section */}
-            <div className="px-3 pb-3 -mt-6 relative">
-                <div className="flex items-end gap-3">
-                    {/* Profile photo — 48px circle */}
+
+                {/* Dark gradient overlay */}
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.05) 100%)',
+                }} />
+
+                {/* Top-right: price pill */}
+                <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    <span style={{
+                        background: 'rgba(255,255,255,0.15)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.25)',
+                        color: '#fff',
+                        fontSize: 11, fontWeight: 700,
+                        padding: '4px 10px', borderRadius: 999,
+                    }}>
+                        {creator.subscriptionPrice ? `₹${creator.subscriptionPrice}/mo` : 'Free'}
+                    </span>
+                </div>
+
+                {/* Bottom: avatar + name overlaid */}
+                <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    padding: '10px 12px',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                    {/* Avatar */}
                     {creator.profileImage ? (
                         <img src={creator.profileImage} alt={creator.displayName} loading="lazy"
-                            className="w-12 h-12 rounded-full object-cover object-top border-2 border-surface-900 shadow-lg flex-shrink-0" />
+                            style={{
+                                width: 42, height: 42, borderRadius: '50%',
+                                objectFit: 'cover', flexShrink: 0,
+                                border: '2.5px solid rgba(255,255,255,0.85)',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                            }} />
                     ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm border-2 border-surface-900 shadow-lg flex-shrink-0">
+                        <div style={{
+                            width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                            background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 700, fontSize: 14,
+                            border: '2.5px solid rgba(255,255,255,0.85)',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                        }}>
                             {creator.displayName?.charAt(0)?.toUpperCase() ?? '?'}
                         </div>
                     )}
-                    <div className="flex-1 min-w-0 pb-0.5">
-                        <p className="text-white text-sm font-semibold truncate">{creator.displayName}</p>
-                        <p className="text-surface-500 text-xs truncate">@{creator.username}</p>
+
+                    {/* Name + handle */}
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ color: '#fff', fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {creator.displayName}
+                        </p>
+                        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, margin: 0, lineHeight: 1.4 }}>
+                            @{creator.username}
+                        </p>
                     </div>
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
-                        <span className="text-surface-500 text-xs">{(creator.totalSubscribers || 0).toLocaleString()} fans</span>
-                        {creator.genre && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize ${genreClass}`}>{creator.genre}</span>
-                        )}
-                    </div>
-                    <span className="text-[11px] font-semibold text-brand-400 group-hover:text-brand-300 shrink-0 px-2.5 py-1 rounded-full border border-brand-500/30 group-hover:bg-brand-500/10 transition-all">
-                        {creator.subscriptionPrice ? `₹${creator.subscriptionPrice}/mo` : 'Follow'}
-                    </span>
                 </div>
             </div>
         </Link>

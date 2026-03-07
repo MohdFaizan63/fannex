@@ -1,16 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { creatorService } from '../services/creatorService';
-import { truncate } from '../utils/helpers';
 
 const CATEGORIES = ['All', 'Art', 'Music', 'Gaming', 'Fitness', 'Beauty', 'Education', 'Tech', 'Travel', 'Food'];
 
-// ── Creator card ──────────────────────────────────────────────────────────────
+// ── Creator card (Fanvue-style full-bleed cover) ──────────────────────────────
 function CreatorCard({ creator }) {
     const {
         _id,
         displayName = 'Unknown',
-        bio = '',
         profileImage,
         coverImage,
         totalSubscribers = 0,
@@ -21,50 +19,91 @@ function CreatorCard({ creator }) {
     return (
         <Link
             to={`/creator/${username || _id}`}
-            className="group glass rounded-2xl overflow-hidden hover:border-brand-500/40 border border-white/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(204,82,184,0.15)]"
+            className="block group"
+            style={{ textDecoration: 'none' }}
         >
-            {/* Cover / banner area */}
-            <div className="h-24 relative overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #3a0060 0%, #0d0020 100%)' }}>
+            <div style={{
+                position: 'relative',
+                height: 180,
+                borderRadius: 16,
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg,#2d0050,#0d0020)',
+                cursor: 'pointer',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4)'; }}
+            >
+                {/* Cover photo */}
                 {coverImage ? (
-                    <img src={coverImage} alt="cover" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={coverImage} alt="cover" loading="lazy"
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                    <div className="absolute inset-0 opacity-30"
-                        style={{ background: `radial-gradient(circle at 30% 50%, #cc52b8, transparent 60%)` }} />
+                    <div style={{ position: 'absolute', inset: 0, opacity: 0.3, background: 'radial-gradient(circle at 30% 50%, #cc52b8, transparent 60%)' }} />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-            </div>
 
-            {/* Avatar — overlaps cover */}
-            <div className="px-4 -mt-8 pb-4">
-                <div className="relative w-16 h-16 mb-3">
+                {/* Dark gradient overlay */}
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.05) 100%)',
+                }} />
+
+                {/* Top-right: price pill */}
+                <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                    <span style={{
+                        background: 'rgba(255,255,255,0.15)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.25)',
+                        color: '#fff',
+                        fontSize: 12, fontWeight: 700,
+                        padding: '5px 13px', borderRadius: 999,
+                    }}>
+                        {subscriptionPrice > 0 ? `₹${subscriptionPrice}/mo` : 'Free'}
+                    </span>
+                </div>
+
+                {/* Bottom: avatar + name overlaid */}
+                <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    padding: '12px 14px',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                    {/* Avatar */}
                     {profileImage ? (
                         <img src={profileImage} alt={displayName} loading="lazy"
-                            className="w-16 h-16 rounded-full object-cover border-2 border-surface-800 ring-2 ring-brand-500/40" />
+                            style={{
+                                width: 52, height: 52, borderRadius: '50%',
+                                objectFit: 'cover', flexShrink: 0,
+                                border: '3px solid rgba(255,255,255,0.85)',
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+                            }} />
                     ) : (
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-500 to-violet-600
-              flex items-center justify-center text-white text-2xl font-bold border-2 border-surface-800">
+                        <div style={{
+                            width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+                            background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 700, fontSize: 18,
+                            border: '3px solid rgba(255,255,255,0.85)',
+                            boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+                        }}>
                             {displayName.charAt(0).toUpperCase()}
                         </div>
                     )}
-                </div>
 
-                <h3 className="font-bold text-white group-hover:text-brand-300 transition-colors truncate">{displayName}</h3>
-
-                {bio && (
-                    <p className="text-xs text-surface-400 mt-1 leading-relaxed line-clamp-2">
-                        {truncate(bio, 100)}
-                    </p>
-                )}
-
-                <div className="flex items-center justify-between mt-4">
-                    <span className="text-xs text-surface-500">
-                        <span className="text-white font-semibold">{totalSubscribers.toLocaleString('en-IN')}</span> subscribers
-                    </span>
-                    <span className="text-xs px-3 py-1 rounded-full bg-brand-500/20 text-brand-400 font-medium
-            group-hover:bg-brand-500 group-hover:text-white transition-all">
-                        {subscriptionPrice > 0 ? `₹${subscriptionPrice}/mo` : 'Free'}
-                    </span>
+                    {/* Name + handle */}
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: 0, lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {displayName}
+                        </p>
+                        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: 0, lineHeight: 1.4 }}>
+                            @{username}
+                        </p>
+                        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, margin: 0 }}>
+                            {totalSubscribers.toLocaleString('en-IN')} subscribers
+                        </p>
+                    </div>
                 </div>
             </div>
         </Link>
@@ -74,16 +113,18 @@ function CreatorCard({ creator }) {
 // ── Skeleton card ─────────────────────────────────────────────────────────────
 function SkeletonCard() {
     return (
-        <div className="glass rounded-2xl overflow-hidden border border-white/5">
-            <div className="skeleton h-24" />
-            <div className="px-4 -mt-8 pb-4">
-                <div className="skeleton w-16 h-16 rounded-full mb-3 ring-2 ring-brand-500/10" />
-                <div className="skeleton h-4 w-32 mb-2" />
-                <div className="skeleton h-3 w-full mb-1" />
-                <div className="skeleton h-3 w-2/3" />
-                <div className="flex justify-between mt-4">
-                    <div className="skeleton h-3 w-20" />
-                    <div className="skeleton h-6 w-20 rounded-full" />
+        <div style={{
+            height: 180, borderRadius: 16, overflow: 'hidden',
+            background: 'linear-gradient(135deg,#1a1a2e,#0d0020)',
+            border: '1px solid rgba(255,255,255,0.05)',
+            position: 'relative',
+        }}>
+            <div className="skeleton" style={{ position: 'absolute', inset: 0 }} />
+            <div style={{ position: 'absolute', bottom: 12, left: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="skeleton" style={{ width: 52, height: 52, borderRadius: '50%' }} />
+                <div>
+                    <div className="skeleton" style={{ height: 14, width: 90, marginBottom: 6, borderRadius: 6 }} />
+                    <div className="skeleton" style={{ height: 10, width: 60, borderRadius: 4 }} />
                 </div>
             </div>
         </div>
