@@ -40,15 +40,15 @@ const generateAndSendOtp = async (user) => {
     await user.save({ validateBeforeSave: false });
 
     // Send email
-    const smtpConfigured = process.env.SMTP_USER && !process.env.SMTP_USER.includes('placeholder');
-    if (smtpConfigured) {
+    const emailConfigured = !!(process.env.RESEND_API_KEY || process.env.SMTP_USER);
+    if (emailConfigured) {
         try {
             await sendOtpEmail({ name: user.name, email: user.email, otp });
         } catch (emailErr) {
             console.error('Failed to send OTP email:', emailErr.message);
         }
     } else {
-        console.warn(`[DEV - NO SMTP] OTP for ${user.email}: ${otp}`);
+        console.warn(`[DEV - NO EMAIL] OTP for ${user.email}: ${otp}`);
     }
 
     return otp;
@@ -306,8 +306,8 @@ const forgotPasswordService = async (email) => {
     user.passwordResetExpiry = expiry;
     await user.save({ validateBeforeSave: false });
 
-    const smtpConfigured = process.env.SMTP_USER && !process.env.SMTP_USER.includes('placeholder');
-    if (smtpConfigured) {
+    const emailConfigured = !!(process.env.RESEND_API_KEY || process.env.SMTP_USER);
+    if (emailConfigured) {
         try {
             await sendPasswordResetEmail({ name: user.name, email: user.email, token: plainToken });
         } catch (emailErr) {
@@ -320,7 +320,7 @@ const forgotPasswordService = async (email) => {
         }
     } else {
         const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password?token=${plainToken}`;
-        console.warn(`[DEV - NO SMTP] Password reset link for ${user.email}: ${resetUrl}`);
+        console.warn(`[DEV - NO EMAIL] Password reset link for ${user.email}: ${resetUrl}`);
     }
 
     return true;
