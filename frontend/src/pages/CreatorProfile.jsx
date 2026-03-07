@@ -380,62 +380,88 @@ export default function CreatorProfile() {
                                     </button>
                                 </div>
 
-                                {/* ── Vertical action button stack ────────────────── */}
-                                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {/* ── Premium action button stack (Fanvue-style) ── */}
+                                <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
                                     {/* 1. Subscribe / Subscribed */}
                                     {isSubscribed ? (
+                                        /* Subscribed state — clean bordered pill */
                                         <div style={{
-                                            width: '100%', height: 52, borderRadius: 16,
-                                            background: '#1a1a1a',
-                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            width: '100%', height: 58, borderRadius: 999,
+                                            background: 'rgba(255,255,255,0.05)',
+                                            border: '1.5px solid rgba(255,255,255,0.14)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 15,
                                             gap: 8, userSelect: 'none',
                                         }}>
-                                            <svg width="16" height="16" viewBox="0 0 20 20" fill="#4ade80"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                            Subscribed
+                                            <svg width="17" height="17" viewBox="0 0 20 20" fill="#4ade80"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                            <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>Subscribed</span>
                                         </div>
                                     ) : (
+                                        /* Subscribe — bold Fanvue-style pill: text left + price right */
                                         <button
                                             onClick={handleSubscribe}
                                             disabled={subscribing}
                                             style={{
-                                                width: '100%', height: 52, borderRadius: 16, border: 'none',
-                                                background: 'linear-gradient(135deg,#cc52b8,#7c3aed)',
-                                                boxShadow: '0 6px 20px rgba(124,58,237,0.4)',
-                                                color: '#fff', fontWeight: 800, fontSize: 15,
+                                                width: '100%', height: 58, borderRadius: 999, border: 'none',
+                                                background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
+                                                boxShadow: '0 8px 28px rgba(168,85,247,0.45)',
+                                                color: '#fff',
+                                                display: 'flex', alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '0 28px',
                                                 cursor: subscribing ? 'not-allowed' : 'pointer',
                                                 opacity: subscribing ? 0.6 : 1,
-                                                transition: 'all 0.2s ease',
+                                                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                                             }}
+                                            onMouseEnter={e => { if (!subscribing) { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 10px 34px rgba(168,85,247,0.55)'; } }}
+                                            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(168,85,247,0.45)'; }}
                                         >
-                                            {subscribing ? 'Processing…' : subscriptionPrice > 0 ? `Subscribe ₹${subscriptionPrice}/mo` : 'Subscribe Free'}
+                                            <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em' }}>
+                                                {subscribing ? 'Processing…' : 'Join now'}
+                                            </span>
+                                            {!subscribing && subscriptionPrice > 0 && (
+                                                <span style={{
+                                                    background: 'rgba(0,0,0,0.22)',
+                                                    borderRadius: 999, padding: '4px 14px',
+                                                    fontWeight: 700, fontSize: 14,
+                                                    letterSpacing: '-0.01em',
+                                                }}>
+                                                    ₹{subscriptionPrice}/mo
+                                                </span>
+                                            )}
                                         </button>
                                     )}
 
-                                    {/* 2. Send Gift */}
-                                    <button
-                                        onClick={() => setShowGift(true)}
-                                        style={{
-                                            width: '100%', height: 52, borderRadius: 16, border: 'none',
-                                            background: 'linear-gradient(135deg,#ff7a18,#ffb347)',
-                                            boxShadow: '0 4px 16px rgba(255,122,24,0.3)',
-                                            color: '#fff', fontWeight: 700, fontSize: 15,
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center',
-                                            justifyContent: 'center', gap: 8,
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 18 }}>🎁</span> Send Gift
-                                    </button>
+                                    {/* 2. Secondary buttons row: Gift + Chat */}
+                                    <div style={{ display: 'flex', gap: 10 }}>
 
-                                    {/* 3. Chat */}
-                                    <ChatButton
-                                        creatorId={creator?.userId || creator?._id}
-                                        creatorName={displayName}
-                                        isSubscribed={isSubscribed}
-                                        variant="profile"
-                                    />
+                                        {/* Gift button */}
+                                        <button
+                                            onClick={() => setShowGift(true)}
+                                            style={{
+                                                flex: 1, height: 52, borderRadius: 999,
+                                                background: 'rgba(255,255,255,0.07)',
+                                                border: '1.5px solid rgba(255,255,255,0.12)',
+                                                color: '#fff', fontWeight: 700, fontSize: 15,
+                                                cursor: 'pointer', display: 'flex',
+                                                alignItems: 'center', justifyContent: 'center', gap: 7,
+                                                transition: 'background 0.15s ease, border-color 0.15s ease',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                                        >
+                                            <span style={{ fontSize: 19 }}>🎁</span>
+                                            <span>Gift</span>
+                                        </button>
+
+                                        {/* Chat button */}
+                                        <ChatButton
+                                            creatorId={creator?.userId || creator?._id}
+                                            creatorName={displayName}
+                                            isSubscribed={isSubscribed}
+                                            variant="profile"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Name + stats */}
