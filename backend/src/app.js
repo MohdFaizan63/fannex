@@ -75,7 +75,7 @@ const authLimiter = rateLimit({
 // ─── 5. Body Parser (with Razorpay webhook support) ──────────────────────────
 app.use((req, res, next) => {
 
-  if (req.originalUrl === '/api/payment/webhook') {
+  if (req.originalUrl === '/api/v1/payment/webhook') {
 
     express.raw({ type: 'application/json' })(req, res, err => {
       if (err) return next(err);
