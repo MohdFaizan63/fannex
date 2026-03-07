@@ -85,7 +85,6 @@ const router = createBrowserRouter([
                     { path: '/creator/verification-status', element: wrap(VerificationStatus) },
                     { path: '/creator/:username/subscribe', element: wrap(SubscribePage) },
                     { path: '/subscriptions', element: wrap(Subscriptions) },
-                    { path: '/chat/:chatId', element: wrap(Chat) },
                 ],
             },
 
@@ -141,6 +140,14 @@ const router = createBrowserRouter([
 
     // ── 404 ──────────────────────────────────────────────────────────────────
     { path: '*', element: wrap(NotFound) },
+
+    // ── Chat: full-screen, no Navbar/Footer ──────────────────────────────────
+    {
+        element: <ProtectedRoute />,
+        children: [
+            { path: '/chat/:chatId', element: wrap(Chat) },
+        ],
+    },
 ]);
 
 export default function AppRouter() {

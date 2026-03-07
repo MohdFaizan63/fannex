@@ -49,16 +49,13 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
 
     // ── Profile variant — full-width vertical stack ───────────────────────────
     if (variant === 'profile') {
-        // Not logged in → show button, click → login redirect (same as Subscribe)
         const isGuest = !isAuthenticated;
-        const notSubscribed = !isGuest && !isSubscribed;
-        // Only truly disabled when creator hasn't enabled chat AND user is logged in
-        const isClickable = isGuest || isSubscribed;
-        const isDisabled = !isGuest && (notSubscribed || !chatEnabled);
+        // Only truly disabled when creator hasn't enabled chat (and user is logged in)
+        const isDisabled = !isGuest && !chatEnabled;
 
         const handleProfileClick = () => {
             if (isGuest) { navigate(`/login?redirect=/creator/${creatorId}`); return; }
-            if (notSubscribed || !chatEnabled) return;
+            if (!chatEnabled) return;
             handleClick();
         };
 
@@ -69,8 +66,7 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
                     disabled={isDisabled}
                     title={
                         isGuest ? 'Login to chat' :
-                            notSubscribed ? 'Subscribe first to unlock chat' :
-                                !chatEnabled ? 'Creator has not enabled chat' : undefined
+                            !chatEnabled ? 'Creator has not enabled chat' : undefined
                     }
                     style={{
                         flex: 1, height: 52, borderRadius: 999,

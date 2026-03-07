@@ -135,59 +135,82 @@ export default function Chat() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#080810] flex items-center justify-center">
+            <div style={{ height: '100dvh', background: '#080810', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#080810] flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
-            {/* ── Header ──────────────────────────────────────────────────────── */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/8 bg-[#0a0a15]/80 backdrop-blur-md sticky top-16 z-10">
-                <button onClick={() => navigate(-1)} className="text-white/50 hover:text-white transition-colors p-1">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div style={{
+            height: '100dvh',
+            background: '#080810',
+            display: 'flex',
+            flexDirection: 'column',
+            fontFamily: "'Inter', sans-serif",
+            overflow: 'hidden',
+        }}>
+            {/* ── Header ─────────────────────────────────────────────────────── */}
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 16px',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(10,10,21,0.95)',
+                backdropFilter: 'blur(12px)',
+                flexShrink: 0,
+            }}>
+                <button onClick={() => navigate(-1)} style={{ color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}>
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
 
-                <div className="relative">
-                    <div className="w-9 h-9 rounded-full bg-violet-600/40 flex items-center justify-center text-white font-bold text-sm">
+                <div style={{ position: 'relative' }}>
+                    <div style={{
+                        width: 38, height: 38, borderRadius: '50%',
+                        background: 'rgba(124,58,237,0.4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontWeight: 700, fontSize: 14,
+                    }}>
                         {otherName[0]?.toUpperCase()}
                     </div>
                     {isOtherOnline && (
-                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-[#0a0a15]" />
+                        <span style={{
+                            position: 'absolute', bottom: -1, right: -1,
+                            width: 11, height: 11, borderRadius: '50%',
+                            background: '#4ade80', border: '2px solid #080810',
+                        }} />
                     )}
                 </div>
 
                 <div>
-                    <div className="text-white font-semibold text-sm">{otherName}</div>
-                    <div className="text-white/40 text-xs">{isOtherOnline ? '🟢 Online' : 'Offline'}</div>
+                    <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{otherName}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.38)', fontSize: 11 }}>
+                        {isOtherOnline ? '🟢 Online' : 'Offline'}
+                    </div>
                 </div>
 
-                {/* Wallet balance + top-up */}
-                <div className="ml-auto flex items-center gap-2">
+                {/* Right side: wallet + gift */}
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {walletBalance !== null && (
                         <button
                             onClick={() => setShowWallet(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                                color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+                            }}
                             title="Tap to recharge wallet"
                         >
-                            <span>💳</span>
-                            <span>₹{walletBalance}</span>
+                            <span>💳</span><span>₹{walletBalance}</span>
                         </button>
                     )}
-                    {/* Gift button in header */}
-                    <button
-                        onClick={() => setShowGifts(true)}
-                        className="text-xl hover:scale-110 transition-transform"
-                        title="Send a gift"
-                    >🎁</button>
+                    <button onClick={() => setShowGifts(true)} style={{ fontSize: 20, background: 'none', border: 'none', cursor: 'pointer' }} title="Send a gift">🎁</button>
                 </div>
             </div>
 
-            {/* ── Messages ────────────────────────────────────────────────────── */}
+            {/* ── Messages — flex-grows, scrolls internally ──────────────────── */}
             <ChatWindow
                 messages={messages}
                 currentUserId={user?._id}
@@ -202,21 +225,35 @@ export default function Chat() {
                 }}
             />
 
-            {/* ── Input bar ───────────────────────────────────────────────────── */}
-            <div className="border-t border-white/8 bg-[#0a0a15]/80 backdrop-blur-md px-4 py-3 flex items-end gap-3 sticky bottom-0">
-                <button
-                    onClick={() => setShowGifts(true)}
-                    className="text-xl flex-shrink-0 mb-1 hover:scale-110 transition-transform"
-                >🎁</button>
+            {/* ── Input bar — anchored to bottom ─────────────────────────────── */}
+            <div style={{
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(10,10,21,0.95)',
+                backdropFilter: 'blur(12px)',
+                padding: '10px 16px',
+                display: 'flex', alignItems: 'flex-end', gap: 10,
+                flexShrink: 0,
+            }}>
+                <button onClick={() => setShowGifts(true)} style={{ fontSize: 20, flexShrink: 0, marginBottom: 4, background: 'none', border: 'none', cursor: 'pointer' }}>🎁</button>
 
-                <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 min-h-[44px] max-h-[120px] flex items-center">
+                <div style={{
+                    flex: 1,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 24, padding: '10px 16px',
+                    minHeight: 44, maxHeight: 120, display: 'flex', alignItems: 'center',
+                }}>
                     <textarea
                         value={text}
                         onChange={handleTyping}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                         placeholder="Message..."
                         rows={1}
-                        className="flex-1 bg-transparent text-white text-sm resize-none outline-none placeholder:text-white/30 max-h-[80px] overflow-y-auto"
+                        style={{
+                            flex: 1, background: 'transparent', color: '#fff',
+                            fontSize: 14, resize: 'none', outline: 'none',
+                            border: 'none', maxHeight: 80, overflowY: 'auto',
+                        }}
                     />
                 </div>
 
@@ -224,15 +261,21 @@ export default function Chat() {
                     whileTap={{ scale: 0.9 }}
                     onClick={handleSend}
                     disabled={!text.trim()}
-                    className="w-10 h-10 flex-shrink-0 rounded-full bg-violet-600 hover:bg-violet-500 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+                    style={{
+                        width: 40, height: 40, flexShrink: 0, borderRadius: '50%',
+                        background: '#7c3aed', border: 'none', cursor: text.trim() ? 'pointer' : 'not-allowed',
+                        opacity: text.trim() ? 1 : 0.3,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'opacity 0.15s',
+                    }}
                 >
-                    <svg className="w-4 h-4 text-white rotate-90" fill="currentColor" viewBox="0 0 24 24">
+                    <svg width="16" height="16" fill="white" viewBox="0 0 24 24" style={{ transform: 'rotate(90deg)' }}>
                         <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
                     </svg>
                 </motion.button>
             </div>
 
-            {/* ── Gift panel ──────────────────────────────────────────────────── */}
+            {/* ── Gift panel ─────────────────────────────────────────────────── */}
             {showGifts && (
                 <GiftPanel
                     chatId={chatId}
@@ -242,7 +285,7 @@ export default function Chat() {
                 />
             )}
 
-            {/* ── Wallet Recharge Modal ────────────────────────────────────────── */}
+            {/* ── Wallet Recharge Modal ──────────────────────────────────────── */}
             {showWallet && (
                 <WalletRechargeModal
                     currentBalance={walletBalance ?? 0}
