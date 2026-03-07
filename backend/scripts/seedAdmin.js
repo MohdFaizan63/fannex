@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const ADMIN_EMAIL = 'mananfaizanekansh@gmail.com';
-const ADMIN_PASSWORD = 'K#8mP!L9vR2@qNx';
+const ADMIN_PASSWORD = '1e71c3373d872357076a6d8e0c384d53b3dd336eeee2338ceb27d3bbbe02883d';
 const ADMIN_NAME = 'Fannex Admin';
 
 async function seed() {
