@@ -12,12 +12,53 @@ function timeAgo(date) {
     return `${Math.floor(hrs / 24)}d ago`;
 }
 
+// ── Pinch-to-zoom hook ────────────────────────────────────────────────────────
+function usePinchZoom() {
+    const [scale, setScale] = useState(1);
+    const [origin, setOrigin] = useState({ x: 50, y: 50 }); // percent
+    const lastDist = useRef(null);
+    const lastScale = useRef(1);
+
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const mid = (t, rect) => ({
+        x: ((t[0].clientX + t[1].clientX) / 2 - rect.left) / rect.width * 100,
+        y: ((t[0].clientY + t[1].clientY) / 2 - rect.top) / rect.height * 100,
+    });
+
+    const onPinchStart = (e) => {
+        if (e.touches.length !== 2) return;
+        lastDist.current = dist(e.touches);
+        lastScale.current = scale;
+    };
+
+    const onPinchMove = (e) => {
+        if (e.touches.length !== 2 || lastDist.current === null) return;
+        e.preventDefault();
+        const d = dist(e.touches);
+        const factor = d / lastDist.current;
+        const next = Math.min(4, Math.max(1, lastScale.current * factor));
+        setScale(next);
+        const rect = e.currentTarget.getBoundingClientRect();
+        setOrigin(mid(e.touches, rect));
+    };
+
+    const onPinchEnd = (e) => {
+        if (e.touches.length < 2) lastDist.current = null;
+    };
+
+    const resetZoom = () => { setScale(1); setOrigin({ x: 50, y: 50 }); };
+
+    return { scale, origin, resetZoom, onPinchStart, onPinchMove, onPinchEnd };
+}
+
 export default function PostLightbox({
     post, posts, currentIndex, creator, onClose, onChange, currentUser, isSubscribed, onGate,
 }) {
     const [localIdx, setLocalIdx] = useState(currentIndex ?? 0);
-    const [chrome, setChrome] = useState(true); // top/bottom UI visible
+    const [chrome, setChrome] = useState(true);
     const [showComments, setShowComments] = useState(false);
+    const { scale, origin, resetZoom, onPinchStart, onPinchMove, onPinchEnd } = usePinchZoom();
+    const lastTap = useRef(0); // double-tap to reset zoom
 
     const activePost = posts ? posts[localIdx] : post;
     const isAlbum = activePost?.mediaType === 'album' && activePost?.mediaUrls?.length > 1;
@@ -62,16 +103,31 @@ export default function PostLightbox({
         return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
     }, [onClose, goPrev, goNext]);
 
-    const onTS = (e) => { tx0.current = e.touches[0].clientX; ty0.current = e.touches[0].clientY; moved.current = false; };
-    const onTM = (e) => { if (Math.abs(e.touches[0].clientX - tx0.current) > 6 || Math.abs(e.touches[0].clientY - ty0.current) > 6) moved.current = true; };
+    const onTS = (e) => {
+        if (e.touches.length === 2) { onPinchStart(e); return; } // pinch start
+        tx0.current = e.touches[0].clientX;
+        ty0.current = e.touches[0].clientY;
+        moved.current = false;
+    };
+    const onTM = (e) => {
+        if (e.touches.length === 2) { onPinchMove(e); return; } // pinch move
+        if (Math.abs(e.touches[0].clientX - tx0.current) > 6 || Math.abs(e.touches[0].clientY - ty0.current) > 6) moved.current = true;
+    };
     const onTE = (e) => {
+        onPinchEnd(e);
+        if (e.touches.length > 0) return; // still fingers on screen
         if (tx0.current === null) return;
         const dx = e.changedTouches[0].clientX - tx0.current;
         const dy = Math.abs(e.changedTouches[0].clientY - ty0.current);
+        if (scale > 1) { tx0.current = null; return; } // zoomed — don't navigate
         if (Math.abs(dx) > 48 && Math.abs(dx) > dy * 1.4) {
             dx < 0 ? goNext() : goPrev();
         } else if (!moved.current) {
-            setChrome(v => !v);
+            // double-tap = reset zoom, single-tap = toggle chrome
+            const now = Date.now();
+            if (now - lastTap.current < 300) { resetZoom(); }
+            else { setChrome(v => !v); }
+            lastTap.current = now;
         }
         tx0.current = null;
     };
@@ -133,7 +189,12 @@ export default function PostLightbox({
                         autoPlay
                         preload="metadata"
                         className="w-full h-full object-contain"
-                        style={{ maxHeight: '100%' }}
+                        style={{
+                            maxHeight: '100%',
+                            transform: `scale(${scale})`,
+                            transformOrigin: `${origin.x}% ${origin.y}%`,
+                            transition: scale === 1 ? 'transform 0.2s ease' : 'none',
+                        }}
                     />
                 ) : shownUrl ? (
                     <img
@@ -143,15 +204,21 @@ export default function PostLightbox({
                         loading="lazy"
                         draggable={false}
                         className="w-full h-full object-contain select-none"
-                        style={{ maxHeight: '100%' }}
+                        style={{
+                            maxHeight: '100%',
+                            transform: `scale(${scale})`,
+                            transformOrigin: `${origin.x}% ${origin.y}%`,
+                            transition: scale === 1 ? 'transform 0.2s ease' : 'none',
+                            cursor: scale > 1 ? 'grab' : 'default',
+                        }}
                         onError={(e) => { e.target.style.display = 'none'; }}
                     />
                 ) : (
                     <span className="text-5xl opacity-20">🖼️</span>
                 )}
 
-                {/* Prev / Next tap zones — invisible wide strips */}
-                {canPrev && (
+                {/* Prev / Next tap zones — hidden when zoomed in */}
+                {canPrev && scale === 1 && (
                     <button
                         onClick={(e) => { e.stopPropagation(); goPrev(); }}
                         className="absolute left-0 top-0 bottom-0 w-16 z-10"
@@ -159,7 +226,7 @@ export default function PostLightbox({
                         style={{ background: 'transparent' }}
                     />
                 )}
-                {canNext && (
+                {canNext && scale === 1 && (
                     <button
                         onClick={(e) => { e.stopPropagation(); goNext(); }}
                         className="absolute right-0 top-0 bottom-0 w-16 z-10"

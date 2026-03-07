@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import subscriptionService from '../services/subscriptionService';
 import postService from '../services/postService';
 import api from '../services/api';
-import MediaModal from '../components/MediaModal';
+import PostLightbox from '../components/PostLightbox';
 import ChatButton from '../components/chat/ChatButton';
 import LikeButton from '../components/LikeButton';
 import CommentSection from '../components/CommentSection';
@@ -575,23 +575,21 @@ export default function CreatorProfile() {
             </div>
 
             {/* ── Media Modal ────────────────────────────────────────────── */}
-            {
-                modalIndex >= 0 && (
-                    <MediaModal
-                        posts={posts.filter(p => !p.isLocked || isSubscribed)}
-                        currentIndex={(() => {
-                            const viewable = posts.filter(p => !p.isLocked || isSubscribed);
-                            const actualPost = posts[modalIndex];
-                            return viewable.findIndex(p => p._id === actualPost?._id);
-                        })()}
-                        creator={creator}
-                        onClose={() => setModalIndex(-1)}
-                        currentUser={user}
-                        isSubscribed={isSubscribed}
-                        onGate={() => setShowGate(true)}
-                    />
-                )
-            }
+            {modalIndex >= 0 && (
+                <PostLightbox
+                    posts={posts.filter(p => !p.isLocked || isSubscribed)}
+                    currentIndex={(() => {
+                        const viewable = posts.filter(p => !p.isLocked || isSubscribed);
+                        const actualPost = posts[modalIndex];
+                        return Math.max(0, viewable.findIndex(p => p._id === actualPost?._id));
+                    })()}
+                    creator={creator}
+                    onClose={() => setModalIndex(-1)}
+                    currentUser={user}
+                    isSubscribed={isSubscribed}
+                    onGate={() => setShowGate(true)}
+                />
+            )}
 
             {/* ── Subscribe Gate Modal ─────────────────────────────────── */}
             {showGate && (
