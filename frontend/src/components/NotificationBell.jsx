@@ -131,14 +131,25 @@ export default function NotificationBell() {
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/6 flex-shrink-0">
                             <h3 className="text-sm font-bold text-white">Notifications</h3>
-                            {unreadCount > 0 && (
+                            <div className="flex items-center gap-2">
+                                {unreadCount > 0 && (
+                                    <button
+                                        onClick={handleMarkAllRead}
+                                        className="text-xs text-brand-400 hover:text-brand-300 transition-colors font-medium"
+                                    >
+                                        Mark all read
+                                    </button>
+                                )}
                                 <button
-                                    onClick={handleMarkAllRead}
-                                    className="text-xs text-brand-400 hover:text-brand-300 transition-colors font-medium"
+                                    onClick={() => setOpen(false)}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:text-white hover:bg-white/10 transition-all"
+                                    aria-label="Close notifications"
                                 >
-                                    Mark all read
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                 </button>
-                            )}
+                            </div>
                         </div>
 
                         {/* List */}
