@@ -121,7 +121,7 @@ function PostCard({ post, creator, isSubscribed, onSubscribe, onClick, currentUs
                         <video
                             src={mediaUrl}
                             className={`w-full h-full object-cover ${locked ? 'blur-xl brightness-75 scale-110' : ''}`}
-                            muted playsInline loop autoPlay={!locked} preload="metadata"
+                            muted playsInline loop preload="metadata"
                             onClick={() => !locked && onClick?.()}
                         />
                     ) : (
