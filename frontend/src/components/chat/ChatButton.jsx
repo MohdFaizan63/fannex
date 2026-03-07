@@ -26,7 +26,9 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
             .finally(() => setLoading(false));
     }, [creatorId, isAuthenticated, isSelf]);
 
-    if (isSelf || loading) return null;
+    // For 'profile' variant, always render even for guests (clicking → login redirect)
+    if (isSelf) return null;
+    if (loading && variant !== 'profile') return null;
 
     const chatEnabled = status?.profile?.chatEnabled || (status?.profile?.chatPrice && status?.profile?.chatPrice > 0);
     const isPaid = status?.isPaid && status?.chatId;
@@ -47,22 +49,29 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
 
     // ── Profile variant — full-width vertical stack ───────────────────────────
     if (variant === 'profile') {
-        const notSubscribed = !isSubscribed;
-        const isDisabled = notSubscribed || !chatEnabled;
-        const label = notSubscribed
-            ? 'Subscribe to Chat'
-            : !chatEnabled
-                ? 'Chat Unavailable'
-                : isPaid
-                    ? '💬 Open Chat'
-                    : `💬 Chat${price > 0 ? ` — ₹${price}` : ''}`;
+        // Not logged in → show button, click → login redirect (same as Subscribe)
+        const isGuest = !isAuthenticated;
+        const notSubscribed = !isGuest && !isSubscribed;
+        // Only truly disabled when creator hasn't enabled chat AND user is logged in
+        const isClickable = isGuest || isSubscribed;
+        const isDisabled = !isGuest && (notSubscribed || !chatEnabled);
+
+        const handleProfileClick = () => {
+            if (isGuest) { navigate(`/login?redirect=/creator/${creatorId}`); return; }
+            if (notSubscribed || !chatEnabled) return;
+            handleClick();
+        };
 
         return (
             <>
                 <button
-                    onClick={isDisabled ? undefined : handleClick}
+                    onClick={handleProfileClick}
                     disabled={isDisabled}
-                    title={notSubscribed ? 'Subscribe first to unlock chat' : !chatEnabled ? 'Creator has not enabled chat' : undefined}
+                    title={
+                        isGuest ? 'Login to chat' :
+                            notSubscribed ? 'Subscribe first to unlock chat' :
+                                !chatEnabled ? 'Creator has not enabled chat' : undefined
+                    }
                     style={{
                         flex: 1, height: 52, borderRadius: 999,
                         background: isDisabled ? 'rgba(255,255,255,0.03)' : isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)',
@@ -77,7 +86,7 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
                     onMouseLeave={e => { if (!isDisabled) { e.currentTarget.style.background = isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = isPaid ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.12)'; } }}
                 >
                     <span style={{ fontSize: 18 }}>💬</span>
-                    <span>{notSubscribed ? 'Chat' : !chatEnabled ? 'Chat' : isPaid ? 'Open Chat' : 'Chat'}</span>
+                    <span>{isPaid ? 'Open Chat' : 'Chat'}</span>
                 </button>
                 {showUnlock && (
                     <ChatUnlockModal creatorId={creatorId} creatorName={creatorName} chatPrice={price}
