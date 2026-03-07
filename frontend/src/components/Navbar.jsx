@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CreatorOnboardingModal from './onboarding/CreatorOnboardingModal';
@@ -9,6 +9,7 @@ export default function Navbar() {
     const navigate = useNavigate();
 
     const [scrolled, setScrolled] = useState(false);
+    const [headerVis, setHeaderVis] = useState(true); // auto-hide
     const [mobileOpen, setMobileOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -17,15 +18,30 @@ export default function Navbar() {
 
     const searchRef = useRef(null);
     const dropdownRef = useRef(null);
+    const mobileRef = useRef(null);
+    const lastScrollY = useRef(0);
 
-    // Glass blur on scroll
+    // ── Auto-hide header on scroll direction ─────────────────────────────────
     useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 20);
+        const onScroll = () => {
+            const current = window.scrollY;
+            setScrolled(current > 20);
+
+            // Don't hide when near top or menu is open
+            if (current < 60 || mobileOpen) {
+                setHeaderVis(true);
+            } else if (current > lastScrollY.current + 4) {
+                setHeaderVis(false); // scrolling DOWN → hide
+            } else if (current < lastScrollY.current - 4) {
+                setHeaderVis(true);  // scrolling UP   → show
+            }
+            lastScrollY.current = current;
+        };
         window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
-    }, []);
+    }, [mobileOpen]);
 
-    // Close dropdown on outside click
+    // ── Close desktop dropdown on outside click ───────────────────────────────
     useEffect(() => {
         const handler = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -35,6 +51,15 @@ export default function Navbar() {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    // ── Close mobile menu on outside click / overlay tap ────────────────────
+    const closeMobile = useCallback(() => setMobileOpen(false), []);
+
+    // Lock body scroll while mobile menu open
+    useEffect(() => {
+        document.body.style.overflow = mobileOpen ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
+    }, [mobileOpen]);
 
     const handleLogout = () => { logout(); navigate('/'); setDropdownOpen(false); };
 
@@ -47,20 +72,25 @@ export default function Navbar() {
     const navLinkClass = ({ isActive }) =>
         `text-sm font-medium transition-colors ${isActive ? 'text-brand-400' : 'text-surface-300 hover:text-white'}`;
 
+    const mobileLinkClass = ({ isActive }) =>
+        `block py-3.5 px-1 text-base font-semibold border-b border-white/5 transition-colors ${isActive ? 'text-brand-400' : 'text-white/90 hover:text-white'}`;
+
     return (
         <>
-            <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'
-                }`}>
-
+            {/* ── Header ───────────────────────────────────────────────────────── */}
+            <header
+                style={{ transform: headerVis ? 'translateY(0)' : 'translateY(-100%)', transition: 'transform 0.25s ease' }}
+                className={`fixed top-0 inset-x-0 z-50 ${scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'}`}
+            >
                 <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
                     <div className="flex items-center h-16 gap-4">
 
-                        {/* ── Logo ─────────────────────────────────────────────────────── */}
+                        {/* ── Logo ─────────────────────────────────────────────── */}
                         <Link to="/" className="flex-shrink-0 select-none">
                             <span className="text-2xl font-black gradient-text tracking-tight">Fannex</span>
                         </Link>
 
-                        {/* ── Desktop Nav links ─────────────────────────────────────────── */}
+                        {/* ── Desktop Nav links ──────────────────────────────────── */}
                         <nav className="hidden md:flex items-center gap-6 ml-4">
                             <NavLink to="/" className={navLinkClass} end>Home</NavLink>
                             <NavLink to="/explore" className={navLinkClass}>Explore</NavLink>
@@ -68,7 +98,7 @@ export default function Navbar() {
                             {isAdmin && <NavLink to="/admin" className={navLinkClass}>Admin</NavLink>}
                         </nav>
 
-                        {/* ── Search bar (desktop) ──────────────────────────────────────── */}
+                        {/* ── Search bar (desktop) ───────────────────────────────── */}
                         <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-sm mx-4">
                             <div className="relative w-full">
                                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none"
@@ -91,7 +121,7 @@ export default function Navbar() {
                         {/* spacer on mobile */}
                         <div className="flex-1 md:hidden" />
 
-                        {/* ── Desktop right side ─────────────────────────────────────────── */}
+                        {/* ── Desktop right side ─────────────────────────────────── */}
                         <div className="hidden md:flex items-center gap-2">
                             {isAuthenticated ? (
                                 <>
@@ -108,10 +138,8 @@ export default function Navbar() {
 
                                         {dropdownOpen && (
                                             <div className="absolute right-0 mt-2 w-52 glass rounded-xl shadow-2xl border border-white/10 py-1 animate-fade-in-up">
-                                                {/* Profile — always shown */}
                                                 <DropdownLink to="/profile" onClick={() => setDropdownOpen(false)}>👤 My Profile</DropdownLink>
                                                 <div className="border-t border-white/10 my-1" />
-                                                {/* Become a Creator — only for normal users (not fan/creator/admin) */}
                                                 {isAuthenticated && !isCreator && !isAdmin &&
                                                     user?.signupSource !== 'creator_profile' && !user?.creatorReferred && (
                                                         <>
@@ -138,7 +166,6 @@ export default function Navbar() {
                                                             )}
                                                         </>
                                                     )}
-                                                {/* Fan accounts see My Subscriptions in dropdown */}
                                                 {isAuthenticated && !isCreator && !isAdmin && (
                                                     user?.signupSource === 'creator_profile' || !!user?.creatorReferred
                                                 ) && (
@@ -154,7 +181,6 @@ export default function Navbar() {
                                                     <DropdownLink to="/creator/chat" onClick={() => setDropdownOpen(false)}>💬 Chat</DropdownLink>
                                                     <div className="border-t border-white/10 my-1" />
                                                 </>}
-
                                                 {isAdmin && <>
                                                     <DropdownLink to="/admin" onClick={() => setDropdownOpen(false)}>🛡️ Admin</DropdownLink>
                                                     <DropdownLink to="/admin/verifications" onClick={() => setDropdownOpen(false)}>🪪 Verifications</DropdownLink>
@@ -177,7 +203,7 @@ export default function Navbar() {
                             )}
                         </div>
 
-                        {/* ── Mobile: search icon + hamburger ──────────────────────────── */}
+                        {/* ── Mobile: search + notification + hamburger ─────────── */}
                         <div className="flex md:hidden items-center gap-1">
                             <button onClick={() => setSearchOpen((o) => !o)}
                                 className="p-2 rounded-lg text-surface-400 hover:text-white hover:bg-white/10 transition-all" aria-label="Search">
@@ -196,7 +222,7 @@ export default function Navbar() {
                         </div>
                     </div>
 
-                    {/* ── Mobile search bar ────────────────────────────────────────────── */}
+                    {/* ── Mobile search bar ──────────────────────────────────────── */}
                     {searchOpen && (
                         <form onSubmit={handleSearch} className="md:hidden pb-3 animate-fade-in-up">
                             <div className="relative">
@@ -212,37 +238,88 @@ export default function Navbar() {
                             </div>
                         </form>
                     )}
-
-                    {/* ── Mobile menu ──────────────────────────────────────────────────── */}
-                    {mobileOpen && (
-                        <div className="md:hidden glass border-t border-white/10 py-4 flex flex-col gap-3 px-2 animate-fade-in-up">
-                            <NavLink to="/" className={navLinkClass} end onClick={() => setMobileOpen(false)}>Home</NavLink>
-                            <NavLink to="/explore" className={navLinkClass} onClick={() => setMobileOpen(false)}>Explore</NavLink>
-                            {isCreator && <NavLink to="/dashboard" className={navLinkClass} onClick={() => setMobileOpen(false)}>Dashboard</NavLink>}
-                            {isAdmin && <NavLink to="/admin" className={navLinkClass} onClick={() => setMobileOpen(false)}>Admin</NavLink>}
-                            <div className="border-t border-white/10 pt-3 flex flex-col gap-2">
-                                {isAuthenticated && !isCreator && !isAdmin && (
-                                    <button
-                                        onClick={() => { setOnboardingOpen(true); setMobileOpen(false); }}
-                                        className="btn-brand text-sm font-semibold py-2"
-                                    >
-                                        🚀 Become a Creator
-                                    </button>
-                                )}
-                                {isAuthenticated
-                                    ? <button onClick={handleLogout} className="btn-outline w-full text-red-400 border-red-500/40">Sign out</button>
-                                    : <>
-                                        <Link to="/login" className="btn-outline w-full text-center" onClick={() => setMobileOpen(false)}>Log in</Link>
-                                        <Link to="/register" className="btn-brand  w-full text-center" onClick={() => setMobileOpen(false)}>Sign up free</Link>
-                                    </>
-                                }
-                            </div>
-                        </div>
-                    )}
                 </div>
             </header>
 
-            {/* ── Creator Onboarding Modal ───────────────────────────────────── */}
+            {/* ── Mobile menu overlay + panel (outside header so it covers full screen) ── */}
+            {mobileOpen && (
+                <>
+                    {/* Dark blur overlay — tap to close */}
+                    <div
+                        className="fixed inset-0 z-40 md:hidden"
+                        style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+                        onClick={closeMobile}
+                        aria-hidden="true"
+                    />
+
+                    {/* Premium slide-down panel */}
+                    <div
+                        ref={mobileRef}
+                        className="fixed top-16 left-4 right-4 z-50 md:hidden rounded-[18px] px-5 py-5 flex flex-col gap-1"
+                        style={{
+                            background: '#121212',
+                            boxShadow: '0 15px 40px rgba(0,0,0,0.6)',
+                            animation: 'mobileMenuIn 0.25s ease forwards',
+                        }}
+                    >
+                        {/* Nav links */}
+                        <NavLink to="/" className={mobileLinkClass} end onClick={closeMobile}>Home</NavLink>
+                        <NavLink to="/explore" className={mobileLinkClass} onClick={closeMobile}>Explore</NavLink>
+                        {isCreator && <NavLink to="/dashboard" className={mobileLinkClass} onClick={closeMobile}>📊 Dashboard</NavLink>}
+                        {isAdmin && <NavLink to="/admin" className={mobileLinkClass} onClick={closeMobile}>🛡️ Admin</NavLink>}
+
+                        {/* Divider */}
+                        <div className="my-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+
+                        {/* Auth section */}
+                        <div className="flex flex-col gap-3 mt-1">
+                            {isAuthenticated ? (
+                                <>
+                                    {!isCreator && !isAdmin && (
+                                        <button
+                                            onClick={() => { setOnboardingOpen(true); closeMobile(); }}
+                                            className="w-full h-12 rounded-xl font-semibold text-sm text-white"
+                                            style={{ background: 'linear-gradient(90deg,#ff3bd4,#7b5cff)' }}
+                                        >
+                                            🚀 Become a Creator
+                                        </button>
+                                    )}
+                                    <button onClick={() => { handleLogout(); closeMobile(); }}
+                                        className="w-full h-12 rounded-xl font-semibold text-sm text-red-400"
+                                        style={{ border: '1px solid rgba(255,255,255,0.12)', background: 'transparent' }}>
+                                        🚪 Sign out
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Login — outlined */}
+                                    <Link to="/login" onClick={closeMobile}
+                                        className="flex items-center justify-center w-full h-12 rounded-xl text-sm font-semibold text-white transition-all hover:bg-white/5"
+                                        style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'transparent' }}>
+                                        Log in
+                                    </Link>
+                                    {/* Sign up — gradient */}
+                                    <Link to="/register" onClick={closeMobile}
+                                        className="flex items-center justify-center w-full h-12 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+                                        style={{ background: 'linear-gradient(90deg,#ff3bd4,#7b5cff)' }}>
+                                        Sign up free
+                                    </Link>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* Slide-in keyframe */}
+            <style>{`
+                @keyframes mobileMenuIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
+
+            {/* ── Creator Onboarding Modal ──────────────────────────────────────── */}
             <CreatorOnboardingModal
                 isOpen={onboardingOpen}
                 onClose={() => setOnboardingOpen(false)}
