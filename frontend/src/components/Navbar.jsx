@@ -245,19 +245,27 @@ export default function Navbar() {
 
                     {/* ── Mobile search bar ──────────────────────────────────────── */}
                     {searchOpen && (
-                        <form ref={searchContainerRef} onSubmit={handleSearch} className="md:hidden pb-3 animate-fade-in-up">
-                            <div className="relative">
-                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none"
-                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
-                                </svg>
-                                <input autoFocus type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search creators…"
-                                    className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm bg-surface-700 border border-surface-600 text-white placeholder-surface-500
+                        <>
+                            {/* Transparent overlay — tap anywhere to close search */}
+                            <div
+                                className="fixed inset-0 z-40 md:hidden"
+                                onClick={() => setSearchOpen(false)}
+                                aria-hidden="true"
+                            />
+                            <form ref={searchContainerRef} onSubmit={handleSearch} className="md:hidden pb-3 animate-fade-in-up relative z-50">
+                                <div className="relative">
+                                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none"
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
+                                    </svg>
+                                    <input autoFocus type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search creators…"
+                                        className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm bg-surface-700 border border-surface-600 text-white placeholder-surface-500
                   focus:outline-none focus:border-brand-500 transition-all" />
-                            </div>
-                        </form>
+                                </div>
+                            </form>
+                        </>
                     )}
                 </div>
             </header>
@@ -286,7 +294,7 @@ export default function Navbar() {
                         {/* Nav links */}
                         <NavLink to="/" className={mobileLinkClass} end onClick={closeMobile}>Home</NavLink>
                         <NavLink to="/explore" className={mobileLinkClass} onClick={closeMobile}>Explore</NavLink>
-                        {isCreator && <NavLink to="/dashboard" className={mobileLinkClass} onClick={closeMobile}>📊 Dashboard</NavLink>}
+                        {isCreator && <NavLink to="/dashboard" className={mobileLinkClass} onClick={closeMobile}>Dashboard</NavLink>}
                         {isAdmin && <NavLink to="/admin" className={mobileLinkClass} onClick={closeMobile}>🛡️ Admin</NavLink>}
 
                         {/* Divider */}
@@ -308,7 +316,7 @@ export default function Navbar() {
                                     <button onClick={() => { handleLogout(); closeMobile(); }}
                                         className="w-full h-12 rounded-xl font-semibold text-sm text-red-400"
                                         style={{ border: '1px solid rgba(255,255,255,0.12)', background: 'transparent' }}>
-                                        🚪 Sign out
+                                        Sign out
                                     </button>
                                 </>
                             ) : (
