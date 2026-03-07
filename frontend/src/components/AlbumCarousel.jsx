@@ -110,26 +110,7 @@ export default function AlbumCarousel({ urls = [], alt = '', className = '', loc
                 />
             )}
 
-            {/* Pill dot indicators — bottom center */}
-            <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
-                {urls.map((_, i) => (
-                    <button
-                        key={i}
-                        onClick={(e) => { e.stopPropagation(); setIndex(i); }}
-                        aria-label={`Slide ${i + 1}`}
-                        style={{
-                            width: i === index ? 16 : 5,
-                            height: 5,
-                            borderRadius: 999,
-                            background: i === index ? '#fff' : 'rgba(255,255,255,0.4)',
-                            transition: 'width 0.22s ease, background 0.2s ease',
-                            padding: 0,
-                            border: 'none',
-                            cursor: 'pointer',
-                        }}
-                    />
-                ))}
-            </div>
+
         </div>
     );
 }
