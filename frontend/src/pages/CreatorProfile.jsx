@@ -609,13 +609,24 @@ export default function CreatorProfile() {
                                                     className={`relative aspect-square bg-surface-900 rounded-xl overflow-hidden group ${!locked ? 'cursor-pointer' : ''}`}>
                                                     {/* Media element */}
                                                     {src && (isVid ? (
-                                                        <video
-                                                            src={src}
-                                                            className={`w-full h-full object-cover transition-all ${locked ? 'blur-xl brightness-75 scale-110' : 'group-hover:scale-105'}`}
-                                                            muted playsInline loop preload="metadata"
-                                                            onMouseEnter={e => !locked && e.target.play().catch(() => { })}
-                                                            onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0; }}
-                                                        />
+                                                        <>
+                                                            <video
+                                                                src={src}
+                                                                className={`w-full h-full object-cover transition-all ${locked ? 'blur-xl brightness-75 scale-110' : 'group-hover:scale-105'}`}
+                                                                muted playsInline preload="metadata"
+                                                            />
+                                                            {/* Play icon overlay */}
+                                                            {!locked && (
+                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                                                                        style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}>
+                                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                                                                            <polygon points="5 3 19 12 5 21 5 3" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     ) : (
                                                         <img src={src} alt="" loading="lazy"
                                                             className={`w-full h-full object-cover transition-all ${locked ? 'blur-xl brightness-75 scale-110' : 'group-hover:scale-105'}`} />
