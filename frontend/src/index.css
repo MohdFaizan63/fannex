@@ -245,11 +245,6 @@ a,
     border-radius: 16px;
   }
 
-  /* Ensure minimum padding on page containers */
-  main {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
 }
 
 /* ── Safe-area padding (notch / home bar) ─────────────────────────────────── */
