@@ -154,7 +154,7 @@ export default function Register() {
                 )}
 
                 {/* OTP Input Boxes */}
-                <div className="flex justify-between gap-2 max-w-[320px] mx-auto mb-6 px-2" onPaste={handleOtpPaste}>
+                <div className="flex justify-center gap-2.5 mb-6" onPaste={handleOtpPaste}>
                     {otpValues.map((val, i) => (
                         <input
                             key={i}
@@ -167,7 +167,7 @@ export default function Register() {
                             onKeyDown={(e) => handleOtpKeyDown(i, e)}
                             disabled={verifying}
                             autoFocus={i === 0}
-                            className={`flex-1 min-w-0 aspect-square max-w-[48px] text-center text-xl font-bold rounded-xl border-2 bg-surface-800/50 text-white outline-none transition-all
+                            className={`w-12 h-14 text-center text-xl font-bold rounded-xl border-2 bg-surface-800/50 text-white outline-none transition-all
                                 ${val ? 'border-brand-500 shadow-[0_0_12px_rgba(204,82,184,0.2)]' : 'border-surface-600'}
                                 focus:border-brand-500 focus:shadow-[0_0_12px_rgba(204,82,184,0.3)]
                                 disabled:opacity-50`}
