@@ -90,12 +90,13 @@ export default function Subscriptions() {
                                         {/* Top-right: View pill button */}
                                         <div style={{ position: 'absolute', top: 10, right: 10 }}>
                                             <span style={{
-                                                background: 'rgba(255,255,255,0.15)',
-                                                backdropFilter: 'blur(8px)',
-                                                border: '1px solid rgba(255,255,255,0.25)',
+                                                background: isActive ? '#16a34a' : 'rgba(255,255,255,0.15)',
+                                                backdropFilter: isActive ? 'none' : 'blur(8px)',
+                                                border: isActive ? '1px solid #15803d' : '1px solid rgba(255,255,255,0.25)',
                                                 color: '#fff',
                                                 fontSize: 12, fontWeight: 700,
                                                 padding: '5px 13px', borderRadius: 999,
+                                                boxShadow: isActive ? '0 2px 8px rgba(22,163,74,0.4)' : 'none',
                                             }}>
                                                 {isActive ? 'Active' : 'Expired'}
                                             </span>
@@ -113,19 +114,21 @@ export default function Subscriptions() {
                                                     src={creator.profileImage}
                                                     alt={creator.displayName}
                                                     style={{
-                                                        width: 44, height: 44, borderRadius: '50%',
+                                                        width: 58, height: 58, borderRadius: '50%',
                                                         objectFit: 'cover', flexShrink: 0,
-                                                        border: '2.5px solid rgba(255,255,255,0.7)',
+                                                        border: '3px solid rgba(255,255,255,0.85)',
                                                         objectPosition: `center ${creator.profileImagePosition ?? 50}%`,
+                                                        boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
                                                     }}
                                                 />
                                             ) : (
                                                 <div style={{
-                                                    width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                                                    width: 58, height: 58, borderRadius: '50%', flexShrink: 0,
                                                     background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    color: '#fff', fontWeight: 700, fontSize: 16,
-                                                    border: '2.5px solid rgba(255,255,255,0.7)',
+                                                    color: '#fff', fontWeight: 700, fontSize: 18,
+                                                    border: '3px solid rgba(255,255,255,0.85)',
+                                                    boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
                                                 }}>
                                                     {creator.displayName?.charAt(0)?.toUpperCase() || '?'}
                                                 </div>
