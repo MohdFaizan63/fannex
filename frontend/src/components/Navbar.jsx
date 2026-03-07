@@ -17,6 +17,7 @@ export default function Navbar() {
     const [onboardingOpen, setOnboardingOpen] = useState(false);
 
     const searchRef = useRef(null);
+    const searchContainerRef = useRef(null);
     const dropdownRef = useRef(null);
     const mobileRef = useRef(null);
     const lastScrollY = useRef(0);
@@ -51,6 +52,26 @@ export default function Navbar() {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    // ── Close mobile search on outside click ──────────────────────────────────
+    useEffect(() => {
+        if (!searchOpen) return;
+        const handler = (e) => {
+            if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+                setSearchOpen(false);
+            }
+        };
+        // small delay so the button's own toggle click isn't caught immediately
+        const t = setTimeout(() => {
+            document.addEventListener('mousedown', handler);
+            document.addEventListener('touchstart', handler);
+        }, 50);
+        return () => {
+            clearTimeout(t);
+            document.removeEventListener('mousedown', handler);
+            document.removeEventListener('touchstart', handler);
+        };
+    }, [searchOpen]);
 
     // ── Close mobile menu on outside click / overlay tap ────────────────────
     const closeMobile = useCallback(() => setMobileOpen(false), []);
@@ -224,7 +245,7 @@ export default function Navbar() {
 
                     {/* ── Mobile search bar ──────────────────────────────────────── */}
                     {searchOpen && (
-                        <form onSubmit={handleSearch} className="md:hidden pb-3 animate-fade-in-up">
+                        <form ref={searchContainerRef} onSubmit={handleSearch} className="md:hidden pb-3 animate-fade-in-up">
                             <div className="relative">
                                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none"
                                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
