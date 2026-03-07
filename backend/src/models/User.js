@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema(
         isVerified: { type: Boolean, default: false },
         isBanned: { type: Boolean, default: false },
         subscriptions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subscription' }],
+        walletBalance: { type: Number, default: 0, min: 0 }, // fan wallet for paid chat
         signupSource: { type: String, enum: ['user_default', 'creator_profile', 'google'], default: 'user_default' },
         creatorReferred: { type: String, default: '' },
 

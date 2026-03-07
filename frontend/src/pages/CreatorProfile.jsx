@@ -10,6 +10,7 @@ import LikeButton from '../components/LikeButton';
 import CommentSection from '../components/CommentSection';
 import SubscribeGateModal from '../components/SubscribeGateModal';
 import AlbumCarousel from '../components/AlbumCarousel';
+import GiftModal from '../components/GiftModal';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function timeAgo(date) {
@@ -247,6 +248,7 @@ export default function CreatorProfile() {
     const [copied, setCopied] = useState(false);
     const [modalIndex, setModalIndex] = useState(-1);
     const [showGate, setShowGate] = useState(false);
+    const [showGift, setShowGift] = useState(false);
 
     // ── Load creator profile ─────────────────────────────────────────────────
     useEffect(() => {
@@ -365,37 +367,79 @@ export default function CreatorProfile() {
                             {/* Profile header */}
                             <div className="relative z-10 px-4 sm:px-6 -mt-[58px]">
                                 <div className="flex items-end justify-between">
+                                    {/* Avatar */}
                                     <Avatar src={profileImage} name={displayName} size="lg" objectPosition={profileImagePosition} />
-                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                        {/* Share */}
-                                        <button onClick={handleShare}
-                                            className="p-2.5 rounded-full glass border border-white/10 text-surface-400 hover:text-white hover:border-white/20 transition-all"
-                                            title="Share profile">
-                                            {copied
-                                                ? <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
+
+                                    {/* Share icon — top right */}
+                                    <button onClick={handleShare}
+                                        className="mb-1 p-2.5 rounded-full glass border border-white/10 text-surface-400 hover:text-white hover:border-white/20 transition-all"
+                                        title="Share profile">
+                                        {copied
+                                            ? <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                            : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
+                                    </button>
+                                </div>
+
+                                {/* ── Vertical action button stack ────────────────── */}
+                                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                                    {/* 1. Subscribe / Subscribed */}
+                                    {isSubscribed ? (
+                                        <div style={{
+                                            width: '100%', height: 52, borderRadius: 16,
+                                            background: '#1a1a1a',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 15,
+                                            gap: 8, userSelect: 'none',
+                                        }}>
+                                            <svg width="16" height="16" viewBox="0 0 20 20" fill="#4ade80"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                            Subscribed
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleSubscribe}
+                                            disabled={subscribing}
+                                            style={{
+                                                width: '100%', height: 52, borderRadius: 16, border: 'none',
+                                                background: 'linear-gradient(135deg,#cc52b8,#7c3aed)',
+                                                boxShadow: '0 6px 20px rgba(124,58,237,0.4)',
+                                                color: '#fff', fontWeight: 800, fontSize: 15,
+                                                cursor: subscribing ? 'not-allowed' : 'pointer',
+                                                opacity: subscribing ? 0.6 : 1,
+                                                transition: 'all 0.2s ease',
+                                            }}
+                                        >
+                                            {subscribing ? 'Processing…' : subscriptionPrice > 0 ? `Subscribe ₹${subscriptionPrice}/mo` : 'Subscribe Free'}
                                         </button>
-                                        {/* Subscribe */}
-                                        {isSubscribed ? (
-                                            <div className="flex items-center gap-2 px-5 py-2.5 rounded-full glass border border-brand-500/40 text-brand-400 text-sm font-semibold select-none">
-                                                ✓ Subscribed
-                                            </div>
-                                        ) : (
-                                            <button onClick={handleSubscribe} disabled={subscribing}
-                                                className="btn-brand px-6 py-2.5 rounded-full text-sm font-bold disabled:opacity-60">
-                                                {subscribing ? 'Processing…' : subscriptionPrice > 0 ? `Subscribe ₹${subscriptionPrice}/mo` : 'Subscribe Free'}
-                                            </button>
-                                        )}
-                                        {/* Chat button */}
-                                        <ChatButton
-                                            creatorId={creator?.userId || creator?._id}
-                                            creatorName={displayName}
-                                        />
-                                    </div>
+                                    )}
+
+                                    {/* 2. Send Gift */}
+                                    <button
+                                        onClick={() => setShowGift(true)}
+                                        style={{
+                                            width: '100%', height: 52, borderRadius: 16, border: 'none',
+                                            background: 'linear-gradient(135deg,#ff7a18,#ffb347)',
+                                            boxShadow: '0 4px 16px rgba(255,122,24,0.3)',
+                                            color: '#fff', fontWeight: 700, fontSize: 15,
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', gap: 8,
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 18 }}>🎁</span> Send Gift
+                                    </button>
+
+                                    {/* 3. Chat */}
+                                    <ChatButton
+                                        creatorId={creator?.userId || creator?._id}
+                                        creatorName={displayName}
+                                        isSubscribed={isSubscribed}
+                                        variant="profile"
+                                    />
                                 </div>
 
                                 {/* Name + stats */}
-                                <div className="mt-4">
+                                <div className="mt-5">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <h1 className="text-2xl font-black text-white">{displayName}</h1>
                                         {creator.creatorType === 'ai' && (
@@ -411,23 +455,6 @@ export default function CreatorProfile() {
                                         <span><strong className="text-white">{totalSubscribers.toLocaleString('en-IN')}</strong> <span className="text-surface-500">subscribers</span></span>
                                     </div>
                                 </div>
-
-                                {/* Subscribe CTA banner for non-subscribers */}
-                                {!isSubscribed && lockedCount > 0 && (
-                                    <div className="mt-5 glass border border-brand-500/30 rounded-2xl px-5 py-4 flex items-center gap-4">
-                                        <span className="text-2xl">🔒</span>
-                                        <div className="flex-1">
-                                            <p className="text-white font-semibold text-sm">
-                                                {subscriptionPrice > 0 ? `Join for ₹${subscriptionPrice}/month` : 'Subscribe to unlock content'}
-                                            </p>
-                                            <p className="text-surface-400 text-xs mt-0.5">{lockedCount} locked post{lockedCount !== 1 ? 's' : ''}</p>
-                                        </div>
-                                        <button onClick={handleSubscribe}
-                                            className="btn-brand px-5 py-2 text-sm rounded-full shrink-0">
-                                            Subscribe
-                                        </button>
-                                    </div>
-                                )}
                             </div>
 
                             {/* ── Tabs ─────────────────────────────────────────── */}
@@ -597,6 +624,16 @@ export default function CreatorProfile() {
                     creatorName={creator?.displayName}
                     creatorUsername={creator?.username}
                     onClose={() => setShowGate(false)}
+                />
+            )}
+
+            {/* ── Gift Modal ────────────────────────────────────────────── */}
+            {showGift && (
+                <GiftModal
+                    creatorId={creator?.userId || creator?._id}
+                    creatorName={creator?.displayName}
+                    onClose={() => setShowGift(false)}
+                    onSuccess={() => setShowGift(false)}
                 />
             )}
         </>

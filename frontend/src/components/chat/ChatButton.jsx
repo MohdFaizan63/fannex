@@ -6,17 +6,16 @@ import ChatUnlockModal from './ChatUnlockModal';
 
 /**
  * ChatButton — placed on creator profile pages and post-subscription success screens.
- * Always shows for creators (unless viewing own profile).
- * Handles: not-logged-in → login, chat-unavailable → info, not-paid → payment, paid → open chat.
+ * Variants: 'default' (pill), 'banner' (large), 'profile' (full-width vertical stack).
+ * isSubscribed prop is used by 'profile' variant to gate chat access.
  */
-export default function ChatButton({ creatorId, creatorName, chatPrice: propPrice, className = '', variant = 'default' }) {
+export default function ChatButton({ creatorId, creatorName, chatPrice: propPrice, className = '', variant = 'default', isSubscribed = true }) {
     const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
-    const [status, setStatus] = useState(null); // { isPaid, chatId, profile }
+    const [status, setStatus] = useState(null);
     const [showUnlock, setShowUnlock] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    // Don't show chat button to the creator themselves
     const isSelf = user?._id === creatorId || user?._id?.toString() === creatorId?.toString();
 
     useEffect(() => {
@@ -34,15 +33,9 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
     const price = propPrice ?? status?.profile?.chatPrice ?? 199;
 
     const handleClick = () => {
-        if (!isAuthenticated) {
-            navigate(`/login?redirect=/creator/${creatorId}`);
-            return;
-        }
-        if (!chatEnabled) return; // button is shown but disabled
-        if (isPaid && status?.chatId) {
-            navigate(`/chat/${status.chatId}`);
-            return;
-        }
+        if (!isAuthenticated) { navigate(`/login?redirect=/creator/${creatorId}`); return; }
+        if (!chatEnabled) return;
+        if (isPaid && status?.chatId) { navigate(`/chat/${status.chatId}`); return; }
         setShowUnlock(true);
     };
 
@@ -52,9 +45,47 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
         navigate(`/chat/${chatId}`);
     };
 
-    // ── Variants ──────────────────────────────────────────────────────────────
+    // ── Profile variant — full-width vertical stack ───────────────────────────
+    if (variant === 'profile') {
+        const notSubscribed = !isSubscribed;
+        const isDisabled = notSubscribed || !chatEnabled;
+        const label = notSubscribed
+            ? 'Subscribe to Chat'
+            : !chatEnabled
+                ? 'Chat Unavailable'
+                : isPaid
+                    ? '💬 Open Chat'
+                    : `💬 Chat${price > 0 ? ` — ₹${price}` : ''}`;
+
+        return (
+            <>
+                <button
+                    onClick={isDisabled ? undefined : handleClick}
+                    disabled={isDisabled}
+                    title={notSubscribed ? 'Subscribe first to unlock chat' : !chatEnabled ? 'Creator has not enabled chat' : undefined}
+                    style={{
+                        width: '100%', height: 52, borderRadius: 16,
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        background: isDisabled ? '#141414' : isPaid ? 'rgba(74,222,128,0.12)' : '#1c1c1c',
+                        color: isDisabled ? 'rgba(255,255,255,0.25)' : isPaid ? '#4ade80' : 'rgba(255,255,255,0.75)',
+                        fontWeight: 700, fontSize: 15,
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: 'all 0.2s ease',
+                    }}
+                >
+                    {label}
+                </button>
+                {showUnlock && (
+                    <ChatUnlockModal creatorId={creatorId} creatorName={creatorName} chatPrice={price}
+                        onSuccess={handleUnlocked} onClose={() => setShowUnlock(false)} />
+                )}
+            </>
+        );
+    }
+
+    // ── Banner variant ────────────────────────────────────────────────────────
     if (variant === 'banner') {
-        // Large premium banner style — used after subscription success
         return (
             <>
                 <button
@@ -68,21 +99,14 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
                         } ${className}`}
                 >
                     <span className="text-xl">💬</span>
-                    <span>
-                        {!chatEnabled ? 'Chat Unavailable' : isPaid ? 'Open Chat' : `Chat with ${creatorName} — ₹${price}`}
-                    </span>
+                    <span>{!chatEnabled ? 'Chat Unavailable' : isPaid ? 'Open Chat' : `Chat with ${creatorName} — ₹${price}`}</span>
                     {chatEnabled && !isPaid && (
                         <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     )}
                 </button>
                 {showUnlock && (
-                    <ChatUnlockModal
-                        creatorId={creatorId}
-                        creatorName={creatorName}
-                        chatPrice={price}
-                        onSuccess={handleUnlocked}
-                        onClose={() => setShowUnlock(false)}
-                    />
+                    <ChatUnlockModal creatorId={creatorId} creatorName={creatorName} chatPrice={price}
+                        onSuccess={handleUnlocked} onClose={() => setShowUnlock(false)} />
                 )}
             </>
         );
@@ -103,21 +127,11 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
                     } ${className}`}
             >
                 <span className="text-base">💬</span>
-                {!chatEnabled
-                    ? 'Chat Unavailable'
-                    : isPaid
-                        ? 'Open Chat'
-                        : `Chat — ₹${price}`}
+                {!chatEnabled ? 'Chat Unavailable' : isPaid ? 'Open Chat' : `Chat — ₹${price}`}
             </button>
-
             {showUnlock && (
-                <ChatUnlockModal
-                    creatorId={creatorId}
-                    creatorName={creatorName}
-                    chatPrice={price}
-                    onSuccess={handleUnlocked}
-                    onClose={() => setShowUnlock(false)}
-                />
+                <ChatUnlockModal creatorId={creatorId} creatorName={creatorName} chatPrice={price}
+                    onSuccess={handleUnlocked} onClose={() => setShowUnlock(false)} />
             )}
         </>
     );

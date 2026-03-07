@@ -328,10 +328,37 @@ const sendMessage = async (req, res, next) => {
             room.creatorId.toString() === senderId.toString();
         if (!isParticipant) return res.status(403).json({ success: false, message: 'Forbidden' });
 
+        const isCreator = room.creatorId.toString() === senderId.toString();
+
+        // ── Wallet deduction for fan messages ─────────────────────────────────
+        if (!isCreator) {
+            const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('chatPrice');
+            const msgCost = profile?.chatPrice ?? 0;
+
+            if (msgCost > 0) {
+                const fan = await User.findById(senderId).select('walletBalance');
+                if (!fan || (fan.walletBalance ?? 0) < msgCost) {
+                    return res.status(402).json({
+                        success: false,
+                        message: 'Insufficient wallet balance. Please top up to continue chatting.',
+                        required: msgCost,
+                        walletBalance: fan?.walletBalance ?? 0,
+                    });
+                }
+                // Deduct from wallet and credit creator
+                await User.findByIdAndUpdate(senderId, { $inc: { walletBalance: -msgCost } });
+                await Earnings.findOneAndUpdate(
+                    { creatorId: room.creatorId },
+                    { $inc: { totalEarned: msgCost, pendingAmount: msgCost } },
+                    { upsert: true }
+                );
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         const message = await ChatMessage.create({ chatId, senderId, type, content });
 
         // Update room's last message
-        const isCreator = room.creatorId.toString() === senderId.toString();
         await ChatRoom.findByIdAndUpdate(chatId, {
             lastMessage: content,
             lastMessageAt: new Date(),

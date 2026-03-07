@@ -154,4 +154,172 @@ const checkSubscriptionStatus = async (req, res, next) => {
     }
 };
 
-module.exports = { createOrder, verifyPayment, cancelSubscription, handleWebhook, checkSubscriptionStatus };
+module.exports = { createOrder, verifyPayment, cancelSubscription, handleWebhook, checkSubscriptionStatus, createGiftOrder, verifyGift, createWalletOrder, verifyWalletRecharge, getWalletBalance };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GIFT PAYMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+// @desc  Create Razorpay order for a gift to a creator
+// @route POST /api/payment/gift-order
+// @access Private (user)
+async function createGiftOrder(req, res, next) {
+    try {
+        const { creatorId, amount } = req.body;
+        const userId = req.user._id;
+
+        if (!creatorId || !amount || amount < 1) {
+            return res.status(400).json({ success: false, message: 'Invalid gift amount' });
+        }
+
+        const creatorProfile = await CreatorProfile.findOne({ userId: creatorId });
+        if (!creatorProfile) {
+            return res.status(404).json({ success: false, message: 'Creator not found' });
+        }
+
+        const minGift = creatorProfile.minGift ?? 50;
+        const maxGift = creatorProfile.maxGift ?? 10000;
+        if (amount < minGift || amount > maxGift) {
+            return res.status(400).json({ success: false, message: `Gift must be between ₹${minGift} and ₹${maxGift}` });
+        }
+
+        const order = await paymentService.createOrder({
+            amount,
+            currency: 'INR',
+            receipt: `gift_${userId.toString().slice(-6)}_${Date.now().toString().slice(-8)}`,
+            notes: { userId: userId.toString(), creatorId: creatorId.toString(), type: 'gift' },
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                order: { id: order.id, amount: order.amount, currency: order.currency },
+                keyId: process.env.RAZORPAY_KEY_ID,
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// @desc  Verify gift payment and credit creator
+// @route POST /api/payment/gift-verify
+// @access Private (user)
+async function verifyGift(req, res, next) {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, creatorId, amount } = req.body;
+        const userId = req.user._id;
+
+        const isValid = paymentService.verifyPaymentSignature({
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+        });
+        if (!isValid) return res.status(400).json({ success: false, message: 'Invalid payment signature' });
+
+        const Payment = require('../models/Payment');
+        const Earnings = require('../models/Earnings');
+
+        await Payment.create({
+            userId,
+            creatorId,
+            amount,
+            currency: 'INR',
+            type: 'gift',
+            giftAmount: amount,
+            status: 'captured',
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+        });
+
+        // Credit creator earnings (90% to creator, platform keeps 10%)
+        const creatorCut = Math.floor(amount * 0.9);
+        await Earnings.findOneAndUpdate(
+            { creatorId },
+            { $inc: { totalEarned: creatorCut, pendingAmount: creatorCut } },
+            { upsert: true, new: true }
+        );
+
+        res.status(200).json({ success: true, message: 'Gift sent successfully!' });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WALLET RECHARGE
+// ─────────────────────────────────────────────────────────────────────────────
+
+// @desc  Create Razorpay order for wallet top-up
+// @route POST /api/payment/wallet-order
+// @access Private (user)
+async function createWalletOrder(req, res, next) {
+    try {
+        const { amount } = req.body;
+        const userId = req.user._id;
+
+        const allowed = [100, 500, 1000, 2000];
+        if (!allowed.includes(Number(amount))) {
+            return res.status(400).json({ success: false, message: 'Choose ₹100, ₹500, ₹1000 or ₹2000' });
+        }
+
+        const order = await paymentService.createOrder({
+            amount,
+            currency: 'INR',
+            receipt: `wallet_${userId.toString().slice(-6)}_${Date.now().toString().slice(-8)}`,
+            notes: { userId: userId.toString(), type: 'wallet' },
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                order: { id: order.id, amount: order.amount, currency: order.currency },
+                keyId: process.env.RAZORPAY_KEY_ID,
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// @desc  Verify wallet recharge and credit balance
+// @route POST /api/payment/wallet-verify
+// @access Private (user)
+async function verifyWalletRecharge(req, res, next) {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
+        const User = require('../models/User');
+
+        const isValid = paymentService.verifyPaymentSignature({
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+        });
+        if (!isValid) return res.status(400).json({ success: false, message: 'Invalid payment signature' });
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { $inc: { walletBalance: Number(amount) } },
+            { new: true }
+        );
+
+        res.status(200).json({ success: true, data: { walletBalance: user.walletBalance } });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// @desc  Get current user wallet balance
+// @route GET /api/payment/wallet-balance
+// @access Private (user)
+async function getWalletBalance(req, res, next) {
+    try {
+        const User = require('../models/User');
+        const user = await User.findById(req.user._id).select('walletBalance');
+        res.status(200).json({ success: true, data: { walletBalance: user?.walletBalance ?? 0 } });
+    } catch (err) {
+        next(err);
+    }
+}
+

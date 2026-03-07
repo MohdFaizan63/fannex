@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import chatService, { connectSocket, getSocket } from '../services/chatService';
 import ChatWindow from '../components/chat/ChatWindow';
 import GiftPanel from '../components/chat/GiftPanel';
+import WalletRechargeModal from '../components/WalletRechargeModal';
+import api from '../services/api';
 
 export default function Chat() {
     const { chatId } = useParams();
@@ -17,9 +19,18 @@ export default function Chat() {
     const [isOtherOnline, setIsOtherOnline] = useState(false);
     const [text, setText] = useState('');
     const [showGifts, setShowGifts] = useState(false);
+    const [showWallet, setShowWallet] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(null);
     const [page, setPage] = useState(1);
     const typingTimeout = useRef(null);
     const socketRef = useRef(null);
+
+    // Fetch wallet balance on mount
+    useEffect(() => {
+        api.get('/payments/wallet-balance')
+            .then(r => setWalletBalance(r.data.data.walletBalance))
+            .catch(() => { });
+    }, []);
 
     // ── Load messages ──────────────────────────────────────────────────────────
     const loadMessages = useCallback(async (p = 1) => {
@@ -154,12 +165,26 @@ export default function Chat() {
                     <div className="text-white/40 text-xs">{isOtherOnline ? '🟢 Online' : 'Offline'}</div>
                 </div>
 
-                {/* Gift button in header */}
-                <button
-                    onClick={() => setShowGifts(true)}
-                    className="ml-auto text-xl hover:scale-110 transition-transform"
-                    title="Send a gift"
-                >🎁</button>
+                {/* Wallet balance + top-up */}
+                <div className="ml-auto flex items-center gap-2">
+                    {walletBalance !== null && (
+                        <button
+                            onClick={() => setShowWallet(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}
+                            title="Tap to recharge wallet"
+                        >
+                            <span>💳</span>
+                            <span>₹{walletBalance}</span>
+                        </button>
+                    )}
+                    {/* Gift button in header */}
+                    <button
+                        onClick={() => setShowGifts(true)}
+                        className="text-xl hover:scale-110 transition-transform"
+                        title="Send a gift"
+                    >🎁</button>
+                </div>
             </div>
 
             {/* ── Messages ────────────────────────────────────────────────────── */}
@@ -214,6 +239,15 @@ export default function Chat() {
                     creatorName={otherName}
                     onGiftSent={handleGiftSent}
                     onClose={() => setShowGifts(false)}
+                />
+            )}
+
+            {/* ── Wallet Recharge Modal ────────────────────────────────────────── */}
+            {showWallet && (
+                <WalletRechargeModal
+                    currentBalance={walletBalance ?? 0}
+                    onClose={() => setShowWallet(false)}
+                    onRecharged={(newBal) => setWalletBalance(newBal)}
                 />
             )}
         </div>
