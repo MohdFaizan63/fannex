@@ -1,21 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 /**
- * AlbumCarousel — Instagram-style swipe/arrow image carousel.
- *
- * Props:
- *  urls       – string[]  (array of media URLs)
- *  alt        – string    (alt text base)
- *  className  – string    (applied to wrapper)
- *  locked     – boolean   (blur images when locked)
- *  onImageClick – () => void (optional click handler)
+ * AlbumCarousel — clean swipe carousel for post albums.
+ * No visible arrows by default — swipe or tap left/right thirds to navigate.
+ * Dot indicators show current position.
  */
 export default function AlbumCarousel({ urls = [], alt = '', className = '', locked = false, onImageClick }) {
     const [index, setIndex] = useState(0);
-    const touchRef = useRef({ startX: 0, startY: 0 });
+    const containerRef = useRef(null);
+    const tx0 = useRef(null);
+    const ty0 = useRef(null);
     const total = urls.length;
 
-    // Clamp index when urls change
     useEffect(() => {
         if (index >= total) setIndex(Math.max(0, total - 1));
     }, [total, index]);
@@ -23,18 +19,33 @@ export default function AlbumCarousel({ urls = [], alt = '', className = '', loc
     const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
     const goNext = useCallback(() => setIndex((i) => Math.min(total - 1, i + 1)), [total]);
 
+    // Non-passive touchmove to prevent scroll jitter during horizontal swipe
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const handler = (e) => {
+            if (tx0.current === null) return;
+            const dx = Math.abs(e.touches[0].clientX - tx0.current);
+            const dy = Math.abs(e.touches[0].clientY - ty0.current);
+            if (dx > dy && dx > 8) e.preventDefault();
+        };
+        el.addEventListener('touchmove', handler, { passive: false });
+        return () => el.removeEventListener('touchmove', handler);
+    }, []);
+
     const onTouchStart = (e) => {
-        touchRef.current.startX = e.touches[0].clientX;
-        touchRef.current.startY = e.touches[0].clientY;
+        tx0.current = e.touches[0].clientX;
+        ty0.current = e.touches[0].clientY;
     };
 
     const onTouchEnd = (e) => {
-        const dx = e.changedTouches[0].clientX - touchRef.current.startX;
-        const dy = Math.abs(e.changedTouches[0].clientY - touchRef.current.startY);
+        if (tx0.current === null) return;
+        const dx = e.changedTouches[0].clientX - tx0.current;
+        const dy = Math.abs(e.changedTouches[0].clientY - ty0.current);
         if (Math.abs(dx) > 50 && Math.abs(dx) > dy * 1.5) {
-            if (dx < 0) goNext();
-            else goPrev();
+            dx < 0 ? goNext() : goPrev();
         }
+        tx0.current = null;
     };
 
     if (total === 0) return null;
@@ -45,7 +56,7 @@ export default function AlbumCarousel({ urls = [], alt = '', className = '', loc
                     src={urls[0]}
                     alt={alt}
                     loading="lazy"
-                    className={`w-full h-full object-cover transition-all duration-500 ${locked ? 'blur-xl brightness-75 scale-110' : 'hover:scale-105'}`}
+                    className={`w-full h-full object-cover transition-transform duration-500 ${locked ? 'blur-xl brightness-75 scale-110' : 'hover:scale-105'}`}
                 />
             </div>
         );
@@ -53,14 +64,19 @@ export default function AlbumCarousel({ urls = [], alt = '', className = '', loc
 
     return (
         <div
+            ref={containerRef}
             className={`relative overflow-hidden select-none ${className}`}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
         >
-            {/* Slide container */}
+            {/* Slide strip */}
             <div
-                className="flex transition-transform duration-300 ease-out h-full"
-                style={{ transform: `translateX(-${index * 100}%)` }}
+                className="flex h-full"
+                style={{
+                    transform: `translateX(-${index * 100}%)`,
+                    transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+                    willChange: 'transform',
+                }}
             >
                 {urls.map((url, i) => (
                     <div key={i} className="w-full flex-shrink-0 h-full" onClick={!locked ? onImageClick : undefined}>
@@ -69,62 +85,64 @@ export default function AlbumCarousel({ urls = [], alt = '', className = '', loc
                             alt={`${alt} ${i + 1}`}
                             loading="lazy"
                             className={`w-full h-full object-cover ${locked ? 'blur-xl brightness-75 scale-110' : ''}`}
+                            style={{ willChange: 'transform' }}
                         />
                     </div>
                 ))}
             </div>
 
-            {/* Counter badge */}
-            <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs text-white/80 font-medium z-10">
-                {index + 1} / {total}
+            {/* Counter badge — top right only */}
+            <div
+                className="absolute top-2.5 right-2.5 z-10 text-xs font-semibold text-white"
+                style={{
+                    background: 'rgba(0,0,0,0.55)',
+                    backdropFilter: 'blur(6px)',
+                    borderRadius: '20px',
+                    padding: '3px 10px',
+                    letterSpacing: '0.02em',
+                }}
+            >
+                {index + 1}/{total}
             </div>
 
-            {/* Album icon badge */}
-            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm p-1.5 rounded-lg z-10">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
-            </div>
-
-            {/* Prev arrow */}
+            {/* Invisible prev/next tap zones (left/right thirds) */}
             {index > 0 && (
                 <button
                     onClick={(e) => { e.stopPropagation(); goPrev(); }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center hover:bg-white/15 transition-all"
+                    className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+                    style={{ background: 'transparent' }}
                     aria-label="Previous"
-                >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
+                />
             )}
-
-            {/* Next arrow */}
             {index < total - 1 && (
                 <button
                     onClick={(e) => { e.stopPropagation(); goNext(); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center hover:bg-white/15 transition-all"
+                    className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+                    style={{ background: 'transparent' }}
                     aria-label="Next"
-                >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
-                </button>
+                />
             )}
 
-            {/* Dot indicators */}
-            {total <= 10 && (
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
-                    {urls.map((_, i) => (
-                        <button
-                            key={i}
-                            onClick={(e) => { e.stopPropagation(); setIndex(i); }}
-                            className={`w-1.5 h-1.5 rounded-full transition-all ${i === index ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/60'}`}
-                            aria-label={`Go to ${i + 1}`}
-                        />
-                    ))}
-                </div>
-            )}
+            {/* Pill dot indicators — bottom center */}
+            <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1">
+                {urls.map((_, i) => (
+                    <button
+                        key={i}
+                        onClick={(e) => { e.stopPropagation(); setIndex(i); }}
+                        aria-label={`Slide ${i + 1}`}
+                        style={{
+                            width: i === index ? 16 : 5,
+                            height: 5,
+                            borderRadius: 999,
+                            background: i === index ? '#fff' : 'rgba(255,255,255,0.4)',
+                            transition: 'width 0.22s ease, background 0.2s ease',
+                            padding: 0,
+                            border: 'none',
+                            cursor: 'pointer',
+                        }}
+                    />
+                ))}
+            </div>
         </div>
     );
 }

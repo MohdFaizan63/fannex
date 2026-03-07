@@ -109,10 +109,8 @@ export default function PostLightbox({
         ty0.current = e.touches[0].clientY;
         moved.current = false;
     };
-    const onTM = (e) => {
-        if (e.touches.length === 2) { onPinchMove(e); return; } // pinch move
-        if (Math.abs(e.touches[0].clientX - tx0.current) > 6 || Math.abs(e.touches[0].clientY - ty0.current) > 6) moved.current = true;
-    };
+    // onTM is now handled by non-passive useEffect listener (to allow preventDefault)
+    const onTM = undefined; // kept for clarity — not used on element directly
     const onTE = (e) => {
         onPinchEnd(e);
         if (e.touches.length > 0) return; // still fingers on screen
@@ -136,6 +134,24 @@ export default function PostLightbox({
 
     const totalSlides = isAlbum ? albumLen : (posts?.length ?? 1);
     const slideIdx = isAlbum ? albumIdx : localIdx;
+
+    // Non-passive touchmove ref — needed to call preventDefault (stops scroll jitter)
+    const mediaRef = useRef(null);
+    useEffect(() => {
+        const el = mediaRef.current;
+        if (!el) return;
+        const handler = (e) => {
+            if (e.touches.length === 2) { onPinchMove(e); return; }
+            if (tx0.current === null) return;
+            const dx = Math.abs(e.touches[0].clientX - tx0.current);
+            const dy = Math.abs(e.touches[0].clientY - ty0.current);
+            // Suppress scroll only for horizontal swipes
+            if (dx > dy && dx > 8) e.preventDefault();
+            if (dx > 6 || dy > 6) moved.current = true;
+        };
+        el.addEventListener('touchmove', handler, { passive: false });
+        return () => el.removeEventListener('touchmove', handler);
+    }, [onPinchMove]);
 
     return (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col" style={{ touchAction: 'none' }}>
@@ -176,10 +192,11 @@ export default function PostLightbox({
 
             {/* ── MEDIA AREA ────────────────────────────────────────────────── */}
             <div
+                ref={mediaRef}
                 className="flex-1 flex items-center justify-center relative overflow-hidden"
                 onTouchStart={onTS}
-                onTouchMove={onTM}
                 onTouchEnd={onTE}
+                style={{ touchAction: 'pan-y' }}
             >
                 {isVideo ? (
                     <video
@@ -210,6 +227,7 @@ export default function PostLightbox({
                             transformOrigin: `${origin.x}% ${origin.y}%`,
                             transition: scale === 1 ? 'transform 0.2s ease' : 'none',
                             cursor: scale > 1 ? 'grab' : 'default',
+                            willChange: 'transform',
                         }}
                         onError={(e) => { e.target.style.display = 'none'; }}
                     />
