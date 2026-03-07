@@ -15,9 +15,11 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
     }, [messages, isTyping]);
 
     return (
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" onScroll={(e) => {
-            if (e.target.scrollTop === 0) onScrollTop?.();
-        }}>
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+            style={{ overscrollBehavior: 'contain' }}
+            onScroll={(e) => {
+                if (e.target.scrollTop === 0) onScrollTop?.();
+            }}>
             {messages.map((msg, i) => {
                 const isMine = msg.senderId === currentUserId || msg.senderId?._id === currentUserId;
                 return (

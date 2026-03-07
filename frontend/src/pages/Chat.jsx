@@ -135,7 +135,7 @@ export default function Chat() {
 
     if (loading) {
         return (
-            <div style={{ height: '100dvh', background: '#080810', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'fixed', inset: 0, background: '#080810', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
@@ -143,7 +143,8 @@ export default function Chat() {
 
     return (
         <div style={{
-            height: '100dvh',
+            position: 'fixed',
+            inset: 0,
             background: '#080810',
             display: 'flex',
             flexDirection: 'column',
