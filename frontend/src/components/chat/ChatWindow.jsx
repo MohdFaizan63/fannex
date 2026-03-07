@@ -55,11 +55,19 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
             onScroll={handleScroll}
         >
             {messages.map((msg, i) => {
-                const isMine = msg.senderId === currentUserId || msg.senderId?._id === currentUserId;
+                // Robust sender ID extraction — handles ObjectId, populated object, or plain string
+                const getSenderId = (m) => {
+                    const s = m.senderId;
+                    if (!s) return '';
+                    if (typeof s === 'object' && s._id) return s._id.toString();
+                    return s.toString();
+                };
+
+                const isMine = getSenderId(msg) === currentUserId?.toString();
                 const prevMsg = messages[i - 1];
                 const nextMsg = messages[i + 1];
-                const prevIsSame = prevMsg && (prevMsg.senderId === msg.senderId || prevMsg.senderId?._id === msg.senderId?._id);
-                const nextIsSame = nextMsg && (nextMsg.senderId === msg.senderId || nextMsg.senderId?._id === msg.senderId?._id);
+                const prevIsSame = prevMsg && getSenderId(prevMsg) === getSenderId(msg);
+                const nextIsSame = nextMsg && getSenderId(nextMsg) === getSenderId(msg);
                 const showTime = shouldShowTimestamp(msg, prevMsg);
                 const isLast = !nextIsSame;
                 const isFirst = !prevIsSame;

@@ -64,7 +64,33 @@ export default function Chat() {
         }
     }, [chatId]);
 
+    // ── Load room info (otherName) ──────────────────────────────────────────────
+    useEffect(() => {
+        const findRoom = (rooms) =>
+            rooms.find(r => String(r._id) === String(chatId));
+
+        chatService.getUserRooms()
+            .then(({ data }) => {
+                const room = findRoom(data?.data ?? []);
+                if (room?.creatorProfile?.displayName) {
+                    setOtherName(room.creatorProfile.displayName);
+                } else if (room?.userId?.name) {
+                    setOtherName(room.userId.name);
+                }
+            })
+            .catch(() => {
+                // If user-side rooms fail, try creator-side (when a creator opens a chat)
+                chatService.getCreatorRooms()
+                    .then(({ data }) => {
+                        const room = findRoom(data?.data ?? []);
+                        if (room?.userId?.name) setOtherName(room.userId.name);
+                    })
+                    .catch(() => { });
+            });
+    }, [chatId]);
+
     useEffect(() => { loadMessages(1); }, [loadMessages]);
+
 
     // ── Socket.io connection ───────────────────────────────────────────────────
     useEffect(() => {
@@ -77,16 +103,26 @@ export default function Chat() {
 
         socket.on('new_message', (msg) => {
             setMessages(prev => {
+                // Robust senderId string extraction
+                const getSid = (v) => {
+                    if (!v) return '';
+                    if (typeof v === 'object' && v._id) return v._id.toString();
+                    return v.toString();
+                };
                 const optimisticIdx = prev.findIndex(
                     (m) =>
                         m._id?.toString().startsWith('opt-') &&
-                        m.senderId?.toString() === msg.senderId?.toString() &&
+                        getSid(m.senderId) === getSid(msg.senderId) &&
                         m.content === msg.content
                 );
                 if (optimisticIdx !== -1) {
                     const updated = [...prev];
                     updated[optimisticIdx] = msg;
                     return updated;
+                }
+                // Deduplicate: skip if exact _id already exists
+                if (prev.some(m => m._id && msg._id && m._id.toString() === msg._id.toString())) {
+                    return prev;
                 }
                 return [...prev, msg];
             });
@@ -120,10 +156,10 @@ export default function Chat() {
         const socket = getSocket();
         socket?.emit('send_message', { chatId, type: 'text', content: trimmed });
 
-        // Optimistic UI
+        // Optimistic UI — senderId must be a plain string to match currentUserId comparison
         setMessages(prev => [...prev, {
             _id: `opt-${Date.now()}`,
-            senderId: user._id,
+            senderId: user._id?.toString(),
             type: 'text',
             content: trimmed,
             createdAt: new Date().toISOString(),
