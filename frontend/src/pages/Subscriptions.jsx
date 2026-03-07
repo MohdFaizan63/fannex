@@ -90,13 +90,12 @@ export default function Subscriptions() {
                                         {/* Top-right: View pill button */}
                                         <div style={{ position: 'absolute', top: 10, right: 10 }}>
                                             <span style={{
-                                                background: isActive ? '#16a34a' : 'rgba(255,255,255,0.15)',
-                                                backdropFilter: isActive ? 'none' : 'blur(8px)',
-                                                border: isActive ? '1px solid #15803d' : '1px solid rgba(255,255,255,0.25)',
+                                                background: 'rgba(255,255,255,0.15)',
+                                                backdropFilter: 'blur(8px)',
+                                                border: '1px solid rgba(255,255,255,0.25)',
                                                 color: '#fff',
                                                 fontSize: 12, fontWeight: 700,
                                                 padding: '5px 13px', borderRadius: 999,
-                                                boxShadow: isActive ? '0 2px 8px rgba(22,163,74,0.4)' : 'none',
                                             }}>
                                                 {isActive ? 'Active' : 'Expired'}
                                             </span>
