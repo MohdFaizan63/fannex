@@ -30,6 +30,9 @@ const postService = {
     /** PATCH /posts/:id/caption */
     updateCaption: (id, caption) => api.patch(`/posts/${id}/caption`, { caption }),
 
+    /** DELETE /posts/:id/media/:index — remove a single media item */
+    removeMedia: (id, index) => api.delete(`/posts/${id}/media/${index}`),
+
     // ── Comments ───────────────────────────────────────────────────────────────
 
     /** GET /posts/:postId/comments — paginated */

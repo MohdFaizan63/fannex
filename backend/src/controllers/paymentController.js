@@ -37,6 +37,7 @@ const createOrder = async (req, res, next) => {
             },
         });
     } catch (error) {
+        console.error('[createOrder] Error:', error?.error?.description || error.message, error);
         next(error);
     }
 };

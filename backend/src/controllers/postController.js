@@ -526,6 +526,58 @@ const updateCaption = async (req, res, next) => {
     }
 };
 
+// @desc    Remove a single media item from a post
+// @route   DELETE /api/posts/:id/media/:index
+// @access  Private (post owner)
+const removeMedia = async (req, res, next) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+        if (post.creatorId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        const idx = parseInt(req.params.index, 10);
+        if (isNaN(idx) || idx < 0 || idx >= post.mediaUrls.length) {
+            return res.status(400).json({ success: false, message: 'Invalid media index' });
+        }
+
+        // Remove from Cloudinary
+        const publicId = post.mediaPublicIds[idx];
+        if (publicId) {
+            try {
+                const cloudinary = require('cloudinary').v2;
+                const resourceType = post.mediaType === 'video' ? 'video' : 'image';
+                await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+            } catch (_) { /* ignore if cloudinary not configured */ }
+        }
+
+        // Remove from arrays
+        post.mediaUrls.splice(idx, 1);
+        post.mediaPublicIds.splice(idx, 1);
+
+        // If no media left, delete the post
+        if (post.mediaUrls.length === 0) {
+            await Promise.all([
+                PostLike.deleteMany({ postId: post._id }),
+                PostComment.deleteMany({ postId: post._id }),
+                post.deleteOne(),
+            ]);
+            return res.status(200).json({ success: true, message: 'Post deleted (no media remaining)', deleted: true });
+        }
+
+        // Update mediaType if album becomes single image
+        if (post.mediaType === 'album' && post.mediaUrls.length === 1) {
+            post.mediaType = 'image';
+        }
+
+        await post.save();
+        res.status(200).json({ success: true, data: post });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createPost,
     getPostsByCreator,
@@ -538,4 +590,5 @@ module.exports = {
     toggleHideComment,
     getPostEngagement,
     updateCaption,
+    removeMedia,
 };

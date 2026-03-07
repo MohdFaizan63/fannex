@@ -30,8 +30,8 @@ const creatorProfileSchema = new mongoose.Schema(
         subscriptionPrice: { type: Number, default: 99 },
 
         // Chat monetisation
-        chatEnabled: { type: Boolean, default: false },
-        chatPrice: { type: Number, default: 199 },    // ₹ per conversation unlock
+        chatEnabled: { type: Boolean, default: true },
+        chatPrice: { type: Number, default: 499 },    // ₹ per conversation unlock
         minGift: { type: Number, default: 50 },       // minimum gift amount
         maxGift: { type: Number, default: 10000 },    // maximum gift amount
 

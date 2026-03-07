@@ -12,6 +12,7 @@ const {
     toggleHideComment,
     getPostEngagement,
     updateCaption,
+    removeMedia,
 } = require('../controllers/postController');
 const { protect, authorize, optionalProtect } = require('../middleware/authMiddleware');
 const { upload, validateFileSizes } = require('../middleware/uploadMiddleware');
@@ -37,6 +38,7 @@ router.post(
 );
 
 router.delete('/:id', protect, authorize('creator', 'admin'), deletePost);
+router.delete('/:id/media/:index', protect, authorize('creator', 'admin'), removeMedia);
 router.patch('/:id/caption', protect, authorize('creator', 'admin'), updateCaption);
 
 // ── Like / Comment (subscribers) ───────────────────────────────────────────────
