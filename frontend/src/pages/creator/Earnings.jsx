@@ -125,18 +125,9 @@ export default function Earnings() {
         <div className="p-6 max-w-5xl">
 
             {/* Header */}
-            <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
-                <div>
-                    <h1 className="text-3xl font-black text-white">Earnings</h1>
-                    <p className="text-surface-400 mt-1">Track your income and request payouts.</p>
-                </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    disabled={!earnings || earnings.pendingAmount <= 0}
-                    className="btn-brand px-7 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    💸 Request Payout
-                </button>
+            <div className="mb-8">
+                <h1 className="text-3xl font-black text-white">Earnings</h1>
+                <p className="text-surface-400 mt-1">Track your income and request payouts.</p>
             </div>
 
             {/* Success message */}
