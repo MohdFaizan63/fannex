@@ -382,6 +382,7 @@ export default function CreatorProfile() {
 
                                 {/* Name + stats — ABOVE buttons */}
                                 <div className="mt-4">
+                                    {/* Name */}
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <h1 className="text-2xl font-black text-white">{displayName}</h1>
                                         {creator.creatorType === 'ai' && (
@@ -390,12 +391,28 @@ export default function CreatorProfile() {
                                     </div>
                                     <p className="text-surface-500 text-sm mt-0.5">@{username}</p>
 
-                                    {bio && <p className="text-surface-300 text-sm mt-3 leading-relaxed max-w-prose">{bio}</p>}
-
-                                    <div className="flex items-center gap-6 mt-3 text-sm">
-                                        <span><strong className="text-white">{posts.length}</strong> <span className="text-surface-500">posts</span></span>
-                                        <span><strong className="text-white">{totalSubscribers.toLocaleString('en-IN')}</strong> <span className="text-surface-500">subscribers</span></span>
+                                    {/* Stats row — Fanvue style with icons, ABOVE bio */}
+                                    <div className="flex items-center gap-4 mt-2.5" style={{ fontSize: 13 }}>
+                                        {/* Posts */}
+                                        <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                                            </svg>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.length}</strong>
+                                            <span>posts</span>
+                                        </span>
+                                        {/* Subscribers */}
+                                        <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z" />
+                                            </svg>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{totalSubscribers.toLocaleString('en-IN')}</strong>
+                                            <span>subscribers</span>
+                                        </span>
                                     </div>
+
+                                    {/* Bio — below stats */}
+                                    {bio && <p className="text-surface-300 text-sm mt-3 leading-relaxed max-w-prose">{bio}</p>}
                                 </div>
 
                                 {/* ── Premium action button stack (Fanvue-style) ── */}
