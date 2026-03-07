@@ -177,7 +177,7 @@ export default function PostLightbox({
     }, [showComments]);
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black flex flex-col" style={{ touchAction: 'none' }}>
+        <div className="fixed inset-x-0 top-0 z-[200] bg-black flex flex-col" style={{ height: '100dvh', touchAction: 'none' }}>
 
             {/* ── TOP BAR ───────────────────────────────────────────────────── */}
             <div
@@ -304,7 +304,8 @@ export default function PostLightbox({
                     opacity: chrome ? 1 : 0,
                     transition: 'opacity 0.2s ease',
                     pointerEvents: chrome ? 'auto' : 'none',
-                    paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+                    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                    flexShrink: 0,
                 }}
             >
                 <div className="px-4 pt-3 pb-1">
