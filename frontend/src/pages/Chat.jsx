@@ -103,30 +103,19 @@ export default function Chat() {
 
         socket.on('new_message', (msg) => {
             setMessages(prev => {
-                // Robust senderId string extraction
-                const getSid = (v) => {
-                    if (!v) return '';
-                    if (typeof v === 'object' && v._id) return v._id.toString();
-                    return v.toString();
-                };
-                const optimisticIdx = prev.findIndex(
-                    (m) =>
-                        m._id?.toString().startsWith('opt-') &&
-                        getSid(m.senderId) === getSid(msg.senderId) &&
-                        m.content === msg.content
-                );
-                if (optimisticIdx !== -1) {
-                    const updated = [...prev];
-                    updated[optimisticIdx] = msg;
-                    return updated;
-                }
-                // Deduplicate: skip if exact _id already exists
-                if (prev.some(m => m._id && msg._id && m._id.toString() === msg._id.toString())) {
+                // Deduplicate by _id
+                if (msg._id && prev.some(m => m._id?.toString() === msg._id.toString())) {
                     return prev;
                 }
                 return [...prev, msg];
             });
             socket.emit('mark_seen', { chatId });
+        });
+
+        socket.on('messages_seen', () => {
+            setMessages(prev => prev.map(m =>
+                m.senderId?.toString() !== (user?._id?.toString()) ? m : { ...m, seen: true }
+            ));
         });
 
         socket.on('typing', ({ isTyping: t }) => {

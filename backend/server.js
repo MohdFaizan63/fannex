@@ -88,8 +88,8 @@ io.on('connection', (socket) => {
                 $inc: { [isCreator ? 'unreadByUser' : 'unreadByCreator']: 1 },
             });
 
-            // Broadcast to both participants in the room
-            io.to(chatId).emit('new_message', {
+            // Broadcast ONLY to other participants (sender already has optimistic message)
+            socket.to(chatId).emit('new_message', {
                 ...message.toObject(),
                 chatId,
             });
