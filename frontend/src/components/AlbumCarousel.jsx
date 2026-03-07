@@ -91,19 +91,6 @@ export default function AlbumCarousel({ urls = [], alt = '', className = '', loc
                 ))}
             </div>
 
-            {/* Counter badge — top right only */}
-            <div
-                className="absolute top-2.5 right-2.5 z-10 text-xs font-semibold text-white"
-                style={{
-                    background: 'rgba(0,0,0,0.55)',
-                    backdropFilter: 'blur(6px)',
-                    borderRadius: '20px',
-                    padding: '3px 10px',
-                    letterSpacing: '0.02em',
-                }}
-            >
-                {index + 1}/{total}
-            </div>
 
             {/* Invisible prev/next tap zones (left/right thirds) */}
             {index > 0 && (

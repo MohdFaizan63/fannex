@@ -59,6 +59,8 @@ export default function PostLightbox({
     const [showComments, setShowComments] = useState(false);
     const { scale, origin, resetZoom, onPinchStart, onPinchMove, onPinchEnd } = usePinchZoom();
     const lastTap = useRef(0); // double-tap to reset zoom
+    const commentPanelRef = useRef(null);
+    const commentBtnRef = useRef(null);
 
     const activePost = posts ? posts[localIdx] : post;
     const isAlbum = activePost?.mediaType === 'album' && activePost?.mediaUrls?.length > 1;
@@ -135,7 +137,7 @@ export default function PostLightbox({
     const totalSlides = isAlbum ? albumLen : (posts?.length ?? 1);
     const slideIdx = isAlbum ? albumIdx : localIdx;
 
-    // Non-passive touchmove ref — needed to call preventDefault (stops scroll jitter)
+    // Non-passive touchmove ref — needed to call preventDefault (stops scroll/shake jitter)
     const mediaRef = useRef(null);
     useEffect(() => {
         const el = mediaRef.current;
@@ -145,13 +147,34 @@ export default function PostLightbox({
             if (tx0.current === null) return;
             const dx = Math.abs(e.touches[0].clientX - tx0.current);
             const dy = Math.abs(e.touches[0].clientY - ty0.current);
-            // Suppress scroll only for horizontal swipes
-            if (dx > dy && dx > 8) e.preventDefault();
-            if (dx > 6 || dy > 6) moved.current = true;
+            // Prevent ALL scroll while a swipe gesture is in progress — eliminates vertical shake
+            if (dx > 4 || dy > 4) {
+                e.preventDefault();
+                moved.current = true;
+            }
         };
         el.addEventListener('touchmove', handler, { passive: false });
         return () => el.removeEventListener('touchmove', handler);
     }, [onPinchMove]);
+
+    // Close comments when tapping outside the panel
+    useEffect(() => {
+        if (!showComments) return;
+        const close = (e) => {
+            if (
+                commentPanelRef.current && !commentPanelRef.current.contains(e.target) &&
+                commentBtnRef.current && !commentBtnRef.current.contains(e.target)
+            ) {
+                setShowComments(false);
+            }
+        };
+        document.addEventListener('mousedown', close);
+        document.addEventListener('touchstart', close, { passive: true });
+        return () => {
+            document.removeEventListener('mousedown', close);
+            document.removeEventListener('touchstart', close);
+        };
+    }, [showComments]);
 
     return (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col" style={{ touchAction: 'none' }}>
@@ -196,7 +219,7 @@ export default function PostLightbox({
                 className="flex-1 flex items-center justify-center relative overflow-hidden"
                 onTouchStart={onTS}
                 onTouchEnd={onTE}
-                style={{ touchAction: 'pan-y' }}
+                style={{ touchAction: 'none' }}
             >
                 {isVideo ? (
                     <video
@@ -322,7 +345,8 @@ export default function PostLightbox({
                             onGate={onGate}
                         />
                         <button
-                            onClick={() => setShowComments(v => !v)}
+                            ref={commentBtnRef}
+                            onClick={() => setShowComments(true)}
                             className="flex items-center gap-1.5 text-sm transition-colors"
                             style={{ color: showComments ? '#fff' : 'rgba(255,255,255,0.5)' }}
                         >
@@ -340,7 +364,11 @@ export default function PostLightbox({
 
                 {/* Inline comments */}
                 {showComments && (
-                    <div className="border-t border-white/6 overflow-y-auto" style={{ maxHeight: '40vh' }}>
+                    <div
+                        ref={commentPanelRef}
+                        className="border-t border-white/6 overflow-y-auto"
+                        style={{ maxHeight: '40vh' }}
+                    >
                         <CommentSection
                             postId={activePost._id}
                             creatorId={activePost.creatorId?._id || activePost.creatorId}
