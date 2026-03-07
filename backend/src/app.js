@@ -49,7 +49,7 @@ app.use(cors({
 // ─── 3. Rate Limiter ─────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 500, // TODO: lower to 200 after testing
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -64,7 +64,7 @@ app.use(globalLimiter);
 // ─── 4. Auth Rate Limit ──────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 200, // TODO: lower to 20 after testing
   message: {
     success: false,
     message: 'Too many login attempts. Please try again later.'
