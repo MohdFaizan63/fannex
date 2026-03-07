@@ -437,7 +437,7 @@ export default function Home() {
         <div className="bg-[#030208] text-white overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
             {/* ── CINEMATIC HERO ───────────────────────────────────────────────── */}
-            <section ref={heroRef} className="relative min-h-[85vh] sm:min-h-screen flex flex-col items-center justify-center overflow-hidden">
+            <section ref={heroRef} className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pb-24 sm:pb-0">
 
                 {/* Animated background canvas */}
                 <motion.div className="absolute inset-0 pointer-events-none" style={{ y: heroBgY, scale: heroScale }}>
@@ -467,7 +467,7 @@ export default function Home() {
                 {/* Hero copy */}
                 <motion.div className="relative z-10 text-center max-w-5xl px-4 sm:px-6 w-full" style={{ opacity: heroOpacity }}>
 
-                    <motion.div className="inline-flex items-center gap-2.5 px-4 sm:px-5 py-2 rounded-full mb-6 sm:mb-10 border border-white/10 text-xs font-medium tracking-widest uppercase text-white/50"
+                    <motion.div className="inline-flex items-center gap-2 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full mb-4 sm:mb-8 border border-white/10 text-[10px] sm:text-xs font-medium tracking-widest uppercase text-white/50"
                         style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)' }}
                         initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 1, ease: [0.25, 0.4, 0.25, 1] }}>
@@ -476,8 +476,8 @@ export default function Home() {
                     </motion.div>
 
                     <motion.h1
-                        className="font-black tracking-tight leading-[0.88] mb-6 sm:mb-8 text-white"
-                        style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.8rem, 9vw, 8rem)' }}
+                        className="font-black tracking-tight leading-[0.9] mb-4 sm:mb-8 text-white"
+                        style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.4rem, 9vw, 8rem)' }}
                         initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 1.1, delay: 0.15, ease: [0.25, 0.4, 0.25, 1] }}>
                         Where creators<br />
@@ -487,23 +487,23 @@ export default function Home() {
                         }}>become icons</em>
                     </motion.h1>
 
-                    <motion.p className="text-base sm:text-xl text-white/40 mb-8 sm:mb-14 max-w-lg mx-auto leading-relaxed px-2"
+                    <motion.p className="text-sm sm:text-xl text-white/40 mb-6 sm:mb-14 max-w-lg mx-auto leading-relaxed px-4"
                         style={{ fontWeight: 300 }}
                         initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 1, delay: 0.3 }}>
-                        Subscribe to your favourite creators, unlock exclusive content, and help them earn what they deserve.
+                        Join 50,000+ creators building a sustainable income from their content. Start your journey today — it&apos;s free.
                     </motion.p>
 
-                    <motion.div className="flex flex-col sm:flex-row items-center justify-center gap-4"
+                    <motion.div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full px-4 sm:px-0"
                         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 1, delay: 0.45 }}>
                         {/* PRIMARY: Explore Creators */}
                         <Link to="/explore"
-                            className="group relative px-10 py-4 rounded-full font-semibold text-base text-white overflow-hidden transition-all duration-300 hover:scale-105"
+                            className="group relative w-full sm:w-auto px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-semibold text-base text-white overflow-hidden transition-all duration-300 hover:scale-105 text-center"
                             style={{ background: 'linear-gradient(135deg, #9333ea, #ec4899)', boxShadow: '0 0 50px rgba(147,51,234,0.5), 0 0 100px rgba(147,51,234,0.2)' }}>
                             <motion.div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                 style={{ background: 'linear-gradient(135deg, #a855f7, #f472b6)' }} />
-                            <span className="relative z-10 flex items-center gap-2">
+                            <span className="relative z-10 flex items-center justify-center gap-2">
                                 Explore Creators
                                 <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -512,7 +512,7 @@ export default function Home() {
                         </Link>
                         {/* SECONDARY: Become a Creator */}
                         <Link to="/register"
-                            className="px-10 py-4 rounded-full font-medium text-base text-white/60 border border-white/10 hover:border-white/25 hover:text-white transition-all duration-300 hover:scale-[1.02] flex items-center gap-2"
+                            className="w-full sm:w-auto px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-medium text-base text-white/60 border border-white/10 hover:border-white/25 hover:text-white transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-2"
                             style={{ backdropFilter: 'blur(20px)', background: 'rgba(255,255,255,0.04)' }}>
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -522,7 +522,7 @@ export default function Home() {
                     </motion.div>
 
                     {/* Trust pill */}
-                    <motion.div className="mt-6 sm:mt-10 flex items-center justify-center gap-3"
+                    <motion.div className="mt-5 sm:mt-10 flex items-center justify-center gap-3"
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.7 }}>
                         <div className="flex -space-x-2">
                             {CREATORS.slice(0, 4).map((c, i) => (
@@ -530,7 +530,7 @@ export default function Home() {
                                     className="w-7 h-7 rounded-full border-2 border-[#030208] object-cover" />
                             ))}
                         </div>
-                        <p className="text-sm text-white/40">
+                        <p className="text-xs sm:text-sm text-white/40">
                             Join <span className="text-white/70 font-semibold">50,000+</span> creators already earning
                         </p>
                     </motion.div>
