@@ -346,7 +346,7 @@ export default function CreatorProfile() {
 
     return (
         <>
-            <div className="min-h-screen bg-surface-950 pt-16">
+            <div className="min-h-screen bg-surface-950">
                 <div className="max-w-5xl mx-auto">
                     <div className="flex flex-col lg:flex-row gap-0 lg:gap-8 lg:items-start px-0 lg:px-4 pb-16">
 
