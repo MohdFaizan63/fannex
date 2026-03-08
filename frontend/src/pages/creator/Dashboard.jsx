@@ -561,7 +561,7 @@ export default function Dashboard() {
                     <div className="glass rounded-2xl p-4 sm:p-5 border border-white/5">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="font-bold text-white text-sm sm:text-base">Recent Subscribers</h2>
-                            <Link to="/earnings" className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
+                            <Link to="/subscribers" className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
                         </div>
                         {loading
                             ? Array.from({ length: 3 }).map((_, i) => (

@@ -54,6 +54,7 @@ const Chat = lazy(() => import('../pages/Chat'));
 const Wallet = lazy(() => import('../pages/Wallet'));
 const CreatorChatDashboard = lazy(() => import('../pages/creator/CreatorChatDashboard'));
 const ProfileInsights = lazy(() => import('../pages/creator/ProfileInsights'));
+const Subscribers = lazy(() => import('../pages/creator/Subscribers'));
 
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ const router = createBrowserRouter([
                         { path: '/payout-settings', element: wrap(PayoutSettings) },
                         { path: '/creator/chat', element: wrap(CreatorChatDashboard) },
                         { path: '/insights', element: wrap(ProfileInsights) },
+                        { path: '/subscribers', element: wrap(Subscribers) },
                     ],
                 }],
             },
