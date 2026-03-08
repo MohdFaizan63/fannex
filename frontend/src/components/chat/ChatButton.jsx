@@ -69,19 +69,24 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
                     }
                     style={{
                         flex: 1, height: 52, borderRadius: 999,
-                        background: isDisabled ? 'rgba(255,255,255,0.03)' : isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)',
-                        border: isDisabled ? '1.5px solid rgba(255,255,255,0.07)' : isPaid ? '1.5px solid rgba(74,222,128,0.3)' : '1.5px solid rgba(255,255,255,0.12)',
-                        color: isDisabled ? 'rgba(255,255,255,0.2)' : isPaid ? '#4ade80' : '#fff',
+                        background: isDisabled
+                            ? 'rgba(251,191,36,0.05)'
+                            : isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)',
+                        border: isDisabled
+                            ? '1.5px solid rgba(251,191,36,0.18)'
+                            : isPaid ? '1.5px solid rgba(74,222,128,0.3)' : '1.5px solid rgba(255,255,255,0.12)',
+                        color: isDisabled ? 'rgba(251,191,36,0.45)' : isPaid ? '#4ade80' : '#fff',
                         fontWeight: 700, fontSize: 15,
                         cursor: isDisabled ? 'not-allowed' : 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                         transition: 'background 0.15s ease, border-color 0.15s ease',
+                        letterSpacing: isDisabled ? '0.01em' : undefined,
                     }}
                     onMouseEnter={e => { if (!isDisabled) { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)'; } }}
                     onMouseLeave={e => { if (!isDisabled) { e.currentTarget.style.background = isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = isPaid ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.12)'; } }}
                 >
-                    <span style={{ fontSize: 18 }}>{isDisabled ? '🚫' : '💬'}</span>
-                    <span>{isDisabled ? 'Unavailable to chat' : isPaid ? 'Open Chat' : 'Chat'}</span>
+                    <span style={{ fontSize: 17 }}>{isDisabled ? '🔒' : isPaid ? '✅' : '💬'}</span>
+                    <span>{isDisabled ? 'Chat Locked' : isPaid ? 'Open Chat' : 'Message'}</span>
                 </button>
                 {showUnlock && (
                     <ChatUnlockModal creatorId={creatorId} creatorName={creatorName} chatPrice={price}
