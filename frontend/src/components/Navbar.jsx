@@ -31,9 +31,9 @@ export default function Navbar() {
             // Don't hide when near top or menu is open
             if (current < 60 || mobileOpen) {
                 setHeaderVis(true);
-            } else if (current > lastScrollY.current + 4) {
+            } else if (current > lastScrollY.current + 12) {
                 setHeaderVis(false); // scrolling DOWN → hide
-            } else if (current < lastScrollY.current - 4) {
+            } else if (current < lastScrollY.current - 12) {
                 setHeaderVis(true);  // scrolling UP   → show
             }
             lastScrollY.current = current;
@@ -100,7 +100,7 @@ export default function Navbar() {
         <>
             {/* ── Header ───────────────────────────────────────────────────────── */}
             <header
-                style={{ transform: headerVis ? 'translateY(0)' : 'translateY(-100%)', transition: 'transform 0.25s ease' }}
+                style={{ transform: headerVis ? 'translateY(0)' : 'translateY(-100%)', transition: 'transform 0.3s cubic-bezier(0.25, 0.4, 0.25, 1)', willChange: 'transform' }}
                 className={`fixed top-0 inset-x-0 z-50 ${scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'}`}
             >
                 <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

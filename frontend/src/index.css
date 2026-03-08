@@ -44,7 +44,6 @@
 }
 
 html {
-  scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -80,6 +79,7 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.07);
+  will-change: transform;
 }
 
 /* ── Utility: gradient text ───────────────────────────────────────────────── */

@@ -191,7 +191,6 @@ export default function Home() {
     const heroRef = useRef(null);
     const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
     const heroBgY = useTransform(scrollYProgress, [0, 1], ['0%', '25%']);
-    const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
     const heroOpacity = useTransform(scrollYProgress, [0, 0.65], [1, 0]);
 
     // ── HOME PAGE 1: FAN (signed up via creator profile) ──────────────────────
@@ -436,21 +435,21 @@ export default function Home() {
             <section ref={heroRef} className="relative min-h-[85vh] sm:min-h-screen flex flex-col items-center justify-center overflow-hidden">
 
                 {/* Animated background canvas */}
-                <motion.div className="absolute inset-0 pointer-events-none" style={{ y: heroBgY, scale: heroScale }}>
+                <motion.div className="absolute inset-0 pointer-events-none" style={{ y: heroBgY, willChange: 'transform' }}>
                     {/* Deep purple radial */}
                     <div className="absolute inset-0"
                         style={{ background: 'radial-gradient(ellipse 120% 80% at 50% -10%, #3b0764 0%, #0a001a 50%, transparent 75%)' }} />
                     {/* Floating orbs */}
                     <motion.div className="absolute top-1/3 left-[15%] w-[500px] h-[500px] rounded-full"
-                        style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.18), transparent 70%)' }}
-                        animate={{ x: [0, 30, 0], y: [0, -20, 0], scale: [1, 1.15, 1] }}
+                        style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.18), transparent 70%)', willChange: 'transform' }}
+                        animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
                         transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
                     <motion.div className="absolute top-1/4 right-[10%] w-[400px] h-[400px] rounded-full"
-                        style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.14), transparent 70%)' }}
-                        animate={{ x: [0, -25, 0], y: [0, 25, 0], scale: [1, 1.1, 1] }}
+                        style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.14), transparent 70%)', willChange: 'transform' }}
+                        animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
                         transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
                     <motion.div className="absolute bottom-1/4 left-1/3 w-[350px] h-[350px] rounded-full"
-                        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12), transparent 70%)' }}
+                        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12), transparent 70%)', willChange: 'transform' }}
                         animate={{ x: [0, 20, 0], y: [0, 30, 0] }}
                         transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut', delay: 4 }} />
                     {/* Noise grain texture */}
