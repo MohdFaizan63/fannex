@@ -51,6 +51,7 @@ const Earnings = lazy(() => import('../pages/creator/Earnings'));
 const PayoutSettings = lazy(() => import('../pages/creator/PayoutSettings'));
 const VerificationStatus = lazy(() => import('../pages/VerificationStatus'));
 const Chat = lazy(() => import('../pages/Chat'));
+const Wallet = lazy(() => import('../pages/Wallet'));
 const CreatorChatDashboard = lazy(() => import('../pages/creator/CreatorChatDashboard'));
 const ProfileInsights = lazy(() => import('../pages/creator/ProfileInsights'));
 
@@ -86,6 +87,7 @@ const router = createBrowserRouter([
                     { path: '/creator/verification-status', element: wrap(VerificationStatus) },
                     { path: '/creator/:username/subscribe', element: wrap(SubscribePage) },
                     { path: '/subscriptions', element: wrap(Subscriptions) },
+                    { path: '/wallet', element: wrap(Wallet) },
                 ],
             },
 
