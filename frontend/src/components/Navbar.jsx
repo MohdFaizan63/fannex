@@ -182,7 +182,7 @@ export default function Navbar() {
                                                                     onClick={() => { setOnboardingOpen(true); setDropdownOpen(false); }}
                                                                     className="w-full text-left px-4 py-2 text-sm text-brand-400 hover:bg-brand-500/10 font-semibold transition-colors"
                                                                 >
-                                                                    🚀 Become a Creator
+                                                                    Become a Creator
                                                                 </button>
                                                             )}
                                                         </>
@@ -310,7 +310,7 @@ export default function Navbar() {
                                             className="w-full h-12 rounded-xl font-semibold text-sm text-white"
                                             style={{ background: 'linear-gradient(90deg,#ff3bd4,#7b5cff)' }}
                                         >
-                                            🚀 Become a Creator
+                                            Become a Creator
                                         </button>
                                     )}
                                     <button onClick={() => { handleLogout(); closeMobile(); }}

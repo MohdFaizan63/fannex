@@ -158,8 +158,9 @@ export default function Dashboard() {
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     // Chat settings state
-    const [chatSettings, setChatSettings] = useState({ chatEnabled: true, chatPrice: 499 });
+    const [chatSettings, setChatSettings] = useState({ chatEnabled: true, chatPrice: 299, messagePrice: 20 });
     const [chatPriceInput, setChatPriceInput] = useState('');
+    const [msgPriceInput, setMsgPriceInput] = useState('');
     const [chatSaving, setChatSaving] = useState(false);
     const [chatSaved, setChatSaved] = useState(false);
 
@@ -186,8 +187,9 @@ export default function Dashboard() {
                 try {
                     const { data } = await chatService.getChatSettings();
                     const s = data.data;
-                    setChatSettings({ chatEnabled: s.chatEnabled, chatPrice: s.chatPrice });
+                    setChatSettings({ chatEnabled: s.chatEnabled, chatPrice: s.chatPrice, messagePrice: s.messagePrice ?? 20 });
                     setChatPriceInput(String(s.chatPrice));
+                    setMsgPriceInput(String(s.messagePrice ?? 20));
                 } catch (_) { }
             } finally {
                 setLoading(false);
@@ -224,8 +226,10 @@ export default function Dashboard() {
         setChatSaving(true);
         try {
             const { data } = await chatService.updateChatSettings(newSettings);
-            setChatSettings(data.data);
-            setChatPriceInput(String(data.data.chatPrice));
+            const d = data.data;
+            setChatSettings(d);
+            setChatPriceInput(String(d.chatPrice));
+            setMsgPriceInput(String(d.messagePrice ?? 20));
             setChatSaved(true);
             setTimeout(() => setChatSaved(false), 2000);
         } catch (_) { }
@@ -444,14 +448,19 @@ export default function Dashboard() {
                         <div className="flex-1 min-w-0">
                             <p className="text-white font-bold text-sm">Chat Settings</p>
                             <p className="text-surface-400 text-xs mt-0.5">
-                                {chatSettings.chatEnabled ? `₹${chatSettings.chatPrice} per chat` : 'Chat disabled'}
+                                {chatSettings.chatEnabled
+                                    ? `₹${chatSettings.chatPrice} unlock · ₹${chatSettings.messagePrice ?? 20}/msg`
+                                    : 'Chat disabled'}
                             </p>
                         </div>
-                        {chatSaved && <span className="text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-lg">✓ Saved</span>}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            {chatSaved && <span className="text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-lg">✓ Saved</span>}
+                            <Link to="/creator/chat" className="text-xs text-violet-400 hover:text-violet-300 font-medium">Inbox →</Link>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                        {/* Toggle */}
+                    {/* Toggle */}
+                    <div className="flex items-center gap-3 mb-4">
                         <button
                             onClick={() => handleSaveChatSettings({ chatEnabled: !chatSettings.chatEnabled })}
                             disabled={chatSaving}
@@ -464,32 +473,51 @@ export default function Dashboard() {
                                 {chatSettings.chatEnabled ? 'Enabled' : 'Disabled'}
                             </span>
                         </button>
+                    </div>
 
-                        {/* Price input */}
-                        {chatSettings.chatEnabled && (
-                            <div className="flex items-center gap-2 flex-1">
+                    {/* Price inputs */}
+                    {chatSettings.chatEnabled && (
+                        <div className="flex flex-col gap-3">
+                            {/* Chat unlock price */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-surface-500 text-xs font-medium w-16 shrink-0">Unlock</span>
                                 <span className="text-surface-400 text-sm">₹</span>
                                 <input
-                                    type="number"
-                                    min="1"
+                                    type="number" min="1"
                                     value={chatPriceInput}
                                     onChange={(e) => setChatPriceInput(e.target.value)}
-                                    className="input-dark w-24 text-sm py-1.5"
-                                    placeholder="499"
+                                    className="input-dark w-20 text-sm py-1.5"
+                                    placeholder="299"
                                 />
                                 <button
-                                    onClick={() => {
-                                        const price = Number(chatPriceInput);
-                                        if (price > 0) handleSaveChatSettings({ chatPrice: price });
-                                    }}
+                                    onClick={() => { const p = Number(chatPriceInput); if (p > 0) handleSaveChatSettings({ chatPrice: p }); }}
                                     disabled={chatSaving || Number(chatPriceInput) === chatSettings.chatPrice}
                                     className="btn-outline text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
                                 >
                                     {chatSaving ? '…' : 'Update'}
                                 </button>
                             </div>
-                        )}
-                    </div>
+                            {/* Message price */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-surface-500 text-xs font-medium w-16 shrink-0">Per msg</span>
+                                <span className="text-surface-400 text-sm">₹</span>
+                                <input
+                                    type="number" min="1"
+                                    value={msgPriceInput}
+                                    onChange={(e) => setMsgPriceInput(e.target.value)}
+                                    className="input-dark w-20 text-sm py-1.5"
+                                    placeholder="20"
+                                />
+                                <button
+                                    onClick={() => { const p = Number(msgPriceInput); if (p > 0) handleSaveChatSettings({ messagePrice: p }); }}
+                                    disabled={chatSaving || Number(msgPriceInput) === (chatSettings.messagePrice ?? 20)}
+                                    className="btn-outline text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
+                                >
+                                    {chatSaving ? '…' : 'Update'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Recent posts + subscribers ────────────────────────────── */}
@@ -500,8 +528,8 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="font-bold text-white text-sm sm:text-base">Recent Posts</h2>
                             <div className="flex items-center gap-3">
-                                <Link to="/upload" className="text-xs text-brand-400 hover:text-brand-300">+ New</Link>
-                                <Link to={profile?.username ? `/creator/${profile.username}` : '#'} className="text-xs text-surface-500 hover:text-surface-300">View all →</Link>
+                                <Link to="/upload" className="text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors">+ New</Link>
+                                <Link to={profile?.username ? `/creator/${profile.username}` : '#'} className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
                             </div>
                         </div>
                         {loading
@@ -533,7 +561,7 @@ export default function Dashboard() {
                     <div className="glass rounded-2xl p-4 sm:p-5 border border-white/5">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="font-bold text-white text-sm sm:text-base">Recent Subscribers</h2>
-                            <Link to="/earnings" className="text-xs text-surface-500 hover:text-surface-300">View all →</Link>
+                            <Link to="/earnings" className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
                         </div>
                         {loading
                             ? Array.from({ length: 3 }).map((_, i) => (

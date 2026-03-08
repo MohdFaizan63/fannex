@@ -17,7 +17,7 @@ export default function GiftModal({ creatorId, creatorName, onClose, onSuccess }
     const amount = selected ?? (custom ? Number(custom) : null);
 
     const handleGift = async () => {
-        if (!amount || amount < 1) { setError('Please select or enter an amount.'); return; }
+        if (!amount || amount < 50) { setError('Minimum gift amount is ₹50.'); return; }
         if (!window.Razorpay) { setError('Payment system not loaded. Please refresh.'); return; }
 
         setLoading(true);

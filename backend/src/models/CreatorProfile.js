@@ -31,8 +31,8 @@ const creatorProfileSchema = new mongoose.Schema(
 
         // Chat monetisation
         chatEnabled: { type: Boolean, default: true },
-        chatPrice: { type: Number, default: 499 },    // ₹ per conversation unlock
-        messagePrice: { type: Number, default: 10 },  // ₹ per message deducted from fan wallet
+        chatPrice: { type: Number, default: 299 },    // ₹ per conversation unlock
+        messagePrice: { type: Number, default: 20 },   // ₹ per message deducted from fan wallet
         minGift: { type: Number, default: 50 },       // minimum gift amount
         maxGift: { type: Number, default: 10000 },    // maximum gift amount
 

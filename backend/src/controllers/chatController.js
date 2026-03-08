@@ -120,13 +120,12 @@ const createChatUnlockOrder = async (req, res, next) => {
         if (!profile) {
             return res.status(400).json({ success: false, message: 'Creator not found' });
         }
-        // Allow chat unlock if price is set (> 0) OR chatEnabled is explicitly true
-        const chatAvailable = profile.chatEnabled || (profile.chatPrice && profile.chatPrice > 0);
-        if (!chatAvailable) {
-            return res.status(400).json({ success: false, message: 'Chat not available for this creator' });
+        // Block unlock if creator has disabled chat
+        if (!profile.chatEnabled) {
+            return res.status(400).json({ success: false, message: 'Chat not available — creator has disabled chat' });
         }
 
-        const chatPrice = profile.chatPrice || 199;
+        const chatPrice = profile.chatPrice || 299;
         const amountPaise = Math.round(chatPrice * 100);
 
         // Razorpay requires at minimum ₹1 (100 paise)

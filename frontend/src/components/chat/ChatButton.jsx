@@ -30,9 +30,9 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
     if (isSelf) return null;
     if (loading && variant !== 'profile') return null;
 
-    const chatEnabled = status?.profile?.chatEnabled || (status?.profile?.chatPrice && status?.profile?.chatPrice > 0);
+    const chatEnabled = status?.profile?.chatEnabled ?? true; // default true for new creators
     const isPaid = status?.isPaid && status?.chatId;
-    const price = propPrice ?? status?.profile?.chatPrice ?? 199;
+    const price = propPrice ?? status?.profile?.chatPrice ?? 299;
 
     const handleClick = () => {
         if (!isAuthenticated) { navigate(`/login?redirect=/creator/${creatorId}`); return; }
@@ -50,7 +50,6 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
     // ── Profile variant — full-width vertical stack ───────────────────────────
     if (variant === 'profile') {
         const isGuest = !isAuthenticated;
-        // Only truly disabled when creator hasn't enabled chat (and user is logged in)
         const isDisabled = !isGuest && !chatEnabled;
 
         const handleProfileClick = () => {
@@ -66,7 +65,7 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
                     disabled={isDisabled}
                     title={
                         isGuest ? 'Login to chat' :
-                            !chatEnabled ? 'Creator has not enabled chat' : undefined
+                            !chatEnabled ? 'Creator has disabled chat' : undefined
                     }
                     style={{
                         flex: 1, height: 52, borderRadius: 999,
@@ -81,8 +80,8 @@ export default function ChatButton({ creatorId, creatorName, chatPrice: propPric
                     onMouseEnter={e => { if (!isDisabled) { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)'; } }}
                     onMouseLeave={e => { if (!isDisabled) { e.currentTarget.style.background = isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = isPaid ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.12)'; } }}
                 >
-                    <span style={{ fontSize: 18 }}>💬</span>
-                    <span>{isPaid ? 'Open Chat' : 'Chat'}</span>
+                    <span style={{ fontSize: 18 }}>{isDisabled ? '🚫' : '💬'}</span>
+                    <span>{isDisabled ? 'Unavailable to chat' : isPaid ? 'Open Chat' : 'Chat'}</span>
                 </button>
                 {showUnlock && (
                     <ChatUnlockModal creatorId={creatorId} creatorName={creatorName} chatPrice={price}
