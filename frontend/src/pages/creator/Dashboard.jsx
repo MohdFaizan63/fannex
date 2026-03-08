@@ -529,7 +529,7 @@ export default function Dashboard() {
                             <h2 className="font-bold text-white text-sm sm:text-base">Recent Posts</h2>
                             <div className="flex items-center gap-3">
                                 <Link to="/upload" className="text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors">+ New</Link>
-                                <Link to={profile?.username ? `/creator/${profile.username}` : '#'} className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
+                                <Link to="/all-posts" className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
                             </div>
                         </div>
                         {loading
