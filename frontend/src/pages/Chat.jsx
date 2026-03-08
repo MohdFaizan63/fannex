@@ -68,7 +68,7 @@ export default function Chat() {
             })
             .catch(() => {
                 // Fallback: fetch wallet balance separately
-                api.get('/payments/wallet-balance')
+                api.get('/payment/wallet-balance')
                     .then(r => setWalletBalance(r.data.data.walletBalance))
                     .catch(() => { });
             });

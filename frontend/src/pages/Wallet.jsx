@@ -18,7 +18,7 @@ export default function Wallet() {
     const finalAmount = selected ?? (customAmt ? Number(customAmt) : null);
 
     useEffect(() => {
-        api.get('/payments/wallet-balance')
+        api.get('/payment/wallet-balance')
             .then(r => setBalance(r.data.data.walletBalance))
             .catch(() => setBalance(0))
             .finally(() => setLoadingBal(false));
@@ -33,7 +33,7 @@ export default function Wallet() {
         setError('');
         setSuccess('');
         try {
-            const { data } = await api.post('/payments/wallet-order', { amount: finalAmount });
+            const { data } = await api.post('/payment/wallet-order', { amount: finalAmount });
             const { order, keyId } = data.data;
 
             const result = await new Promise((resolve, reject) => {
@@ -51,7 +51,7 @@ export default function Wallet() {
                 rzp.open();
             });
 
-            const verifyRes = await api.post('/payments/wallet-verify', {
+            const verifyRes = await api.post('/payment/wallet-verify', {
                 razorpay_order_id: result.razorpay_order_id,
                 razorpay_payment_id: result.razorpay_payment_id,
                 razorpay_signature: result.razorpay_signature,
