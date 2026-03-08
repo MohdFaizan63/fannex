@@ -13,6 +13,8 @@ export default function Chat() {
     const { chatId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+
+    // ── State ──────────────────────────────────────────────────────────────────
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [otherName, setOtherName] = useState('Creator');
@@ -22,35 +24,55 @@ export default function Chat() {
     const [showGifts, setShowGifts] = useState(false);
     const [showWallet, setShowWallet] = useState(false);
     const [walletBalance, setWalletBalance] = useState(null);
+    const [messagePrice, setMessagePrice] = useState(0);
     const [page, setPage] = useState(1);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    // Insufficient balance modal
+    const [showInsufficientModal, setShowInsufficientModal] = useState(false);
+
+    // Deduction toast: { amount, newBalance, visible }
+    const [deductionToast, setDeductionToast] = useState(null);
+    const toastTimeoutRef = useRef(null);
+
+    // Refs
     const typingTimeout = useRef(null);
     const socketRef = useRef(null);
     const textareaRef = useRef(null);
+    const imageInputRef = useRef(null);
 
-    // Lock body to 100% height so keyboard-resize works on Android Chrome
+    // Is this user the creator in the room (no deduction for creators)
+    const isCreatorRef = useRef(false);
+
+    // ── Lock body on Android Chrome ────────────────────────────────────────────
     useEffect(() => {
         const html = document.documentElement;
         const body = document.body;
-        const prevHtmlStyle = { height: html.style.height, overflow: html.style.overflow };
-        const prevBodyStyle = { height: body.style.height, overflow: body.style.overflow };
-        html.style.height = '100%';
-        html.style.overflow = 'hidden';
-        body.style.height = '100%';
-        body.style.overflow = 'hidden';
+        const prevHtml = { height: html.style.height, overflow: html.style.overflow };
+        const prevBody = { height: body.style.height, overflow: body.style.overflow };
+        html.style.height = '100%'; html.style.overflow = 'hidden';
+        body.style.height = '100%'; body.style.overflow = 'hidden';
         return () => {
-            html.style.height = prevHtmlStyle.height;
-            html.style.overflow = prevHtmlStyle.overflow;
-            body.style.height = prevBodyStyle.height;
-            body.style.overflow = prevBodyStyle.overflow;
+            html.style.height = prevHtml.height; html.style.overflow = prevHtml.overflow;
+            body.style.height = prevBody.height; body.style.overflow = prevBody.overflow;
         };
     }, []);
 
-    // Fetch wallet balance on mount
+    // ── Load chat info (messagePrice + walletBalance) ──────────────────────────
     useEffect(() => {
-        api.get('/payments/wallet-balance')
-            .then(r => setWalletBalance(r.data.data.walletBalance))
-            .catch(() => { });
-    }, []);
+        api.get(`/chat/rooms/${chatId}/info`)
+            .then(r => {
+                const { messagePrice: mp, walletBalance: wb } = r.data.data;
+                setMessagePrice(mp ?? 0);
+                setWalletBalance(wb ?? 0);
+            })
+            .catch(() => {
+                // Fallback: fetch wallet balance separately
+                api.get('/payments/wallet-balance')
+                    .then(r => setWalletBalance(r.data.data.walletBalance))
+                    .catch(() => { });
+            });
+    }, [chatId]);
 
     // ── Load messages ──────────────────────────────────────────────────────────
     const loadMessages = useCallback(async (p = 1) => {
@@ -64,26 +86,23 @@ export default function Chat() {
         }
     }, [chatId]);
 
-    // ── Load room info (otherName) ──────────────────────────────────────────────
+    // ── Load room info (otherName + detect if current user is the creator) ─────
     useEffect(() => {
-        const findRoom = (rooms) =>
-            rooms.find(r => String(r._id) === String(chatId));
+        const findRoom = (rooms) => rooms.find(r => String(r._id) === String(chatId));
 
         chatService.getUserRooms()
             .then(({ data }) => {
                 const room = findRoom(data?.data ?? []);
-                if (room?.creatorProfile?.displayName) {
-                    setOtherName(room.creatorProfile.displayName);
-                } else if (room?.userId?.name) {
-                    setOtherName(room.userId.name);
-                }
+                if (room?.creatorProfile?.displayName) setOtherName(room.creatorProfile.displayName);
+                else if (room?.userId?.name) setOtherName(room.userId.name);
+                isCreatorRef.current = false;
             })
             .catch(() => {
-                // If user-side rooms fail, try creator-side (when a creator opens a chat)
                 chatService.getCreatorRooms()
                     .then(({ data }) => {
                         const room = findRoom(data?.data ?? []);
                         if (room?.userId?.name) setOtherName(room.userId.name);
+                        isCreatorRef.current = true; // creator viewing this chat
                     })
                     .catch(() => { });
             });
@@ -91,8 +110,7 @@ export default function Chat() {
 
     useEffect(() => { loadMessages(1); }, [loadMessages]);
 
-
-    // ── Socket.io connection ───────────────────────────────────────────────────
+    // ── Socket.io ──────────────────────────────────────────────────────────────
     useEffect(() => {
         const token = localStorage.getItem('fannex_token');
         const socket = connectSocket(token);
@@ -103,10 +121,7 @@ export default function Chat() {
 
         socket.on('new_message', (msg) => {
             setMessages(prev => {
-                // Deduplicate by _id
-                if (msg._id && prev.some(m => m._id?.toString() === msg._id.toString())) {
-                    return prev;
-                }
+                if (msg._id && prev.some(m => m._id?.toString() === msg._id.toString())) return prev;
                 return [...prev, msg];
             });
             socket.emit('mark_seen', { chatId });
@@ -114,7 +129,7 @@ export default function Chat() {
 
         socket.on('messages_seen', () => {
             setMessages(prev => prev.map(m =>
-                m.senderId?.toString() !== (user?._id?.toString()) ? m : { ...m, seen: true }
+                m.senderId?.toString() !== user?._id?.toString() ? m : { ...m, seen: true }
             ));
         });
 
@@ -126,14 +141,32 @@ export default function Chat() {
             }
         });
 
-        socket.on('user_online', ({ userId, online }) => {
-            setIsOtherOnline(online);
+        socket.on('user_online', ({ userId, online }) => { setIsOtherOnline(online); });
+
+        // ── Wallet deducted event: update balance + show toast ─────────────────
+        socket.on('wallet_deducted', ({ deducted, newBalance }) => {
+            setWalletBalance(newBalance);
+            clearTimeout(toastTimeoutRef.current);
+            setDeductionToast({ amount: deducted, newBalance, visible: true });
+            toastTimeoutRef.current = setTimeout(() => setDeductionToast(null), 2500);
+        });
+
+        // ── Send error (insufficient balance) ──────────────────────────────────
+        socket.on('send_error', ({ code }) => {
+            if (code === 'INSUFFICIENT_BALANCE') {
+                // Remove the optimistic message that was added
+                setMessages(prev => prev.filter(m => !String(m._id).startsWith('opt-')));
+                setShowInsufficientModal(true);
+            }
         });
 
         return () => {
             socket.off('new_message');
             socket.off('typing');
             socket.off('user_online');
+            socket.off('wallet_deducted');
+            socket.off('send_error');
+            socket.off('messages_seen');
         };
     }, [chatId]);
 
@@ -142,10 +175,16 @@ export default function Chat() {
         const trimmed = text.trim();
         if (!trimmed) return;
 
+        // Client-side pre-send balance check (only for fans, not creators)
+        if (!isCreatorRef.current && messagePrice > 0 && walletBalance !== null && walletBalance < messagePrice) {
+            setShowInsufficientModal(true);
+            return;
+        }
+
         const socket = getSocket();
         socket?.emit('send_message', { chatId, type: 'text', content: trimmed });
 
-        // Optimistic UI — senderId must be a plain string to match currentUserId comparison
+        // Optimistic UI
         setMessages(prev => [...prev, {
             _id: `opt-${Date.now()}`,
             senderId: user._id?.toString(),
@@ -156,16 +195,12 @@ export default function Chat() {
         }]);
 
         setText('');
-        // Reset textarea height
-        if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-        }
-    }, [text, chatId, user._id]);
+        if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    }, [text, chatId, user._id, messagePrice, walletBalance]);
 
     // ── Typing indicator ───────────────────────────────────────────────────────
     const handleTyping = useCallback((e) => {
         setText(e.target.value);
-        // Auto-expand textarea
         const ta = e.target;
         ta.style.height = 'auto';
         ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
@@ -181,6 +216,47 @@ export default function Chat() {
     const handleGiftSent = useCallback((msg) => {
         setMessages(prev => [...prev, msg]);
     }, []);
+
+    // ── Image upload ───────────────────────────────────────────────────────────
+    const handleImageUpload = useCallback(async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
+
+        const localUrl = URL.createObjectURL(file);
+        const optimisticId = `opt-img-${Date.now()}`;
+        setMessages(prev => [...prev, {
+            _id: optimisticId,
+            senderId: user._id?.toString(),
+            type: 'image',
+            content: localUrl,
+            createdAt: new Date().toISOString(),
+            seen: false,
+        }]);
+
+        setUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+            const token = localStorage.getItem('fannex_token');
+            const res = await fetch(
+                `/api/v1/chat/rooms/${chatId}/upload-image`,
+                { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData }
+            );
+            const json = await res.json();
+            if (json.success) {
+                setMessages(prev => prev.map(m => m._id === optimisticId ? { ...json.data } : m));
+            } else {
+                setMessages(prev => prev.filter(m => m._id !== optimisticId));
+            }
+        } catch (err) {
+            console.error('Image upload failed:', err);
+            setMessages(prev => prev.filter(m => m._id !== optimisticId));
+        } finally {
+            setUploadingImage(false);
+            URL.revokeObjectURL(localUrl);
+        }
+    }, [chatId, user._id]);
 
     const handleScrollTop = useCallback(() => {
         setPage(p => {
@@ -212,25 +288,29 @@ export default function Chat() {
 
                 {/* Avatar */}
                 <div className="chat-header-avatar">
-                    <div className="chat-header-avatar-circle">
-                        {otherName[0]?.toUpperCase()}
-                    </div>
+                    <div className="chat-header-avatar-circle">{otherName[0]?.toUpperCase()}</div>
                     {isOtherOnline && <span className="chat-header-online-dot" />}
                 </div>
 
-                {/* Name + status */}
+                {/* Name + status + message price */}
                 <div className="chat-header-info">
                     <div className="chat-header-name">{otherName}</div>
-                    <div className={`chat-header-status ${isOtherOnline ? 'chat-header-status--online' : 'chat-header-status--offline'}`}>
-                        {isOtherOnline ? 'Active now' : 'Offline'}
+                    <div className="chat-header-meta">
+                        <span className={`chat-header-status ${isOtherOnline ? 'chat-header-status--online' : 'chat-header-status--offline'}`}>
+                            {isOtherOnline ? 'Active now' : 'Offline'}
+                        </span>
+                        {messagePrice > 0 && !isCreatorRef.current && (
+                            <span className="chat-msg-price">₹{messagePrice}/msg</span>
+                        )}
                     </div>
                 </div>
 
-                {/* Right: wallet */}
+                {/* Right: wallet balance + recharge */}
                 <div className="chat-header-actions">
-                    {walletBalance !== null && (
+                    {walletBalance !== null && !isCreatorRef.current && (
                         <button onClick={() => setShowWallet(true)} className="chat-wallet-btn">
-                            <span>💳</span><span>₹{walletBalance}</span>
+                            <span>💳</span>
+                            <span>₹{walletBalance}</span>
                         </button>
                     )}
                 </div>
@@ -244,6 +324,23 @@ export default function Chat() {
                 isTyping={isTyping}
                 onScrollTop={handleScrollTop}
             />
+
+            {/* ── Deduction Toast ───────────────────────────────────────────── */}
+            <AnimatePresence>
+                {deductionToast && (
+                    <motion.div
+                        key="toast"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.2 }}
+                        className="chat-deduction-toast"
+                    >
+                        <span className="chat-deduction-toast__icon">💸</span>
+                        <span>₹{deductionToast.amount} deducted · Balance: ₹{deductionToast.newBalance}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* ── Input bar ─────────────────────────────────────────────────── */}
             <div className="chat-input-bar">
@@ -291,20 +388,37 @@ export default function Chat() {
                             transition={{ type: 'spring', damping: 15, stiffness: 400 }}
                             className="chat-action-icons"
                         >
-                            {/* Mic */}
-                            <button className="chat-action-icon" aria-label="Voice note">
-                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <rect x="9" y="2" width="6" height="12" rx="3" strokeWidth={1.8} />
-                                    <path strokeLinecap="round" strokeWidth={1.8} d="M5 10a7 7 0 0014 0M12 19v3M8 22h8" />
-                                </svg>
-                            </button>
-                            {/* Image */}
-                            <button className="chat-action-icon" aria-label="Send image">
-                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <rect x="3" y="3" width="18" height="18" rx="3" strokeWidth={1.8} />
-                                    <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-                                    <path strokeLinecap="round" strokeWidth={1.8} d="M21 15l-5-5L5 21" />
-                                </svg>
+                            {/* Hidden file input */}
+                            <input
+                                ref={imageInputRef}
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={handleImageUpload}
+                            />
+                            {/* Image picker button */}
+                            <button
+                                className="chat-action-icon"
+                                aria-label="Send image"
+                                onClick={() => imageInputRef.current?.click()}
+                                disabled={uploadingImage}
+                            >
+                                {uploadingImage ? (
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                        <circle
+                                            cx="12" cy="12" r="9"
+                                            stroke="currentColor" strokeWidth="2"
+                                            strokeDasharray="28" strokeDashoffset="10"
+                                            style={{ animation: 'chatSpin 0.8s linear infinite', transformOrigin: 'center' }}
+                                        />
+                                    </svg>
+                                ) : (
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <rect x="3" y="3" width="18" height="18" rx="3" strokeWidth={1.8} />
+                                        <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+                                        <path strokeLinecap="round" strokeWidth={1.8} d="M21 15l-5-5L5 21" />
+                                    </svg>
+                                )}
                             </button>
                         </motion.div>
                     )}
@@ -329,6 +443,47 @@ export default function Chat() {
                     onRecharged={(newBal) => setWalletBalance(newBal)}
                 />
             )}
+
+            {/* ── Insufficient Balance Modal ───────────────────────────────── */}
+            <AnimatePresence>
+                {showInsufficientModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="chat-insufficient-overlay"
+                        onClick={() => setShowInsufficientModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.88, y: 24 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.88, y: 24 }}
+                            transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+                            className="chat-insufficient-modal"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="chat-insufficient-icon">💸</div>
+                            <h3 className="chat-insufficient-title">Insufficient Balance</h3>
+                            <p className="chat-insufficient-body">
+                                You need <strong>₹{messagePrice}</strong> to send a message.<br />
+                                Current balance: <strong>₹{walletBalance ?? 0}</strong>
+                            </p>
+                            <button
+                                className="chat-insufficient-btn"
+                                onClick={() => { setShowInsufficientModal(false); setShowWallet(true); }}
+                            >
+                                Recharge Wallet
+                            </button>
+                            <button
+                                className="chat-insufficient-cancel"
+                                onClick={() => setShowInsufficientModal(false)}
+                            >
+                                Cancel
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

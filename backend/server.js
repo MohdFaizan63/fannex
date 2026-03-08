@@ -72,6 +72,50 @@ io.on('connection', (socket) => {
                 room.creatorId.toString() === socket.userId;
             if (!isParticipant) return;
 
+            const isCreator = room.creatorId.toString() === socket.userId;
+
+            // ── Wallet deduction for fan messages ─────────────────────────────
+            let newWalletBalance = null;
+            if (!isCreator) {
+                const CreatorProfile = require('./src/models/CreatorProfile.js');
+                const User = require('./src/models/User.js');
+                const Earnings = require('./src/models/Earnings.js');
+
+                const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
+                const msgCost = profile?.messagePrice ?? 0;
+
+                if (msgCost > 0) {
+                    // Atomic deduction — only succeeds if balance is sufficient
+                    const updatedFan = await User.findOneAndUpdate(
+                        { _id: socket.userId, walletBalance: { $gte: msgCost } },
+                        { $inc: { walletBalance: -msgCost } },
+                        { new: true, select: 'walletBalance' }
+                    );
+
+                    if (!updatedFan) {
+                        // Insufficient balance — notify sender and abort
+                        const fan = await User.findById(socket.userId).select('walletBalance');
+                        socket.emit('send_error', {
+                            code: 'INSUFFICIENT_BALANCE',
+                            message: 'Insufficient wallet balance. Please top up to continue chatting.',
+                            required: msgCost,
+                            walletBalance: fan?.walletBalance ?? 0,
+                        });
+                        return;
+                    }
+
+                    newWalletBalance = updatedFan.walletBalance;
+
+                    // Credit creator earnings
+                    await Earnings.findOneAndUpdate(
+                        { creatorId: room.creatorId },
+                        { $inc: { totalEarned: msgCost, pendingAmount: msgCost } },
+                        { upsert: true }
+                    );
+                }
+            }
+            // ──────────────────────────────────────────────────────────────────
+
             const message = await ChatMessage.create({
                 chatId,
                 senderId: socket.userId,
@@ -80,7 +124,6 @@ io.on('connection', (socket) => {
             });
 
             // Update room
-            const isCreator = room.creatorId.toString() === socket.userId;
             await ChatRoom.findByIdAndUpdate(chatId, {
                 lastMessage: content,
                 lastMessageAt: new Date(),
@@ -93,6 +136,17 @@ io.on('connection', (socket) => {
                 ...message.toObject(),
                 chatId,
             });
+
+            // Inform sender of deduction + updated balance
+            if (!isCreator && newWalletBalance !== null) {
+                const CreatorProfile = require('./src/models/CreatorProfile.js');
+                const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
+                socket.emit('wallet_deducted', {
+                    chatId,
+                    deducted: profile?.messagePrice ?? 0,
+                    newBalance: newWalletBalance,
+                });
+            }
 
             // Notify the other participant (fire-and-forget)
             const recipientId = isCreator ? room.userId : room.creatorId;

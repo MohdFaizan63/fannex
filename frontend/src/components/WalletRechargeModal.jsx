@@ -10,18 +10,22 @@ const PRESETS = [100, 500, 1000, 2000];
  */
 export default function WalletRechargeModal({ currentBalance = 0, onClose, onRecharged }) {
     const [selected, setSelected] = useState(null);
+    const [customAmt, setCustomAmt] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
+    const finalAmount = selected ?? (customAmt ? Number(customAmt) : null);
+
     const handleRecharge = async () => {
-        if (!selected) { setError('Please select an amount.'); return; }
+        if (!finalAmount) { setError('Please select or enter an amount.'); return; }
+        if (finalAmount < 10) { setError('Minimum recharge is ₹10.'); return; }
         if (!window.Razorpay) { setError('Payment system not loaded. Please refresh.'); return; }
 
         setLoading(true);
         setError('');
         try {
-            const { data } = await api.post('/payments/wallet-order', { amount: selected });
+            const { data } = await api.post('/payments/wallet-order', { amount: finalAmount });
             const { order, keyId } = data.data;
 
             const result = await new Promise((resolve, reject) => {
@@ -43,7 +47,7 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                 razorpay_order_id: result.razorpay_order_id,
                 razorpay_payment_id: result.razorpay_payment_id,
                 razorpay_signature: result.razorpay_signature,
-                amount: selected,
+                amount: finalAmount,
             });
 
             setSuccess(true);
@@ -112,12 +116,12 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                     </div>
 
                     {/* Preset chips */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
                         {PRESETS.map((p) => (
                             <motion.button
                                 key={p}
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() => setSelected(p)}
+                                onClick={() => { setSelected(p); setCustomAmt(''); }}
                                 style={{
                                     borderRadius: 14,
                                     height: 52,
@@ -138,6 +142,38 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                                 ₹{p}
                             </motion.button>
                         ))}
+                    </div>
+
+                    {/* Custom amount */}
+                    <div style={{ position: 'relative', marginBottom: 20 }}>
+                        <span style={{
+                            position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                            color: customAmt ? '#a78bfa' : 'rgba(255,255,255,0.3)',
+                            fontWeight: 700, fontSize: 16, pointerEvents: 'none',
+                        }}>₹</span>
+                        <input
+                            type="number"
+                            min={10}
+                            placeholder="Custom amount (min ₹10)"
+                            value={customAmt}
+                            onChange={(e) => { setCustomAmt(e.target.value); setSelected(null); }}
+                            style={{
+                                width: '100%',
+                                height: 48,
+                                background: customAmt ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.04)',
+                                border: `1.5px solid ${customAmt ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                                borderRadius: 14,
+                                color: '#fff',
+                                fontSize: 15,
+                                fontWeight: 600,
+                                fontFamily: 'inherit',
+                                paddingLeft: 30,
+                                paddingRight: 14,
+                                outline: 'none',
+                                transition: 'all 0.2s ease',
+                                boxSizing: 'border-box',
+                            }}
+                        />
                     </div>
 
                     {error && (
@@ -163,7 +199,7 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
 
                     <button
                         onClick={handleRecharge}
-                        disabled={loading || !selected || success}
+                        disabled={loading || !finalAmount || success}
                         style={{
                             width: '100%',
                             height: 52,
@@ -173,15 +209,15 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                             fontWeight: 700,
                             fontSize: 15,
                             fontFamily: 'inherit',
-                            opacity: loading || !selected || success ? 0.4 : 1,
-                            cursor: loading || !selected || success ? 'not-allowed' : 'pointer',
+                            opacity: loading || !finalAmount || success ? 0.4 : 1,
+                            cursor: loading || !finalAmount || success ? 'not-allowed' : 'pointer',
                             border: 'none',
                             marginBottom: 14,
                             transition: 'all 0.2s ease',
                             boxShadow: '0 4px 16px rgba(124,58,237,0.3)',
                         }}
                     >
-                        {loading ? 'Processing…' : `Add ₹${selected ?? '...'} to Wallet`}
+                        {loading ? 'Processing…' : `Add ₹${finalAmount ?? '...'} to Wallet`}
                     </button>
 
                     <button

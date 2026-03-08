@@ -8,7 +8,7 @@ export default function CreatorChatDashboard() {
     const navigate = useNavigate();
     const [stats, setStats] = useState(null);
     const [rooms, setRooms] = useState([]);
-    const [settings, setSettings] = useState({ chatEnabled: false, chatPrice: 199, minGift: 50, maxGift: 10000 });
+    const [settings, setSettings] = useState({ chatEnabled: false, chatPrice: 499, messagePrice: 10, minGift: 50, maxGift: 10000 });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [saveSuccess, setSaveSuccess] = useState(false);
@@ -162,7 +162,8 @@ export default function CreatorChatDashboard() {
                             </div>
 
                             {[
-                                { key: 'chatPrice', label: 'Chat Price (₹)', placeholder: '199', help: 'Per conversation access fee' },
+                                { key: 'chatPrice', label: 'Chat Unlock Price (₹)', placeholder: '499', help: 'One-time fee to start a conversation' },
+                                { key: 'messagePrice', label: 'Message Price (₹)', placeholder: '10', help: 'Deducted from fan wallet per message sent' },
                                 { key: 'minGift', label: 'Minimum Gift (₹)', placeholder: '50', help: 'Lowest gift fans can send' },
                                 { key: 'maxGift', label: 'Maximum Gift (₹)', placeholder: '10000', help: 'Highest gift fans can send' },
                             ].map(field => (

@@ -22,7 +22,7 @@ const razorpay = new Razorpay({
 const getChatSettings = async (req, res, next) => {
     try {
         const profile = await CreatorProfile.findOne({ userId: req.user._id }).select(
-            'chatEnabled chatPrice minGift maxGift'
+            'chatEnabled chatPrice messagePrice minGift maxGift'
         );
         if (!profile) return res.status(404).json({ success: false, message: 'Creator profile not found' });
         res.json({ success: true, data: profile });
@@ -34,14 +34,14 @@ const getChatSettings = async (req, res, next) => {
 // @access Creator
 const updateChatSettings = async (req, res, next) => {
     try {
-        const { chatEnabled, chatPrice, minGift, maxGift } = req.body;
+        const { chatEnabled, chatPrice, messagePrice, minGift, maxGift } = req.body;
 
-        // Use findOne + save to avoid runValidators triggering unrelated schema constraints
         const profile = await CreatorProfile.findOne({ userId: req.user._id });
         if (!profile) return res.status(404).json({ success: false, message: 'Creator profile not found' });
 
         if (chatEnabled !== undefined) profile.chatEnabled = chatEnabled;
         if (chatPrice !== undefined) profile.chatPrice = Number(chatPrice);
+        if (messagePrice !== undefined) profile.messagePrice = Number(messagePrice);
         if (minGift !== undefined) profile.minGift = Number(minGift);
         if (maxGift !== undefined) profile.maxGift = Number(maxGift);
 
@@ -52,6 +52,7 @@ const updateChatSettings = async (req, res, next) => {
             data: {
                 chatEnabled: profile.chatEnabled,
                 chatPrice: profile.chatPrice,
+                messagePrice: profile.messagePrice,
                 minGift: profile.minGift,
                 maxGift: profile.maxGift,
             },
@@ -60,6 +61,39 @@ const updateChatSettings = async (req, res, next) => {
         console.error('updateChatSettings error:', err.message);
         next(err);
     }
+};
+
+// @desc  Get chat info for a room: messagePrice + fan wallet balance
+// @route GET /api/v1/chat/rooms/:chatId/info
+// @access User or Creator in that room
+const getChatInfo = async (req, res, next) => {
+    try {
+        const { chatId } = req.params;
+        const userId = req.user._id;
+
+        const room = await ChatRoom.findById(chatId);
+        if (!room) return res.status(404).json({ success: false, message: 'Chat room not found' });
+
+        const isParticipant =
+            room.userId.toString() === userId.toString() ||
+            room.creatorId.toString() === userId.toString();
+        if (!isParticipant) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+        const [profile, fan] = await Promise.all([
+            CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice displayName chatEnabled'),
+            User.findById(room.userId).select('walletBalance'),
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                messagePrice: profile?.messagePrice ?? 0,
+                walletBalance: fan?.walletBalance ?? 0,
+                creatorName: profile?.displayName ?? '',
+                chatEnabled: profile?.chatEnabled ?? true,
+            },
+        });
+    } catch (err) { next(err); }
 };
 
 
@@ -511,9 +545,59 @@ const getChatStatus = async (req, res, next) => {
     } catch (err) { next(err); }
 };
 
+// @desc  Upload an image and send it as a chat message
+// @route POST /api/v1/chat/rooms/:chatId/upload-image
+// @access Creator or User in that room
+const sendImageMessage = async (req, res, next) => {
+    try {
+        const { chatId } = req.params;
+        const senderId = req.user._id;
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No image file provided' });
+        }
+
+        const room = await ChatRoom.findById(chatId);
+        if (!room || !room.isPaid) return res.status(403).json({ success: false, message: 'Chat not unlocked' });
+
+        const isParticipant =
+            room.userId.toString() === senderId.toString() ||
+            room.creatorId.toString() === senderId.toString();
+        if (!isParticipant) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+        const isCreator = room.creatorId.toString() === senderId.toString();
+
+        // Determine image URL (Cloudinary or local fallback)
+        const imageUrl = req.file.path || req.file.secure_url || req.file.location || '';
+
+        const message = await ChatMessage.create({
+            chatId,
+            senderId,
+            type: 'image',
+            content: imageUrl,
+        });
+
+        await ChatRoom.findByIdAndUpdate(chatId, {
+            lastMessage: '📷 Image',
+            lastMessageAt: new Date(),
+            lastMessageType: 'image',
+            $inc: { [isCreator ? 'unreadByUser' : 'unreadByCreator']: 1 },
+        });
+
+        // Broadcast via socket so the other participant sees it in real time
+        const io = req.app.get('io');
+        if (io) {
+            io.to(String(chatId)).emit('new_message', message.toObject ? message.toObject() : message);
+        }
+
+        res.status(201).json({ success: true, data: message });
+    } catch (err) { next(err); }
+};
+
 module.exports = {
     getChatSettings,
     updateChatSettings,
+    getChatInfo,
     createChatUnlockOrder,
     verifyChatUnlock,
     getUserRooms,
@@ -521,7 +605,9 @@ module.exports = {
     getCreatorChatStats,
     getRoomMessages,
     sendMessage,
+    sendImageMessage,
     createGiftOrder,
     verifyGift,
     getChatStatus,
 };
+

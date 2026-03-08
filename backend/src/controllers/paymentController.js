@@ -259,13 +259,13 @@ async function createWalletOrder(req, res, next) {
         const { amount } = req.body;
         const userId = req.user._id;
 
-        const allowed = [100, 500, 1000, 2000];
-        if (!allowed.includes(Number(amount))) {
-            return res.status(400).json({ success: false, message: 'Choose ₹100, ₹500, ₹1000 or ₹2000' });
+        const parsed = Number(amount);
+        if (!parsed || parsed < 10 || !Number.isInteger(parsed)) {
+            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹10 (whole numbers only)' });
         }
 
         const order = await paymentService.createOrder({
-            amount,
+            amount: parsed,
             currency: 'INR',
             receipt: `wallet_${userId.toString().slice(-6)}_${Date.now().toString().slice(-8)}`,
             notes: { userId: userId.toString(), type: 'wallet' },

@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
+const { upload } = require('../middleware/uploadMiddleware');
 
 const {
     getChatSettings,
     updateChatSettings,
+    getChatInfo,
     createChatUnlockOrder,
     verifyChatUnlock,
     getUserRooms,
@@ -12,6 +14,7 @@ const {
     getCreatorChatStats,
     getRoomMessages,
     sendMessage,
+    sendImageMessage,
     createGiftOrder,
     verifyGift,
     getChatStatus,
@@ -33,8 +36,10 @@ router.post('/unlock/verify', protect, verifyChatUnlock);
 router.get('/rooms', protect, getUserRooms);
 
 // ── Shared: messages ──────────────────────────────────────────────────────────
+router.get('/rooms/:chatId/info', protect, getChatInfo);
 router.get('/rooms/:chatId/messages', protect, getRoomMessages);
 router.post('/rooms/:chatId/messages', protect, sendMessage);
+router.post('/rooms/:chatId/upload-image', protect, upload.single('image'), sendImageMessage);
 
 // ── Gifts ──────────────────────────────────────────────────────────────────────
 router.post('/gift/order', protect, createGiftOrder);

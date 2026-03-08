@@ -144,12 +144,34 @@
     line-height: 1.2;
 }
 
+.chat-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1px;
+}
+
 .chat-header-status--online {
     color: var(--chat-online);
 }
 
 .chat-header-status--offline {
     color: var(--chat-text-muted);
+}
+
+/* Message price badge in header */
+.chat-msg-price {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(124, 58, 237, 0.18);
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    color: #a78bfa;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
 }
 
 .chat-header-actions {
@@ -1046,4 +1068,117 @@
     color: #4ade80;
     background: rgba(74, 222, 128, 0.08);
     border: 1px solid rgba(74, 222, 128, 0.15);
+}
+
+/* ── Deduction Toast ──────────────────────────────────────────────────────── */
+.chat-deduction-toast {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 15, 28, 0.92);
+    border: 1px solid rgba(124, 58, 237, 0.35);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: #a78bfa;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 999px;
+    white-space: nowrap;
+    z-index: 30;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+}
+
+.chat-deduction-toast__icon {
+    font-size: 15px;
+}
+
+/* ── Insufficient Balance Modal ──────────────────────────────────────────── */
+.chat-insufficient-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.chat-insufficient-modal {
+    background: #0d0d1a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 32px 28px 24px;
+    width: 100%;
+    max-width: 340px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.chat-insufficient-icon {
+    font-size: 44px;
+    margin-bottom: 12px;
+    line-height: 1;
+}
+
+.chat-insufficient-title {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 800;
+    margin: 0 0 10px;
+    letter-spacing: -0.3px;
+}
+
+.chat-insufficient-body {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 24px;
+}
+
+.chat-insufficient-body strong {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.chat-insufficient-btn {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #7c3aed, #cc52b8);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+.chat-insufficient-btn:hover {
+    opacity: 0.88;
+}
+
+.chat-insufficient-cancel {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s ease;
+    padding: 4px 8px;
+}
+
+.chat-insufficient-cancel:hover {
+    color: rgba(255, 255, 255, 0.6);
 }
