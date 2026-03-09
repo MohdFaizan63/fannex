@@ -166,23 +166,36 @@ export default function ChatButton({ creatorId, creatorName, className = '', var
                         flex: 1, height: 52, borderRadius: 999,
                         background: isDisabled
                             ? 'rgba(251,191,36,0.05)'
-                            : isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)',
+                            : isPaid
+                                ? 'linear-gradient(135deg, #16a34a, #15803d)'
+                                : 'rgba(255,255,255,0.07)',
                         border: isDisabled
                             ? '1.5px solid rgba(251,191,36,0.18)'
-                            : isPaid ? '1.5px solid rgba(74,222,128,0.3)' : '1.5px solid rgba(255,255,255,0.12)',
-                        color: isDisabled ? 'rgba(251,191,36,0.45)' : isPaid ? '#4ade80' : '#fff',
+                            : isPaid ? 'none' : '1.5px solid rgba(255,255,255,0.12)',
+                        color: isDisabled ? 'rgba(251,191,36,0.45)' : '#fff',
                         fontWeight: 700, fontSize: 15,
                         cursor: isDisabled || loading ? 'not-allowed' : 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                        transition: 'background 0.15s ease, border-color 0.15s ease',
-                        letterSpacing: isDisabled ? '0.01em' : undefined,
+                        transition: 'all 0.2s ease',
+                        letterSpacing: isDisabled ? '0.01em' : '-0.01em',
                         opacity: loading ? 0.6 : 1,
+                        boxShadow: isPaid && !isDisabled ? '0 6px 20px rgba(22,163,74,0.45)' : 'none',
                     }}
-                    onMouseEnter={e => { if (!isDisabled && !loading) { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)'; } }}
-                    onMouseLeave={e => { if (!isDisabled && !loading) { e.currentTarget.style.background = isPaid ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = isPaid ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.12)'; } }}
+                    onMouseEnter={e => {
+                        if (!isDisabled && !loading) {
+                            e.currentTarget.style.transform = 'scale(1.02)';
+                            e.currentTarget.style.boxShadow = isPaid ? '0 8px 28px rgba(22,163,74,0.6)' : '0 4px 14px rgba(255,255,255,0.1)';
+                        }
+                    }}
+                    onMouseLeave={e => {
+                        if (!isDisabled && !loading) {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.boxShadow = isPaid ? '0 6px 20px rgba(22,163,74,0.45)' : 'none';
+                        }
+                    }}
                 >
-                    <span style={{ fontSize: 17 }}>{isDisabled ? '🔒' : isPaid ? '✅' : '💬'}</span>
-                    <span>{isDisabled ? 'Chat Locked' : isPaid ? 'Open Chat' : 'Message'}</span>
+                    <span style={{ fontSize: 18 }}>{isDisabled ? '🔒' : isPaid ? '💬' : '💬'}</span>
+                    <span>{isDisabled ? 'Chat Locked' : isPaid ? 'Message Now' : 'Send Message'}</span>
                 </button>
                 {showSubscribeFirst && <SubscribeFirstModal />}
             </>
