@@ -21,12 +21,18 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
         return diff > 10 * 60 * 1000;
     };
 
-    const formatTimestamp = (date) => {
+    const getDayLabel = (date) => {
         const d = new Date(date);
-        const now = new Date();
-        const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Yesterday';
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        // Compare calendar dates only (year/month/day) — not raw timestamps.
+        // Raw ms comparison fails: e.g. a msg at 11:59 PM checked at 12:01 AM
+        // next day is only 2 mins apart, giving diffDays=0 → wrongly "Today".
+        const dStr = d.toDateString();
+        if (dStr === today.toDateString()) return 'Today';
+        if (dStr === yesterday.toDateString()) return 'Yesterday';
         return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
@@ -77,7 +83,7 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
                         {/* Day separator */}
                         {showTime && (
                             <div className="chat-day-separator">
-                                <span>{formatTimestamp(msg.createdAt)}</span>
+                                <span>{getDayLabel(msg.createdAt)}</span>
                             </div>
                         )}
                         <MessageBubble
