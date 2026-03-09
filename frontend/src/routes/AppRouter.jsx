@@ -30,6 +30,15 @@ const NotFound = lazy(() => import('../pages/NotFound'));
 const Unauthorized = lazy(() => import('../pages/Unauthorized'));
 const UserProfile = lazy(() => import('../pages/UserProfile'));
 
+// ── Legal & Company ─────────────────────────────────────────────────────
+const Privacy = lazy(() => import('../pages/legal/Privacy'));
+const Terms = lazy(() => import('../pages/legal/Terms'));
+const CookiePolicy = lazy(() => import('../pages/legal/CookiePolicy'));
+const Contact = lazy(() => import('../pages/company/Contact'));
+const HelpCenter = lazy(() => import('../pages/company/HelpCenter'));
+const About = lazy(() => import('../pages/company/About'));
+const Pricing = lazy(() => import('../pages/company/Pricing'));
+
 // ── Subscription ─────────────────────────────────────────────────────────────
 const SubscriptionSuccess = lazy(() => import('../pages/subscription/SubscriptionSuccess'));
 const SubscriptionCancel = lazy(() => import('../pages/subscription/SubscriptionCancel'));
@@ -76,6 +85,15 @@ const router = createBrowserRouter([
             { path: '/explore', element: wrap(Explore) },
             { path: '/creator/:id', element: wrap(CreatorProfile) },
             { path: '/unauthorized', element: wrap(Unauthorized) },
+            // Legal
+            { path: '/privacy', element: wrap(Privacy) },
+            { path: '/terms', element: wrap(Terms) },
+            { path: '/cookie-policy', element: wrap(CookiePolicy) },
+            // Company
+            { path: '/contact', element: wrap(Contact) },
+            { path: '/help', element: wrap(HelpCenter) },
+            { path: '/about', element: wrap(About) },
+            { path: '/pricing', element: wrap(Pricing) },
 
             // Subscription result pages (public, after Stripe redirect)
             { path: '/subscription-success', element: wrap(SubscriptionSuccess) },

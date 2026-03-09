@@ -1,10 +1,26 @@
 import { Link } from 'react-router-dom';
 
 const FOOTER_LINKS = {
-    Product: [{ label: 'Explore', to: '/explore' }, { label: 'For Creators', to: '/register' }, { label: 'Pricing', to: '/' }],
-    Company: [{ label: 'About', to: '/' }, { label: 'Blog', to: '/' }, { label: 'Careers', to: '/' }],
-    Legal: [{ label: 'Privacy', to: '/' }, { label: 'Terms', to: '/' }, { label: 'Cookie Policy', to: '/' }],
-    Support: [{ label: 'Help Center', to: '/' }, { label: 'Contact', to: '/' }, { label: 'Creator Support', to: '/' }],
+    Product: [
+        { label: 'Explore', to: '/explore' },
+        { label: 'For Creators', to: '/register' },
+        { label: 'Pricing', to: '/pricing' },
+    ],
+    Company: [
+        { label: 'About', to: '/about' },
+        { label: 'Blog', href: 'mailto:support@fannex.in?subject=Blog Inquiry' },
+        { label: 'Careers', href: 'mailto:support@fannex.in?subject=Careers at Fannex' },
+    ],
+    Legal: [
+        { label: 'Privacy', to: '/privacy' },
+        { label: 'Terms', to: '/terms' },
+        { label: 'Cookie Policy', to: '/cookie-policy' },
+    ],
+    Support: [
+        { label: 'Help Center', to: '/help' },
+        { label: 'Contact', to: '/contact' },
+        { label: 'Creator Support', href: 'mailto:support@fannex.in?subject=Creator Support' },
+    ],
 };
 
 const SOCIALS = [
@@ -48,11 +64,17 @@ export default function Footer() {
                                     {category}
                                 </h4>
                                 <ul className="flex flex-col gap-2.5">
-                                    {links.map(({ label, to }) => (
+                                    {links.map(({ label, to, href }) => (
                                         <li key={label}>
-                                            <Link to={to} className="text-sm text-surface-300 hover:text-white transition-colors">
-                                                {label}
-                                            </Link>
+                                            {href ? (
+                                                <a href={href} className="text-sm text-surface-300 hover:text-white transition-colors">
+                                                    {label}
+                                                </a>
+                                            ) : (
+                                                <Link to={to} className="text-sm text-surface-300 hover:text-white transition-colors">
+                                                    {label}
+                                                </Link>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>
