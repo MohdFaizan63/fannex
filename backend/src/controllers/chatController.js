@@ -153,15 +153,34 @@ const createChatUnlockOrder = async (req, res, next) => {
 // @access User
 const verifyChatUnlock = async (req, res, next) => {
     try {
-        const { orderId, creatorId } = req.body;
+        const { orderId } = req.body;
         const userId = req.user._id;
+
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: 'orderId is required' });
+        }
 
         const orderData = await paymentService.getOrderStatus(orderId);
         if (orderData.order_status !== 'PAID') {
             return res.status(400).json({ success: false, message: 'Payment not completed' });
         }
 
-        const cfPaymentId = orderData.payments?.[0]?.cf_payment_id?.toString() || null;
+        // Extract creatorId from order_tags (stored when order was created)
+        const tags = orderData.order_tags || {};
+        const creatorId = req.body.creatorId || tags.creatorId;
+
+        if (!creatorId) {
+            return res.status(400).json({ success: false, message: 'Could not determine creator from order' });
+        }
+
+        // Fetch payment ID
+        let cfPaymentId = null;
+        try {
+            const payments = await paymentService.getOrderPayments(orderId);
+            cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
+        } catch (e) {
+            console.warn('[verifyChatUnlock] Could not fetch payment details:', e.message);
+        }
 
         // Update payment record
         const payment = await Payment.findOneAndUpdate(
@@ -187,7 +206,13 @@ const verifyChatUnlock = async (req, res, next) => {
         );
 
         res.json({ success: true, chatId: room._id });
-    } catch (err) { next(err); }
+    } catch (err) {
+        console.error('[verifyChatUnlock] Error:', err.message);
+        if (err.response?.data) {
+            console.error('[verifyChatUnlock] API response:', JSON.stringify(err.response.data, null, 2));
+        }
+        next(err);
+    }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

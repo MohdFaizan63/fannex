@@ -5,7 +5,7 @@ import './chat.css';
 
 /**
  * ChatUnlockModal — Premium unlock modal with payment flow.
- * Creates Razorpay order, opens Razorpay checkout, verifies, calls onSuccess(chatId).
+ * Creates Cashfree order, opens Cashfree checkout, redirects to success page.
  */
 export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onSuccess, onClose }) {
     const [loading, setLoading] = useState(false);
@@ -15,12 +15,6 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
         setLoading(true);
         setError('');
         try {
-            if (!window.Razorpay) {
-                setError('Payment system not loaded. Please refresh the page.');
-                setLoading(false);
-                return;
-            }
-
             const { data } = await chatService.createUnlockOrder(creatorId);
 
             if (data.alreadyUnlocked) {
@@ -28,35 +22,31 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
                 return;
             }
 
-            const { order, keyId } = data;
+            const { order } = data;
 
-            const result = await new Promise((resolve, reject) => {
-                const rzp = new window.Razorpay({
-                    key: keyId,
-                    amount: order.amount,
-                    currency: 'INR',
-                    name: 'Fannex',
-                    description: `Chat with ${creatorName}`,
-                    order_id: order.id,
-                    theme: { color: '#7c3aed' },
-                    handler: (res) => resolve(res),
-                    modal: { ondismiss: () => reject(new Error('dismissed')) },
+            if (!order?.paymentSessionId) {
+                throw new Error('Invalid order response from server');
+            }
+
+            // Load Cashfree.js SDK dynamically
+            if (!window.Cashfree) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
                 });
-                rzp.open();
-            });
+            }
 
-            const verifyRes = await chatService.verifyUnlock({
-                razorpay_order_id: result.razorpay_order_id,
-                razorpay_payment_id: result.razorpay_payment_id,
-                razorpay_signature: result.razorpay_signature,
-                creatorId,
+            const cashfree = window.Cashfree({ mode: 'production' });
+            cashfree.checkout({
+                paymentSessionId: order.paymentSessionId,
+                redirectTarget: '_self',
             });
-
-            onSuccess(verifyRes.data.chatId);
+            // After redirect back, SubscriptionSuccess page will handle verification
         } catch (err) {
-            if (err.message === 'dismissed') {
-                // User closed Razorpay modal
-            } else {
+            if (err.message !== 'dismissed') {
                 const msg =
                     err?.response?.data?.message ||
                     err?.message ||
