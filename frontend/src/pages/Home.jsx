@@ -196,17 +196,17 @@ export default function Home() {
     // ── HOME PAGE 1: FAN (signed up via creator profile) ──────────────────────
     if (isAuthenticated && userType === 'fan') {
         return (
-            <div className="bg-[#030208] text-white overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden">
+            <div className="bg-[#030208] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
+                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-16">
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute inset-0"
                             style={{ background: 'radial-gradient(ellipse 120% 80% at 50% -10%, #1e0552 0%, #0a001a 50%, transparent 75%)' }} />
                         <motion.div className="absolute top-1/3 left-[20%] w-[500px] h-[500px] rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.18), transparent 70%)' }}
+                            style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.18), transparent 70%)', willChange: 'transform' }}
                             animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
                             transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
                         <motion.div className="absolute top-1/4 right-[15%] w-[400px] h-[400px] rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)' }}
+                            style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)', willChange: 'transform' }}
                             animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
                             transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
                     </div>
@@ -263,17 +263,17 @@ export default function Home() {
     // ── HOME PAGE 2: CREATOR ──────────────────────────────────────────────────
     if (isAuthenticated && userType === 'creator') {
         return (
-            <div className="bg-[#030208] text-white overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden">
+            <div className="bg-[#030208] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
+                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-16">
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute inset-0"
                             style={{ background: 'radial-gradient(ellipse 120% 80% at 50% -10%, #052e1c 0%, #030f08 50%, transparent 75%)' }} />
                         <motion.div className="absolute top-1/3 left-[20%] w-[500px] h-[500px] rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%)' }}
+                            style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%)', willChange: 'transform' }}
                             animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
                             transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
                         <motion.div className="absolute top-1/4 right-[15%] w-[400px] h-[400px] rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.1), transparent 70%)' }}
+                            style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.1), transparent 70%)', willChange: 'transform' }}
                             animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
                             transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
                     </div>
@@ -330,17 +330,17 @@ export default function Home() {
     // ── HOME PAGE 3: NORMAL USER (default signup) ─────────────────────────────
     if (isAuthenticated && userType === 'normal') {
         return (
-            <div className="bg-[#030208] text-white overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden">
+            <div className="bg-[#030208] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
+                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-16">
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute inset-0"
                             style={{ background: 'radial-gradient(ellipse 120% 80% at 50% -10%, #4a0520 0%, #0f021a 50%, transparent 75%)' }} />
                         <motion.div className="absolute top-1/3 left-[20%] w-[500px] h-[500px] rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.15), transparent 70%)' }}
+                            style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.15), transparent 70%)', willChange: 'transform' }}
                             animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
                             transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
                         <motion.div className="absolute top-1/4 right-[15%] w-[400px] h-[400px] rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(244,114,182,0.1), transparent 70%)' }}
+                            style={{ background: 'radial-gradient(circle, rgba(244,114,182,0.1), transparent 70%)', willChange: 'transform' }}
                             animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
                             transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
                     </div>

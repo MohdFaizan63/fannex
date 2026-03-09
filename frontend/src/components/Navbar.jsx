@@ -28,19 +28,21 @@ export default function Navbar() {
             const current = window.scrollY;
             setScrolled(current > 20);
 
-            // Don't hide when near top or menu is open
-            if (current < 60 || mobileOpen) {
-                setHeaderVis(true);
-            } else if (current > lastScrollY.current + 12) {
-                setHeaderVis(false); // scrolling DOWN → hide
-            } else if (current < lastScrollY.current - 12) {
-                setHeaderVis(true);  // scrolling UP   → show
+            // Auto-hide only for guests (authenticated nav stays fixed/stable)
+            if (!isAuthenticated) {
+                if (current < 60 || mobileOpen) {
+                    setHeaderVis(true);
+                } else if (current > lastScrollY.current + 12) {
+                    setHeaderVis(false);
+                } else if (current < lastScrollY.current - 12) {
+                    setHeaderVis(true);
+                }
             }
             lastScrollY.current = current;
         };
         window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
-    }, [mobileOpen]);
+    }, [mobileOpen, isAuthenticated]);
 
     // ── Close desktop dropdown on outside click ───────────────────────────────
     useEffect(() => {
@@ -111,8 +113,8 @@ export default function Navbar() {
                     } : {})
                 }}
                 className={`fixed top-0 inset-x-0 z-50 ${isAuthenticated
-                        ? 'border-b border-white/5 shadow-lg'
-                        : scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'
+                    ? 'border-b border-white/5 shadow-lg'
+                    : scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'
                     }`}
             >
                 <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
