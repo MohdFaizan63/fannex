@@ -28,6 +28,7 @@ export default function Chat() {
     const [messagePrice, setMessagePrice] = useState(0);
     const [page, setPage] = useState(1);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [uploadError, setUploadError] = useState(''); // transient upload error toast
 
     // Insufficient balance modal
     const [showInsufficientModal, setShowInsufficientModal] = useState(false);
@@ -247,6 +248,14 @@ export default function Chat() {
         if (!file) return;
         e.target.value = '';
 
+        // 7 MB limit
+        const MAX_CHAT_IMAGE_MB = 7;
+        if (file.size > MAX_CHAT_IMAGE_MB * 1024 * 1024) {
+            setUploadError(`Image must be under ${MAX_CHAT_IMAGE_MB}MB. Please choose a smaller photo.`);
+            setTimeout(() => setUploadError(''), 4000);
+            return;
+        }
+
         const localUrl = URL.createObjectURL(file);
         const optimisticId = `opt-img-${Date.now()}`;
         setMessages(prev => [...prev, {
@@ -364,6 +373,24 @@ export default function Chat() {
                     >
                         <span className="chat-deduction-toast__icon">💸</span>
                         <span>₹{Math.round(deductionToast.amount)} deducted · Balance: ₹{Math.round(deductionToast.newBalance)}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Upload Error Toast ────────────────────────────────────────── */}
+            <AnimatePresence>
+                {uploadError && (
+                    <motion.div
+                        key="upload-error"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.2 }}
+                        className="chat-deduction-toast"
+                        style={{ background: 'rgba(239,68,68,0.92)', borderColor: 'rgba(239,68,68,0.6)' }}
+                    >
+                        <span>⚠️</span>
+                        <span>{uploadError}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
