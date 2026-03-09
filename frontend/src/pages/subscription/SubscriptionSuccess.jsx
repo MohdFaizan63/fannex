@@ -6,7 +6,7 @@ import api from '../../services/api';
 import chatService from '../../services/chatService';
 
 export default function SubscriptionSuccess() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { refreshUser } = useAuth();
 
@@ -25,11 +25,17 @@ export default function SubscriptionSuccess() {
     const [sourceChatId, setSourceChatId] = useState(null);
     const [giftAmount, setGiftAmount] = useState(null);
     const timerRef = useRef(null);
+    // verifiedRef prevents the cfOrderId=null guard from firing after
+    // setSearchParams clears the query string (component does NOT remount,
+    // but the effect re-runs because cfOrderId enters the dependency array).
+    const verifiedRef = useRef(false);
 
     useEffect(() => {
-        // No order_id — user navigated back from chat
-        // Redirect them to the creator's profile (not the success page again)
+        // No order_id in URL.
+        // Guard: if we already verified (verifiedRef=true) this means setSearchParams
+        // just cleaned the URL — do NOT redirect, the success UI is already showing.
         if (!cfOrderId) {
+            if (verifiedRef.current) return; // ← success page is rendering, stay put
             const cached = sessionStorage.getItem('fannex_sub_success');
             if (cached) {
                 try {
@@ -56,18 +62,16 @@ export default function SubscriptionSuccess() {
 
                 const type = data.type || 'subscription';
                 setVerified(true);
+                verifiedRef.current = true; // guard against cfOrderId=null redirect after URL clean
                 setOrderType(type);
-
-                // ── BUG-3 & BUG-4 FIX: Proper exclusive if/else if chain ──────────
-                // Each branch sets all state, then navigates ONCE at the very end.
-                // The original code had `if (gift)` OUTSIDE the else chain, causing
-                // it to run concurrently with the subscription branch's navigate().
 
                 if (type === 'wallet') {
                     // ── Wallet recharge ──────────────────────────────────────────
                     setWalletBalance(data.walletBalance);
                     setWalletAmount(data.amount);
-                    navigate('/subscription-success', { replace: true });
+                    // Clean the URL without navigating away (navigate() would trigger
+                    // cfOrderId=null guard and redirect to /explore)
+                    setSearchParams({}, { replace: true });
 
                 } else if (type === 'chat_unlock') {
                     // ── Chat unlock: auto-redirect to chat ───────────────────────
@@ -79,7 +83,6 @@ export default function SubscriptionSuccess() {
 
                 } else if (type === 'gift') {
                     // ── Gift payment ─────────────────────────────────────────────
-                    // Set creator info if returned by verifyPayment
                     if (data.creator) setCreator(data.creator);
                     if (data.amount) setGiftAmount(data.amount);
 
@@ -96,12 +99,12 @@ export default function SubscriptionSuccess() {
                             });
                             sessionStorage.removeItem('fannex_gift_chat');
                         } catch (_) {
-                            // verifyGift failure is non-fatal — show success page anyway
-                            // (idempotency: webhook may have already processed it)
+                            // verifyGift failure is non-fatal — webhook may have already processed it
                         }
                     }
-                    // Navigate last — after all state is set
-                    navigate('/subscription-success', { replace: true });
+                    // Clean the URL without navigating away — CRITICAL: navigate() would
+                    // set cfOrderId=null and redirect to /explore before the UI renders.
+                    setSearchParams({}, { replace: true });
 
                 } else {
                     // ── Subscription (default) ───────────────────────────────────
@@ -114,7 +117,8 @@ export default function SubscriptionSuccess() {
                             chatId: data.chatId || null,
                         }));
                     }
-                    navigate('/subscription-success', { replace: true });
+                    // Clean URL without navigating away
+                    setSearchParams({}, { replace: true });
                 }
 
             } catch (err) {
