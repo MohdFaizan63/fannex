@@ -162,8 +162,9 @@ export default function ChatButton({ creatorId, creatorName, className = '', var
                         isGuest ? 'Login to chat' :
                             !chatEnabled ? 'Creator has disabled chat' : undefined
                     }
+                    className="creator-btn-secondary"
                     style={{
-                        flex: 1, height: 52, borderRadius: 14,
+                        height: 50, borderRadius: 14,
                         background: isDisabled
                             ? 'rgba(251,191,36,0.05)'
                             : isPaid
@@ -176,12 +177,14 @@ export default function ChatButton({ creatorId, creatorName, className = '', var
                                 : '1.5px solid rgba(139,92,246,0.25)',
                         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
                         color: isDisabled ? 'rgba(251,191,36,0.45)' : '#fff',
-                        fontWeight: 700, fontSize: 15,
+                        fontWeight: 700, fontSize: 14,
                         cursor: isDisabled || loading ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                         letterSpacing: '-0.01em',
                         opacity: loading ? 0.6 : 1,
+                        whiteSpace: 'nowrap',
+                        width: '100%',
                     }}
                     onMouseEnter={e => {
                         if (!isDisabled && !loading) {
@@ -204,12 +207,13 @@ export default function ChatButton({ creatorId, creatorName, className = '', var
                         }
                     }}
                 >
-                    <span style={{ fontSize: 18 }}>{isDisabled ? '🔒' : isPaid ? '💬' : '💬'}</span>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{isDisabled ? '🔒' : '💬'}</span>
                     <span>{isDisabled ? 'Chat Locked' : isPaid ? 'Message Now' : 'Send Message'}</span>
                 </button>
                 {showSubscribeFirst && <SubscribeFirstModal />}
             </>
         );
+
     }
 
     // ── Default pill style ────────────────────────────────────────────────────

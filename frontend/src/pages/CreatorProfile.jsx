@@ -519,18 +519,20 @@ export default function CreatorProfile() {
                                 <style>{`
                                     @keyframes btnShine { 0% { left: -100%; } 100% { left: 200%; } }
                                     @keyframes pulseGlow { 0%,100% { box-shadow: 0 8px 32px rgba(168,85,247,0.4); } 50% { box-shadow: 0 12px 40px rgba(168,85,247,0.6); } }
-                                    .creator-btn-stack { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
-                                    .creator-btn-row { display: flex; gap: 12px; }
-                                    @media (max-width: 480px) {
-                                        .creator-btn-row { flex-direction: column; }
+                                    .creator-btn-stack { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+                                    .creator-btn-row { display: flex; gap: 10px; width: 100%; }
+                                    .creator-btn-row > * { flex: 1; min-width: 0; }
+                                    @media (max-width: 360px) {
+                                        .creator-btn-primary { height: 48px !important; font-size: 15px !important; }
+                                        .creator-btn-secondary { height: 46px !important; font-size: 13px !important; }
                                     }
                                 `}</style>
                                 <div className="creator-btn-stack">
 
                                     {/* 1. Subscribe / Subscribed — full-width hero button */}
                                     {isSubscribed ? (
-                                        <div style={{
-                                            width: '100%', height: 56, borderRadius: 16,
+                                        <div className="creator-btn-primary" style={{
+                                            width: '100%', height: 54, borderRadius: 16,
                                             background: 'linear-gradient(135deg, rgba(74,222,128,0.06), rgba(74,222,128,0.02))',
                                             border: '1.5px solid rgba(74,222,128,0.22)',
                                             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
@@ -542,6 +544,7 @@ export default function CreatorProfile() {
                                                 background: 'linear-gradient(135deg, #22c55e, #16a34a)',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 boxShadow: '0 2px 10px rgba(34,197,94,0.4)',
+                                                flexShrink: 0,
                                             }}>
                                                 <svg width="13" height="13" viewBox="0 0 20 20" fill="#fff">
                                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -553,14 +556,15 @@ export default function CreatorProfile() {
                                         <button
                                             onClick={handleSubscribe}
                                             disabled={subscribing}
+                                            className="creator-btn-primary"
                                             style={{
                                                 position: 'relative', overflow: 'hidden',
-                                                width: '100%', height: 56, borderRadius: 16, border: 'none',
+                                                width: '100%', height: 54, borderRadius: 16, border: 'none',
                                                 background: 'linear-gradient(135deg, #9333ea 0%, #ec4899 50%, #f97316 100%)',
                                                 color: '#fff',
                                                 display: 'flex', alignItems: 'center',
                                                 justifyContent: 'space-between',
-                                                padding: '0 24px',
+                                                padding: '0 20px',
                                                 cursor: subscribing ? 'not-allowed' : 'pointer',
                                                 opacity: subscribing ? 0.6 : 1,
                                                 transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -577,18 +581,19 @@ export default function CreatorProfile() {
                                                 animation: 'btnShine 3s ease-in-out infinite',
                                                 pointerEvents: 'none',
                                             }} />
-                                            <span style={{ fontWeight: 900, fontSize: 17, letterSpacing: '-0.03em', position: 'relative', zIndex: 1 }}>
+                                            <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: '-0.03em', position: 'relative', zIndex: 1, whiteSpace: 'nowrap' }}>
                                                 {subscribing ? 'Processing…' : '⚡ Subscribe Now'}
                                             </span>
                                             {!subscribing && subscriptionPrice > 0 && (
                                                 <span style={{
                                                     background: 'rgba(0,0,0,0.25)',
                                                     backdropFilter: 'blur(8px)',
-                                                    borderRadius: 12, padding: '5px 16px',
-                                                    fontWeight: 800, fontSize: 14,
+                                                    borderRadius: 12, padding: '5px 14px',
+                                                    fontWeight: 800, fontSize: 13,
                                                     letterSpacing: '-0.01em',
                                                     position: 'relative', zIndex: 1,
                                                     border: '1px solid rgba(255,255,255,0.1)',
+                                                    whiteSpace: 'nowrap', flexShrink: 0,
                                                 }}>
                                                     ₹{subscriptionPrice}/mo
                                                 </span>
@@ -596,21 +601,24 @@ export default function CreatorProfile() {
                                         </button>
                                     )}
 
-                                    {/* 2. Secondary buttons row: Gift + Chat */}
+                                    {/* 2. Secondary buttons row: Gift + Chat — always side by side */}
                                     <div className="creator-btn-row">
-                                        {/* Gift button — warm amber gradient */}
+                                        {/* Gift button */}
                                         <button
                                             onClick={() => setShowGift(true)}
+                                            className="creator-btn-secondary"
                                             style={{
-                                                flex: 1, height: 52, borderRadius: 14,
+                                                height: 50, borderRadius: 14,
                                                 background: 'linear-gradient(135deg, rgba(255,122,24,0.1), rgba(255,179,71,0.05))',
                                                 border: '1.5px solid rgba(255,122,24,0.25)',
                                                 backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                                                color: '#fff', fontWeight: 700, fontSize: 15,
+                                                color: '#fff', fontWeight: 700, fontSize: 14,
                                                 cursor: 'pointer', display: 'flex',
-                                                alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                alignItems: 'center', justifyContent: 'center', gap: 6,
                                                 transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                                                 letterSpacing: '-0.01em',
+                                                whiteSpace: 'nowrap',
+                                                width: '100%',
                                             }}
                                             onMouseEnter={e => {
                                                 e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255,122,24,0.2), rgba(255,179,71,0.12))';
@@ -625,7 +633,7 @@ export default function CreatorProfile() {
                                                 e.currentTarget.style.boxShadow = 'none';
                                             }}
                                         >
-                                            <span style={{ fontSize: 20 }}>🎁</span>
+                                            <span style={{ fontSize: 18, flexShrink: 0 }}>🎁</span>
                                             <span>Send Gift</span>
                                         </button>
 
@@ -638,6 +646,7 @@ export default function CreatorProfile() {
                                         />
                                     </div>
                                 </div>
+
                             </div>
 
                             {/* ── Tabs ─────────────────────────────────────────── */}
