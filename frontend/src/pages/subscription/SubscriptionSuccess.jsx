@@ -294,7 +294,7 @@ export default function SubscriptionSuccess() {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {sourceChatId && (
-                                <Link to={`/chat/${sourceChatId}`} style={{
+                                <Link to={`/chat/${sourceChatId}?refresh=1`} style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                                     padding: '14px 0', borderRadius: 999,
                                     background: 'linear-gradient(135deg, #ff7a18, #ffb347)',

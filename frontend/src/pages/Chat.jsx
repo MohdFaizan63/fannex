@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import chatService, { connectSocket, getSocket } from '../services/chatService';
@@ -12,6 +12,7 @@ import '../components/chat/chat.css';
 export default function Chat() {
     const { chatId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { user } = useAuth();
 
     // ── State ──────────────────────────────────────────────────────────────────
@@ -114,6 +115,17 @@ export default function Chat() {
     }, [chatId]);
 
     useEffect(() => { loadMessages(1); }, [loadMessages]);
+
+    // ── Refresh trigger: ?refresh=1 from gift success page ─────────────────────
+    // When user taps "Back to Chat" on the gift success page, we reload messages
+    // so the newly created gift bubble appears immediately.
+    useEffect(() => {
+        if (searchParams.get('refresh') === '1') {
+            loadMessages(1);
+            // Clean the param from URL so it doesn't re-trigger on forward/back nav
+            navigate(`/chat/${chatId}`, { replace: true });
+        }
+    }, [searchParams, chatId, loadMessages, navigate]);
 
     // ── Socket.io ──────────────────────────────────────────────────────────────
     useEffect(() => {

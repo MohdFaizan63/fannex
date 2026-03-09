@@ -446,7 +446,7 @@ const createGiftOrder = async (req, res, next) => {
 // @access User
 const verifyGift = async (req, res, next) => {
     try {
-        const { orderId, chatId, amount } = req.body;
+        const { orderId, chatId } = req.body;
         const userId = req.user._id;
 
         const orderData = await paymentService.getOrderStatus(orderId);
@@ -454,26 +454,33 @@ const verifyGift = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Gift payment not completed' });
         }
 
-        // ── FIX: use getOrderPayments (orderData.payments is always undefined) ──
+        // Use verified amount from Cashfree — never trust client-supplied amount
+        const amount = Number(orderData.order_amount);
+
         let cfPaymentId = null;
         try {
             const payments = await paymentService.getOrderPayments(orderId);
             cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
         } catch { /* cfPaymentId is optional */ }
 
-        // Prevent duplicate processing
-        const existing = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
-        if (existing) {
-            // Already processed — find and return the existing gift message
-            const existingMsg = await ChatMessage.findOne({ chatId, type: 'gift', giftPaymentId: cfPaymentId }).lean();
-            return res.json({ success: true, data: existingMsg || existing });
+        // ── Idempotency: always check if the ChatMessage already exists first ────
+        // (webhook may have already created it via handlePaymentCaptured)
+        const existingMsg = await ChatMessage.findOne({ chatId, content: { $regex: orderId } })
+            || await ChatMessage.findOne({ chatId, type: 'gift', giftPaymentId: cfPaymentId })
+            || (cfPaymentId
+                ? null
+                : await ChatMessage.findOne({ chatId, type: 'gift', giftAmount: amount, senderId: userId })
+            );
+
+        if (existingMsg) {
+            return res.json({ success: true, data: existingMsg });
         }
 
-        // Update payment record
-        const payment = await Payment.findOneAndUpdate(
+        // ── Ensure payment record is captured ────────────────────────────────────
+        await Payment.findOneAndUpdate(
             { cfOrderId: orderId },
-            { cfPaymentId, status: 'captured' },
-            { returnDocument: 'after', upsert: false }
+            { $set: { cfPaymentId: cfPaymentId || undefined, status: 'captured' } },
+            { upsert: false }
         );
 
         const room = await ChatRoom.findById(chatId);
@@ -486,7 +493,7 @@ const verifyGift = async (req, res, next) => {
             chatId,
             senderId: userId,
             type: 'gift',
-            content: `Sent a gift of ₹${amount}`,
+            content: `Sent a gift of ₹${amount} [${orderId}]`,  // embed orderId for idempotency lookup
             giftAmount: amount,
             giftPaymentId: cfPaymentId,
         });
@@ -498,18 +505,20 @@ const verifyGift = async (req, res, next) => {
             $inc: { unreadByCreator: 1 },
         });
 
-        // Credit creator earnings
-        await Earnings.findOneAndUpdate(
-            { creatorId: room.creatorId },
-            { $inc: { totalEarned: amount, pendingAmount: amount } },
-            { upsert: true }
-        );
+        // Credit creator earnings (only if not already credited by webhook)
+        const alreadyCaptured = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
+        if (!alreadyCaptured) {
+            await Earnings.findOneAndUpdate(
+                { creatorId: room.creatorId },
+                { $inc: { totalEarned: amount, pendingAmount: amount } },
+                { upsert: true }
+            );
+        }
 
-        // ── FIX: broadcast gift message via socket so chat updates in real-time ──
+        // Broadcast gift message so chat updates in real-time if user is in the room
         const io = req.app.get('io');
         if (io) {
-            const msgObj = message.toObject ? message.toObject() : message;
-            io.to(String(chatId)).emit('new_message', msgObj);
+            io.to(String(chatId)).emit('new_message', message.toObject ? message.toObject() : message);
         }
 
         res.json({ success: true, data: message });
