@@ -6,32 +6,36 @@ import './chat.css';
 const GIFT_OPTIONS = [50, 100, 500, 1000, 5000, 10000];
 
 /**
- * GiftPanel — Premium bottom-sheet with gift amount presets + custom amount.
- * Uses Cashfree checkout (redirectTarget: '_self') with the gift verify endpoint.
+ * GiftPanel — embedded Cashfree gift payment.
+ *
+ * Uses redirectTarget:'#gift-cashfree-embed' so Cashfree renders inside a
+ * fullscreen overlay on the current page. Zero history pollution.
+ * After payment Cashfree navigates to returnUrl (/subscription-success?order_id=gf_xxx)
+ * which calls /chat/gift/verify to save the gift message bubbles in real-time.
  */
 export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) {
-    const [selected, setSelected] = useState(null);       // preset amount
-    const [customAmt, setCustomAmt] = useState('');        // custom amount input
+    const [selected, setSelected] = useState(null);
+    const [customAmt, setCustomAmt] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [phase, setPhase] = useState('select'); // 'select' | 'paying'
 
-    // Effective amount: custom field overrides preset when non-empty
     const effectiveAmount = customAmt !== '' ? Number(customAmt) : selected;
 
     const handleCustomChange = (e) => {
         const val = e.target.value.replace(/[^0-9]/g, '');
         setCustomAmt(val);
-        if (val) setSelected(null); // deselect presets when typing custom
+        if (val) setSelected(null);
     };
 
     const handlePresetClick = (amt) => {
         setSelected(amt);
-        setCustomAmt('');  // clear custom when preset chosen
+        setCustomAmt('');
     };
 
     const handleSendGift = async () => {
         const amount = effectiveAmount;
-        if (!amount || amount < 0.1) { setError('Please select or enter a gift amount (min ₹0.1).'); return; }
+        if (!amount || amount < 1) { setError('Please select or enter a gift amount (min ₹1).'); return; }
 
         setLoading(true);
         setError('');
@@ -43,32 +47,48 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                 throw new Error('Invalid order response from server');
             }
 
-            // Store chatId + amount before redirect so SubscriptionSuccess can post the chat message
-            sessionStorage.setItem('fannex_gift_chat', JSON.stringify({ chatId, amount }));
+            // Store chatId + amount so the success page can call /chat/gift/verify
+            sessionStorage.setItem('fannex_gift_chat', JSON.stringify({
+                chatId,
+                amount,
+                orderId: order.orderId,
+            }));
 
-            // Load Cashfree.js SDK dynamically
+            // Load Cashfree SDK
             if (!window.Cashfree) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.head.appendChild(script);
-                });
+                const existing = document.querySelector('script[src*="cashfree"]');
+                if (existing) {
+                    await new Promise(r => { existing.addEventListener('load', r); setTimeout(r, 3000); });
+                } else {
+                    await new Promise((resolve, reject) => {
+                        const s = document.createElement('script');
+                        s.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                        s.onload = resolve;
+                        s.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+                        document.head.appendChild(s);
+                    });
+                }
             }
+
+            // Switch UI to payment phase
+            setPhase('paying');
+            await new Promise(r => setTimeout(r, 80)); // let React render the div
 
             const cashfree = window.Cashfree({ mode: 'sandbox' });
             cashfree.checkout({
                 paymentSessionId: order.paymentSessionId,
-                redirectTarget: '_self',
+                redirectTarget: '#gift-cashfree-embed', // ← embedded, no history pollution
+                returnUrl: `${window.location.origin}/subscription-success?order_id=${order.orderId}`,
             });
+
         } catch (err) {
+            setPhase('select');
             if (err.message !== 'dismissed') {
-                const msg =
+                setError(
                     err?.response?.data?.message ||
                     err?.message ||
-                    'Gift payment failed. Please try again.';
-                setError(msg);
+                    'Gift payment failed. Please try again.'
+                );
             }
         } finally {
             setLoading(false);
@@ -78,153 +98,150 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
     return (
         <AnimatePresence>
             <motion.div
+                key="backdrop"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 style={{
                     position: 'fixed', inset: 0, zIndex: 50,
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)',
                     WebkitBackdropFilter: 'blur(6px)',
                 }}
-                onClick={onClose}
+                onClick={phase === 'select' ? onClose : undefined}
             >
-                <motion.div
-                    initial={{ y: '100%' }}
-                    animate={{ y: 0 }}
-                    exit={{ y: '100%' }}
-                    transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-                    style={{
-                        width: '100%', maxWidth: 480,
-                        background: '#0a0a14',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '24px 24px 0 0',
-                        padding: '16px 20px 32px',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Handle bar */}
-                    <div style={{
-                        width: 40, height: 4, background: 'rgba(255,255,255,0.15)',
-                        borderRadius: 999, margin: '0 auto 20px',
-                    }} />
-
-                    <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, textAlign: 'center', margin: '0 0 4px' }}>
-                        Send a Gift 🎁
-                    </h3>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center', margin: '0 0 20px' }}>
-                        to {creatorName}
-                    </p>
-
-                    {/* Preset amounts grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-                        {GIFT_OPTIONS.map((amt) => (
-                            <motion.button
-                                key={amt}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => handlePresetClick(amt)}
-                                style={{
-                                    padding: '14px 0',
-                                    borderRadius: 16,
-                                    fontWeight: 700,
-                                    fontSize: 14,
-                                    fontFamily: 'inherit',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    background: selected === amt
-                                        ? 'linear-gradient(135deg, #7c3aed, #cc52b8)'
-                                        : 'rgba(255,255,255,0.04)',
-                                    border: selected === amt
-                                        ? 'none'
-                                        : '1px solid rgba(255,255,255,0.08)',
-                                    color: selected === amt
-                                        ? '#fff'
-                                        : 'rgba(255,255,255,0.65)',
-                                    boxShadow: selected === amt
-                                        ? '0 4px 16px rgba(124,58,237,0.3)'
-                                        : 'none',
-                                    transform: selected === amt ? 'scale(1.03)' : 'scale(1)',
-                                }}
-                            >
-                                ₹{amt.toLocaleString('en-IN')}
-                            </motion.button>
-                        ))}
-                    </div>
-
-                    {/* Custom amount input */}
-                    <div style={{ marginBottom: 20 }}>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            background: customAmt ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.03)',
-                            border: customAmt
-                                ? '1.5px solid rgba(124,58,237,0.45)'
-                                : '1.5px solid rgba(255,255,255,0.08)',
-                            borderRadius: 16,
-                            padding: '12px 16px',
-                            transition: 'all 0.2s ease',
-                        }}>
-                            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 18, fontWeight: 700, flexShrink: 0 }}>₹</span>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="Custom amount…"
-                                value={customAmt}
-                                onChange={handleCustomChange}
-                                style={{
-                                    flex: 1,
-                                    background: 'none',
-                                    border: 'none',
-                                    outline: 'none',
-                                    color: '#fff',
-                                    fontWeight: 700,
-                                    fontSize: 16,
-                                    fontFamily: 'inherit',
-                                }}
-                            />
-                            {customAmt && (
-                                <button
-                                    onClick={() => setCustomAmt('')}
-                                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 16, padding: 0 }}
-                                >✕</button>
-                            )}
-                        </div>
-                        <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 6, paddingLeft: 4 }}>
-                            Min ₹0.1 · Max ₹10,000
-                        </p>
-                    </div>
-
-                    {error && (
-                        <div className="chat-alert chat-alert--error" style={{ marginBottom: 12 }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handleSendGift}
-                        disabled={!effectiveAmount || effectiveAmount < 0.1 || loading}
+                {phase === 'select' ? (
+                    /* ── Gift amount picker ──────────────────────────── */
+                    <motion.div
+                        key="picker"
+                        initial={{ y: '100%' }}
+                        animate={{ y: 0 }}
+                        exit={{ y: '100%' }}
+                        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
                         style={{
-                            width: '100%',
-                            padding: '15px 0',
-                            borderRadius: 16,
-                            fontWeight: 700,
-                            fontSize: 15,
-                            fontFamily: 'inherit',
-                            color: '#fff',
-                            background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
-                            border: 'none',
-                            cursor: !effectiveAmount || effectiveAmount < 1 || loading ? 'not-allowed' : 'pointer',
-                            opacity: !effectiveAmount || effectiveAmount < 1 || loading ? 0.4 : 1,
-                            transition: 'opacity 0.2s ease, transform 0.15s ease',
-                            boxShadow: '0 4px 16px rgba(124,58,237,0.3)',
+                            width: '100%', maxWidth: 480,
+                            background: '#0a0a14',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '24px 24px 0 0',
+                            padding: '16px 20px 32px',
                         }}
+                        onClick={e => e.stopPropagation()}
                     >
-                        {loading
-                            ? 'Processing…'
-                            : effectiveAmount
+                        {/* Handle bar */}
+                        <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 999, margin: '0 auto 20px' }} />
+
+                        <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, textAlign: 'center', margin: '0 0 4px' }}>
+                            Send a Gift 🎁
+                        </h3>
+                        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center', margin: '0 0 20px' }}>
+                            to {creatorName}
+                        </p>
+
+                        {/* Preset grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+                            {GIFT_OPTIONS.map(amt => (
+                                <motion.button
+                                    key={amt}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => handlePresetClick(amt)}
+                                    style={{
+                                        padding: '14px 0', borderRadius: 16,
+                                        fontWeight: 700, fontSize: 14, fontFamily: 'inherit', cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        background: selected === amt ? 'linear-gradient(135deg, #7c3aed, #cc52b8)' : 'rgba(255,255,255,0.04)',
+                                        border: selected === amt ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                        color: selected === amt ? '#fff' : 'rgba(255,255,255,0.65)',
+                                        boxShadow: selected === amt ? '0 4px 16px rgba(124,58,237,0.3)' : 'none',
+                                        transform: selected === amt ? 'scale(1.03)' : 'scale(1)',
+                                    }}
+                                >
+                                    ₹{amt.toLocaleString('en-IN')}
+                                </motion.button>
+                            ))}
+                        </div>
+
+                        {/* Custom amount */}
+                        <div style={{ marginBottom: 20 }}>
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                background: customAmt ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.03)',
+                                border: customAmt ? '1.5px solid rgba(124,58,237,0.45)' : '1.5px solid rgba(255,255,255,0.08)',
+                                borderRadius: 16, padding: '12px 16px', transition: 'all 0.2s ease',
+                            }}>
+                                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 18, fontWeight: 700, flexShrink: 0 }}>₹</span>
+                                <input
+                                    type="text" inputMode="numeric"
+                                    placeholder="Custom amount…"
+                                    value={customAmt}
+                                    onChange={handleCustomChange}
+                                    style={{
+                                        flex: 1, background: 'none', border: 'none', outline: 'none',
+                                        color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'inherit',
+                                    }}
+                                />
+                                {customAmt && (
+                                    <button onClick={() => setCustomAmt('')}
+                                        style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 16, padding: 0 }}>✕</button>
+                                )}
+                            </div>
+                            <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 6, paddingLeft: 4 }}>
+                                Min ₹1 · Max ₹10,000
+                            </p>
+                        </div>
+
+                        {error && (
+                            <div className="chat-alert chat-alert--error" style={{ marginBottom: 12 }}>{error}</div>
+                        )}
+
+                        <button
+                            onClick={handleSendGift}
+                            disabled={!effectiveAmount || effectiveAmount < 1 || loading}
+                            style={{
+                                width: '100%', padding: '15px 0', borderRadius: 16,
+                                fontWeight: 700, fontSize: 15, fontFamily: 'inherit', color: '#fff',
+                                background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
+                                border: 'none',
+                                cursor: !effectiveAmount || effectiveAmount < 1 || loading ? 'not-allowed' : 'pointer',
+                                opacity: !effectiveAmount || effectiveAmount < 1 || loading ? 0.4 : 1,
+                                transition: 'opacity 0.2s ease',
+                                boxShadow: '0 4px 16px rgba(124,58,237,0.3)',
+                            }}
+                        >
+                            {loading ? 'Opening payment…' : effectiveAmount
                                 ? `Send ₹${Number(effectiveAmount).toLocaleString('en-IN')} Gift 🎁`
                                 : 'Select or enter an amount'}
-                    </button>
-                </motion.div>
+                        </button>
+                    </motion.div>
+                ) : (
+                    /* ── Embedded Cashfree payment UI ──────────────── */
+                    <motion.div
+                        key="payment"
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        style={{
+                            width: '100%', maxWidth: 480,
+                            background: '#fff', borderRadius: '20px 20px 0 0',
+                            overflow: 'hidden', minHeight: 520, position: 'relative',
+                            boxShadow: '0 -12px 60px rgba(0,0,0,0.6)',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => { setPhase('select'); setError(''); }}
+                            style={{
+                                position: 'absolute', top: 12, right: 12, zIndex: 10,
+                                width: 32, height: 32, borderRadius: '50%',
+                                background: 'rgba(0,0,0,0.08)', border: 'none',
+                                cursor: 'pointer', fontSize: 16,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                        >✕</button>
+
+                        {/* Cashfree renders into this div */}
+                        <div id="gift-cashfree-embed" style={{ width: '100%', minHeight: 520 }} />
+                    </motion.div>
+                )}
             </motion.div>
         </AnimatePresence>
     );

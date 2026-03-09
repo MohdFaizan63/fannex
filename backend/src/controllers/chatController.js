@@ -451,16 +451,33 @@ const verifyGift = async (req, res, next) => {
         if (orderData.order_status !== 'PAID') {
             return res.status(400).json({ success: false, message: 'Gift payment not completed' });
         }
-        const cfPaymentId = orderData.payments?.[0]?.cf_payment_id?.toString() || null;
 
-        // Update payment
+        // ── FIX: use getOrderPayments (orderData.payments is always undefined) ──
+        let cfPaymentId = null;
+        try {
+            const payments = await paymentService.getOrderPayments(orderId);
+            cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
+        } catch { /* cfPaymentId is optional */ }
+
+        // Prevent duplicate processing
+        const existing = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
+        if (existing) {
+            // Already processed — find and return the existing gift message
+            const existingMsg = await ChatMessage.findOne({ chatId, type: 'gift', giftPaymentId: cfPaymentId }).lean();
+            return res.json({ success: true, data: existingMsg || existing });
+        }
+
+        // Update payment record
         const payment = await Payment.findOneAndUpdate(
             { cfOrderId: orderId },
             { cfPaymentId, status: 'captured' },
-            { returnDocument: 'after' }
+            { returnDocument: 'after', upsert: false }
         );
 
         const room = await ChatRoom.findById(chatId);
+        if (!room) {
+            return res.status(404).json({ success: false, message: 'Chat room not found' });
+        }
 
         // Save gift message
         const message = await ChatMessage.create({
@@ -479,17 +496,27 @@ const verifyGift = async (req, res, next) => {
             $inc: { unreadByCreator: 1 },
         });
 
-        if (room) {
-            await Earnings.findOneAndUpdate(
-                { creatorId: room.creatorId },
-                { $inc: { totalEarned: amount, pendingAmount: amount } },
-                { upsert: true }
-            );
+        // Credit creator earnings
+        await Earnings.findOneAndUpdate(
+            { creatorId: room.creatorId },
+            { $inc: { totalEarned: amount, pendingAmount: amount } },
+            { upsert: true }
+        );
+
+        // ── FIX: broadcast gift message via socket so chat updates in real-time ──
+        const io = req.app.get('io');
+        if (io) {
+            const msgObj = message.toObject ? message.toObject() : message;
+            io.to(String(chatId)).emit('new_message', msgObj);
         }
 
         res.json({ success: true, data: message });
-    } catch (err) { next(err); }
+    } catch (err) {
+        console.error('[verifyGift] Error:', err.message);
+        next(err);
+    }
 };
+
 
 // @desc  Check if user has paid for a chat with a creator
 //        Subscribers automatically get chat access for free.
