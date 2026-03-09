@@ -163,7 +163,7 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                             Current balance
                         </p>
                         <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', marginBottom: 24, letterSpacing: '-0.5px' }}>
-                            ₹{currentBalance}
+                            ₹{Math.round(currentBalance)}
                         </div>
 
                         {/* Preset chips */}

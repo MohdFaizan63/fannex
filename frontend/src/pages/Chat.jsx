@@ -336,7 +336,7 @@ export default function Chat() {
                     {walletBalance !== null && !isCreator && (
                         <button onClick={() => setShowWallet(true)} className="chat-wallet-btn">
                             <span>💳</span>
-                            <span>₹{walletBalance}</span>
+                            <span>₹{Math.round(walletBalance)}</span>
                         </button>
                     )}
                 </div>
@@ -363,7 +363,7 @@ export default function Chat() {
                         className="chat-deduction-toast"
                     >
                         <span className="chat-deduction-toast__icon">💸</span>
-                        <span>₹{deductionToast.amount} deducted · Balance: ₹{deductionToast.newBalance}</span>
+                        <span>₹{Math.round(deductionToast.amount)} deducted · Balance: ₹{Math.round(deductionToast.newBalance)}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -502,7 +502,7 @@ export default function Chat() {
                             <h3 className="chat-insufficient-title">Insufficient Balance</h3>
                             <p className="chat-insufficient-body">
                                 You need <strong>₹{messagePrice}</strong> to send a message.<br />
-                                Current balance: <strong>₹{walletBalance ?? 0}</strong>
+                                Current balance: <strong>₹{Math.round(walletBalance ?? 0)}</strong>
                             </p>
                             <button
                                 className="chat-insufficient-btn"

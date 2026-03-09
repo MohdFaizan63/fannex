@@ -17,7 +17,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
-const fmt = (n) => Number(n).toLocaleString('en-IN');
+const fmt = (n) => Math.round(Number(n)).toLocaleString('en-IN');
 
 export default function Wallet() {
     const [searchParams] = useSearchParams();

@@ -95,7 +95,7 @@ const verifyPayment = async (req, res, next) => {
             return res.status(200).json({
                 success: true,
                 type: 'wallet',
-                walletBalance: freshUser?.walletBalance ?? 0,
+                walletBalance: Math.round(freshUser?.walletBalance ?? 0),
                 amount: orderData.order_amount,
                 message: 'Wallet recharged successfully',
             });
@@ -435,7 +435,7 @@ async function verifyWalletRecharge(req, res, next) {
 
         const User = require('../models/User');
         const user = await User.findById(userId).select('walletBalance');
-        res.status(200).json({ success: true, data: { walletBalance: user?.walletBalance ?? 0 } });
+        res.status(200).json({ success: true, data: { walletBalance: Math.round(user?.walletBalance ?? 0) } });
     } catch (err) {
         next(err);
     }
@@ -470,7 +470,7 @@ async function getWalletBalance(req, res, next) {
     try {
         const User = require('../models/User');
         const user = await User.findById(req.user._id).select('walletBalance');
-        res.status(200).json({ success: true, data: { walletBalance: user?.walletBalance ?? 0 } });
+        res.status(200).json({ success: true, data: { walletBalance: Math.round(user?.walletBalance ?? 0) } });
     } catch (err) {
         next(err);
     }

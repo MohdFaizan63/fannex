@@ -188,7 +188,7 @@ export default function SubscriptionSuccess() {
                     )}
                     {walletBalance !== null && (
                         <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, marginBottom: 24 }}>
-                            New balance: <strong style={{ color: '#fff' }}>₹{walletBalance}</strong>
+                            New balance: <strong style={{ color: '#fff' }}>₹{Math.round(walletBalance)}</strong>
                         </p>
                     )}
                     <Link to="/wallet" style={btnPrimary}>Go to Wallet</Link>
