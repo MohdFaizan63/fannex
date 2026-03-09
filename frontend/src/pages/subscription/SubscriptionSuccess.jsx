@@ -27,17 +27,18 @@ export default function SubscriptionSuccess() {
     const timerRef = useRef(null);
 
     useEffect(() => {
-        // No order_id — check sessionStorage for cached result (back-navigation)
+        // No order_id — user navigated back from chat
+        // Redirect them to the creator's profile (not the success page again)
         if (!cfOrderId) {
             const cached = sessionStorage.getItem('fannex_sub_success');
             if (cached) {
                 try {
                     const d = JSON.parse(cached);
-                    setVerified(true);
-                    setOrderType(d.orderType || 'subscription');
-                    setCreator(d.creator || null);
-                    setChatId(d.chatId || null);
-                    setVerifying(false);
+                    if (d.creator?.username) {
+                        navigate(`/creator/${d.creator.username}`, { replace: true });
+                    } else {
+                        navigate('/explore', { replace: true });
+                    }
                 } catch { navigate('/explore', { replace: true }); }
             } else {
                 navigate('/explore', { replace: true });
