@@ -97,7 +97,7 @@ export default function Wallet() {
     // ── Handle Recharge ─────────────────────────────────────────────────────────
     const handleRecharge = async () => {
         if (!finalAmount) { setError('Please select or enter an amount.'); return; }
-        if (finalAmount < 1) { setError('Minimum recharge is ₹1.'); return; }
+        if (finalAmount < 0.1) { setError('Minimum recharge is ₹0.1.'); return; }
         if (finalAmount > 50000) { setError('Maximum recharge is ₹50,000.'); return; }
 
         setLoading(true);

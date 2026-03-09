@@ -375,8 +375,8 @@ async function createWalletOrder(req, res, next) {
         if (isNaN(parsed) || parsed <= 0) {
             return res.status(400).json({ success: false, message: 'Invalid amount' });
         }
-        if (parsed < 1) {
-            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹1' });
+        if (parsed < 0.1) {
+            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹0.1' });
         }
         if (parsed > 50000) {
             return res.status(400).json({ success: false, message: 'Maximum recharge amount is ₹50,000' });
