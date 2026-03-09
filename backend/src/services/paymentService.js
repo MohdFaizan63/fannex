@@ -14,7 +14,8 @@ const { creditEarningsOnPayment } = require('./earningsService');
 // ── Cashfree config ────────────────────────────────────────────────────────────
 const CF_APP_ID = process.env.CASHFREE_APP_ID;
 const CF_SECRET = process.env.CASHFREE_SECRET_KEY;
-const CF_ENV = (process.env.CASHFREE_ENV || 'production') === 'production'
+const CF_ENV_NAME = process.env.CASHFREE_ENV || 'production'; // 'sandbox' or 'production'
+const CF_ENV = CF_ENV_NAME === 'production'
     ? 'https://api.cashfree.com'
     : 'https://sandbox.cashfree.com';
 
@@ -90,6 +91,7 @@ const createOrder = async ({
             amount: data.order_amount,
             currency: data.order_currency,
             status: data.order_status,
+            cfMode: CF_ENV_NAME,  // 'sandbox' or 'production' — frontend must use the same mode
         };
     } catch (err) {
         // Log the full Cashfree error response for debugging

@@ -5,14 +5,14 @@ import './chat.css';
 
 const GIFT_OPTIONS = [50, 100, 500, 1000, 5000, 10000];
 
-// Read environment — VITE_CASHFREE_ENV should be 'production' in prod, 'sandbox' in dev
-const CF_MODE = import.meta.env.VITE_CASHFREE_ENV || 'production';
-
 /**
  * GiftPanel — Cashfree gift payment via standard redirect.
  *
  * After payment Cashfree navigates to returnUrl (/subscription-success?order_id=gf_xxx)
  * which calls /chat/gift/verify to save the gift message and shows the success page.
+ *
+ * The Cashfree mode ('sandbox' | 'production') comes from the backend order response
+ * (cfMode field), ensuring frontend always matches the backend environment.
  */
 export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) {
     const [selected, setSelected] = useState(null);
@@ -77,11 +77,10 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                 }
             }
 
-            // BUG-1 FIX: use env-configured mode, not hardcoded 'sandbox'
-            // BUG-2 FIX: standard redirect flow — NOT embedded (#gift-cashfree-embed)
-            //   Embedded mode + returnUrl causes Cashfree to navigate the TOP window away
-            //   from the chat (destroying it). Standard redirect is the correct approach.
-            const cashfree = window.Cashfree({ mode: CF_MODE });
+            // Use cfMode from the order response — always matches the backend environment.
+            // This prevents the sandbox/production mismatch that causes payment_session_id_invalid.
+            const cfMode = order.cfMode || 'production';
+            const cashfree = window.Cashfree({ mode: cfMode });
             cashfree.checkout({
                 paymentSessionId: order.paymentSessionId,
                 returnUrl: `${window.location.origin}/subscription-success?order_id=${order.orderId}`,
