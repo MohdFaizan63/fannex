@@ -14,11 +14,25 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
 
-    // Group messages to show timestamp between groups > 10 minutes apart
-    const shouldShowTimestamp = (msg, prevMsg) => {
+    // Show a day separator only when the CALENDAR DATE changes (or first message).
+    // Previously used shouldShowTimestamp (10-min gap) — that caused "Today" to
+    // appear multiple times in one day whenever there was a long gap.
+    const isNewDay = (msg, prevMsg) => {
         if (!prevMsg) return true;
-        const diff = new Date(msg.createdAt) - new Date(prevMsg.createdAt);
-        return diff > 10 * 60 * 1000;
+        return new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
+    };
+
+    // Control message grouping (avatar, bubble shape) — still 10-min gap
+    const shouldGroup = (msg, prevMsg) => {
+        if (!prevMsg) return false;
+        const sameSender = (m) => {
+            const s = m.senderId;
+            if (!s) return '';
+            if (typeof s === 'object' && s._id) return s._id.toString();
+            return s.toString();
+        };
+        if (sameSender(msg) !== sameSender(prevMsg)) return false;
+        return new Date(msg.createdAt) - new Date(prevMsg.createdAt) < 10 * 60 * 1000;
     };
 
     const getDayLabel = (date) => {
@@ -61,7 +75,7 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
             onScroll={handleScroll}
         >
             {messages.map((msg, i) => {
-                // Robust sender ID extraction — handles ObjectId, populated object, or plain string
+                // Robust sender ID — handles ObjectId, populated object, or plain string
                 const getSenderId = (m) => {
                     const s = m.senderId;
                     if (!s) return '';
@@ -72,16 +86,22 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
                 const isMine = getSenderId(msg) === currentUserId?.toString();
                 const prevMsg = messages[i - 1];
                 const nextMsg = messages[i + 1];
-                const prevIsSame = prevMsg && getSenderId(prevMsg) === getSenderId(msg);
-                const nextIsSame = nextMsg && getSenderId(nextMsg) === getSenderId(msg);
-                const showTime = shouldShowTimestamp(msg, prevMsg);
-                const isLast = !nextIsSame;
-                const isFirst = !prevIsSame;
+
+                // Day separator: only on calendar date change (not on every 10-min gap)
+                const showDaySep = isNewDay(msg, prevMsg);
+
+                // Bubble grouping: same sender + within 10 minutes
+                const groupedWithPrev = shouldGroup(msg, prevMsg);
+                const groupedWithNext = shouldGroup(nextMsg, msg);
+
+                const isFirst = !groupedWithPrev;
+                const isLast = !groupedWithNext;
+                const showAvatar = !isMine && isLast;
 
                 return (
                     <div key={msg._id || i}>
-                        {/* Day separator */}
-                        {showTime && (
+                        {/* Day separator — once per calendar day */}
+                        {showDaySep && (
                             <div className="chat-day-separator">
                                 <span>{getDayLabel(msg.createdAt)}</span>
                             </div>
@@ -90,7 +110,7 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
                             msg={msg}
                             isMine={isMine}
                             otherName={otherName}
-                            showAvatar={!isMine && isLast}
+                            showAvatar={showAvatar}
                             isFirst={isFirst}
                             isLast={isLast}
                             isSingle={isFirst && isLast}
