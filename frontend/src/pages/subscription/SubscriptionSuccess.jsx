@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import chatService from '../../services/chatService';
@@ -16,21 +16,22 @@ export default function SubscriptionSuccess() {
     const [error, setError] = useState('');
     const [verified, setVerified] = useState(false);
 
-    // Result data from verify
     const [orderType, setOrderType] = useState('subscription');
     const [creator, setCreator] = useState(null);
     const [chatId, setChatId] = useState(null);
     const [redirecting, setRedirecting] = useState(false);
-    // For wallet recharge
     const [walletBalance, setWalletBalance] = useState(null);
     const [walletAmount, setWalletAmount] = useState(null);
-    // For gift-from-chat: store the chatId to go back to
     const [sourceChatId, setSourceChatId] = useState(null);
     const [giftAmount, setGiftAmount] = useState(null);
     const timerRef = useRef(null);
 
     useEffect(() => {
-        if (!cfOrderId) { setVerified(true); return; }
+        // BUG FIX: No order_id means the user navigated back — redirect away
+        if (!cfOrderId) {
+            navigate('/explore', { replace: true });
+            return;
+        }
 
         const verify = async () => {
             try {
@@ -46,15 +47,12 @@ export default function SubscriptionSuccess() {
                     } else if (data.type === 'wallet') {
                         setWalletBalance(data.walletBalance);
                         setWalletAmount(data.amount);
-                        // ✅ Strip order_id from URL so back-navigation doesn't re-verify
                         navigate('/subscription-success', { replace: true });
                     } else if (data.creator) {
                         setCreator(data.creator);
-                        // ✅ Strip order_id from URL so back-navigation doesn't re-verify
                         navigate('/subscription-success', { replace: true });
                     }
 
-                    // If this was a gift sent FROM chat, post the gift message to chat thread
                     if (data.type === 'gift') {
                         if (data.amount) setGiftAmount(data.amount);
                         const stored = sessionStorage.getItem('fannex_gift_chat');
@@ -68,9 +66,8 @@ export default function SubscriptionSuccess() {
                                     amount,
                                 });
                                 sessionStorage.removeItem('fannex_gift_chat');
-                                // Strip order_id from URL
                                 navigate('/subscription-success', { replace: true });
-                            } catch (_) { /* Silent — message may already have been posted by webhook */ }
+                            } catch (_) { }
                         }
                     }
                 } else {
@@ -96,6 +93,7 @@ export default function SubscriptionSuccess() {
                     <div style={spinnerStyle} />
                     <p style={{ color: 'rgba(255,255,255,0.45)', marginTop: 16, fontSize: 15 }}>Verifying your payment…</p>
                 </div>
+                <style>{globalKeyframes}</style>
             </div>
         );
     }
@@ -109,6 +107,7 @@ export default function SubscriptionSuccess() {
                     <p style={{ color: '#f87171', marginBottom: 20, lineHeight: 1.6 }}>{error}</p>
                     <Link to="/explore" style={btnPrimary}>Explore Creators</Link>
                 </div>
+                <style>{globalKeyframes}</style>
             </div>
         );
     }
@@ -146,6 +145,7 @@ export default function SubscriptionSuccess() {
                     )}
                     <Link to="/wallet" style={btnPrimary}>Go to Wallet</Link>
                 </div>
+                <style>{globalKeyframes}</style>
             </div>
         );
     }
@@ -159,7 +159,6 @@ export default function SubscriptionSuccess() {
                     <div style={{ fontSize: 56, marginBottom: 18 }}>💬</div>
                     <h1 style={headingStyle}>Chat Unlocked! 🎉</h1>
                     <p style={subtitleStyle}>You can now chat privately with the creator.</p>
-                    {cfOrderId && <p style={orderStyle}>Order: {cfOrderId}</p>}
                     {redirecting ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 24 }}>
                             <div style={{ ...spinnerStyle, borderColor: 'rgba(124,58,237,0.3)', borderTopColor: '#7c3aed' }} />
@@ -169,6 +168,7 @@ export default function SubscriptionSuccess() {
                         <Link to={`/chat/${chatId}`} style={{ ...btnPrimary, marginTop: 24 }}>Open Chat</Link>
                     )}
                 </div>
+                <style>{globalKeyframes}</style>
             </div>
         );
     }
@@ -178,22 +178,17 @@ export default function SubscriptionSuccess() {
         const giftCreatorName = creator?.name || 'the creator';
         const giftCreatorUsername = creator?.username;
         const giftProfileImage = creator?.profileImage;
-        const giftAmount = verified ? (creator?.amount ?? null) : null;
+        const displayGiftAmount = giftAmount ?? null;
 
         return (
             <div style={{ ...pageStyle, justifyContent: 'center' }}>
                 <Orbs colors={['#ff7a18', '#ffb347']} />
                 <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, padding: '0 16px' }}>
 
-                    {/* Floating confetti-style orb */}
                     <div style={{ textAlign: 'center', marginBottom: 28 }}>
-                        <div style={{
-                            position: 'relative', display: 'inline-block',
-                        }}>
-                            {/* Outer glow ring */}
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
                             <div style={{
-                                position: 'absolute', inset: -14,
-                                borderRadius: '50%',
+                                position: 'absolute', inset: -14, borderRadius: '50%',
                                 background: 'radial-gradient(circle, rgba(255,122,24,0.25), transparent 70%)',
                                 animation: 'pulse 2s ease-in-out infinite',
                             }} />
@@ -207,36 +202,29 @@ export default function SubscriptionSuccess() {
                         </div>
                     </div>
 
-                    {/* Main card */}
                     <div style={{
                         background: 'linear-gradient(160deg, #0e0e1e, #130a00)',
-                        border: '1px solid rgba(255,122,24,0.2)',
-                        borderRadius: 28,
-                        padding: '28px 24px 24px',
-                        textAlign: 'center',
-                        boxShadow: '0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,180,71,0.08)',
+                        border: '1px solid rgba(255,122,24,0.2)', borderRadius: 28,
+                        padding: '28px 24px 24px', textAlign: 'center',
+                        boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
                     }}>
-                        <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 24, margin: '0 0 6px', letterSpacing: '-0.4px' }}>
+                        <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 24, margin: '0 0 6px' }}>
                             Gift Sent! 🎉
                         </h1>
                         <p style={{ color: 'rgba(255,180,71,0.7)', fontSize: 14, margin: '0 0 22px', lineHeight: 1.6 }}>
                             Your heartfelt gift is on its way to someone special
                         </p>
 
-                        {/* Creator receipt row */}
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 14,
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,122,24,0.15)',
-                            borderRadius: 18, padding: '14px 16px',
-                            marginBottom: 18,
+                            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,122,24,0.15)',
+                            borderRadius: 18, padding: '14px 16px', marginBottom: 18,
                         }}>
                             <div style={{
                                 width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
                                 border: '2px solid rgba(255,122,24,0.4)',
                                 background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                overflow: 'hidden',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                             }}>
                                 {giftProfileImage
                                     ? <img src={giftProfileImage} alt={giftCreatorName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -244,340 +232,281 @@ export default function SubscriptionSuccess() {
                                 }
                             </div>
                             <div style={{ flex: 1, textAlign: 'left' }}>
-                                <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: '0 0 2px' }}>
-                                    To {giftCreatorName}
-                                </p>
-                                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, margin: 0 }}>
-                                    Your favorite creator
-                                </p>
+                                <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: '0 0 2px' }}>To {giftCreatorName}</p>
+                                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, margin: 0 }}>Your favorite creator</p>
                             </div>
-                            {/* Gift amount badge */}
                             <div style={{
                                 background: 'linear-gradient(135deg, rgba(255,122,24,0.2), rgba(255,179,71,0.15))',
-                                border: '1px solid rgba(255,122,24,0.35)',
-                                borderRadius: 12, padding: '6px 14px',
-                                color: '#ffb347', fontWeight: 900, fontSize: 16,
-                                flexShrink: 0,
+                                border: '1px solid rgba(255,122,24,0.35)', borderRadius: 12, padding: '6px 14px',
+                                color: '#ffb347', fontWeight: 900, fontSize: 16, flexShrink: 0,
                             }}>
-                                {giftAmount ? `₹${Number(giftAmount).toLocaleString('en-IN')}` : '🎁'}
+                                {displayGiftAmount ? `₹${Number(displayGiftAmount).toLocaleString('en-IN')}` : '🎁'}
                             </div>
                         </div>
 
-                        {/* Order ID */}
-                        {cfOrderId && (
-                            <p style={{ color: 'rgba(255,255,255,0.18)', fontSize: 11, fontFamily: 'monospace', margin: '0 0 20px' }}>
-                                Order: {cfOrderId}
-                            </p>
-                        )}
-
-                        {/* Heartfelt note */}
-                        <div style={{
-                            background: 'rgba(255,122,24,0.06)',
-                            border: '1px solid rgba(255,122,24,0.12)',
-                            borderRadius: 16, padding: '14px 16px', marginBottom: 22,
-                        }}>
-                            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
-                                ✨ You just made <strong style={{ color: 'rgba(255,180,71,0.8)' }}>{giftCreatorName}</strong>'s day a little brighter.
-                                Creators like <strong style={{ color: 'rgba(255,180,71,0.8)' }}>{giftCreatorName}</strong> are fuelled
-                                by the love and support of amazing fans like you.
-                            </p>
-                        </div>
-
-                        {/* Actions */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {/* If gift was sent from chat, show prominent "Back to Chat" button first */}
                             {sourceChatId && (
-                                <Link
-                                    to={`/chat/${sourceChatId}`}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        padding: '14px 0', borderRadius: 999,
-                                        background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
-                                        boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
-                                        color: '#fff', fontWeight: 800, fontSize: 15,
-                                        textDecoration: 'none', letterSpacing: '-0.01em',
-                                    }}
-                                >
-                                    <span>💬</span>
-                                    Back to Chat
+                                <Link to={`/chat/${sourceChatId}`} style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                    padding: '14px 0', borderRadius: 999,
+                                    background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                                    boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
+                                    color: '#fff', fontWeight: 800, fontSize: 15, textDecoration: 'none',
+                                }}>
+                                    <span>💬</span> Back to Chat
                                 </Link>
                             )}
                             {!sourceChatId && giftCreatorUsername && (
-                                <Link
-                                    to={`/creator/${giftCreatorUsername}`}
-                                    style={{
-                                        display: 'block', textAlign: 'center',
-                                        padding: '14px 0', borderRadius: 999,
-                                        background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
-                                        boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
-                                        color: '#fff', fontWeight: 800, fontSize: 15,
-                                        textDecoration: 'none', letterSpacing: '-0.01em',
-                                    }}
-                                >
+                                <Link to={`/creator/${giftCreatorUsername}`} style={{
+                                    display: 'block', textAlign: 'center', padding: '14px 0', borderRadius: 999,
+                                    background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                                    boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
+                                    color: '#fff', fontWeight: 800, fontSize: 15, textDecoration: 'none',
+                                }}>
                                     Visit {giftCreatorName}'s Profile
                                 </Link>
                             )}
                             {sourceChatId && giftCreatorUsername && (
-                                <Link
-                                    to={`/creator/${giftCreatorUsername}`}
-                                    style={{
-                                        display: 'block', textAlign: 'center',
-                                        padding: '12px 0', borderRadius: 16,
-                                        background: 'rgba(255,255,255,0.07)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: 14,
-                                        textDecoration: 'none',
-                                    }}
-                                >
+                                <Link to={`/creator/${giftCreatorUsername}`} style={{
+                                    display: 'block', textAlign: 'center', padding: '12px 0', borderRadius: 16,
+                                    background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: 14, textDecoration: 'none',
+                                }}>
                                     View {giftCreatorName}'s Profile
                                 </Link>
                             )}
-                            <Link
-                                to="/explore"
-                                style={{
-                                    display: 'block', textAlign: 'center', padding: '12px 0',
-                                    color: 'rgba(255,255,255,0.35)', fontSize: 14, textDecoration: 'none',
-                                    transition: 'color 0.15s ease',
-                                }}
-                                onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; }}
-                            >
+                            <Link to="/explore" style={{
+                                display: 'block', textAlign: 'center', padding: '12px 0',
+                                color: 'rgba(255,255,255,0.35)', fontSize: 14, textDecoration: 'none',
+                            }}>
                                 Explore more creators →
                             </Link>
                         </div>
                     </div>
                 </div>
+                <style>{globalKeyframes}</style>
             </div>
         );
     }
 
-    /* ── Subscription Success ─────────────────────────────────────────────────── */
+    /* ──────────────────────────────────────────────────────────────────────────── */
+    /* ── SUBSCRIPTION SUCCESS — Premium Redesign                              ── */
+    /* ──────────────────────────────────────────────────────────────────────────── */
     const creatorName = creator?.name || 'the creator';
     const creatorUsername = creator?.username;
-    const coverImage = creator?.coverImage;
     const profileImage = creator?.profileImage;
 
     return (
-        <div style={{ ...pageStyle, alignItems: 'flex-start', overflowY: 'auto', paddingBottom: 40 }}>
-            <Orbs colors={['#10b981', '#7c3aed']} />
+        <div style={pageStyle}>
+            {/* Decorative orbs */}
+            <Orbs colors={['#7c3aed', '#a855f7']} />
 
-            <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+            {/* Subtle top glow */}
+            <div style={{
+                position: 'absolute', top: 0, left: '50%',
+                transform: 'translateX(-50%)',
+                width: '100%', maxWidth: 600, height: 260,
+                background: 'radial-gradient(ellipse at top, rgba(124,58,237,0.18) 0%, transparent 70%)',
+                pointerEvents: 'none', zIndex: 0,
+            }} />
 
-                {/* ── Cover strip ───────────────────────────────────────────── */}
-                <div style={{
-                    position: 'relative',
-                    height: 160,
-                    background: coverImage
-                        ? undefined
-                        : 'linear-gradient(135deg, #3a0060, #0d0020 55%, #1a0040)',
-                    overflow: 'hidden',
-                    borderRadius: '0 0 0 0',
-                }}>
-                    {coverImage && (
-                        <img src={coverImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    )}
+            <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                style={{
+                    position: 'relative', zIndex: 1,
+                    width: '100%', maxWidth: 420,
+                    padding: '0 20px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                }}
+            >
+                {/* ── Animated check icon ─────────────────────────────────────── */}
+                <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.1, type: 'spring', damping: 12, stiffness: 260 }}
+                    style={{
+                        width: 88, height: 88, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #cc52b8 100%)',
+                        boxShadow: '0 16px 48px rgba(124,58,237,0.5), 0 0 0 6px rgba(124,58,237,0.08)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        marginBottom: 28, position: 'relative',
+                    }}
+                >
+                    {/* Pulse ring behind */}
                     <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(5,2,8,0.85) 100%)',
+                        position: 'absolute', inset: -12,
+                        borderRadius: '50%', opacity: 0.3,
+                        border: '2px solid rgba(168,85,247,0.5)',
+                        animation: 'pulseRing 2s ease-in-out infinite',
                     }} />
-
-                    {/* Success badge on top */}
-                    <div style={{
-                        position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
-                        background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)',
-                        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                        borderRadius: 999, padding: '6px 16px',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        whiteSpace: 'nowrap',
-                    }}>
-                        <span style={{ fontSize: 14 }}>✅</span>
-                        <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 13 }}>Payment Successful</span>
-                    </div>
-                </div>
-
-                {/* ── Creator identity card ──────────────────────────────────── */}
-                <div style={{
-                    background: 'rgba(10,10,20,0.96)',
-                    border: '1px solid rgba(255,255,255,0.07)',
-                    borderTop: 'none',
-                    padding: '0 20px 24px',
-                    position: 'relative',
-                }}>
-                    {/* Avatar peeking out of cover */}
-                    <div style={{
-                        marginTop: -40,
-                        marginBottom: 14,
-                        display: 'flex',
-                        justifyContent: 'center',
-                    }}>
-                        <div style={{
-                            width: 80, height: 80, borderRadius: '50%',
-                            border: '3px solid rgba(168,85,247,0.6)',
-                            boxShadow: '0 0 0 4px rgba(5,2,8,1), 0 8px 24px rgba(168,85,247,0.35)',
-                            overflow: 'hidden', flexShrink: 0,
-                            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    {profileImage ? (
+                        <img
+                            src={profileImage}
+                            alt={creatorName}
+                            style={{
+                                width: 78, height: 78, borderRadius: '50%',
+                                objectFit: 'cover', border: '3px solid rgba(255,255,255,0.15)',
+                            }}
+                        />
+                    ) : (
+                        <span style={{
+                            color: '#fff', fontWeight: 900,
+                            fontSize: 'clamp(28px, 6vw, 36px)',
                         }}>
-                            {profileImage
-                                ? <img src={profileImage} alt={creatorName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                : <span style={{ color: '#fff', fontWeight: 900, fontSize: 28 }}>{creatorName[0]?.toUpperCase()}</span>
-                            }
-                        </div>
-                    </div>
-
-                    <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                        <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 22, margin: '0 0 4px', letterSpacing: '-0.3px' }}>
-                            You're subscribed! 🎉
-                        </h1>
-                        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: 0 }}>
-                            to <strong style={{ color: 'rgba(255,255,255,0.85)' }}>{creatorName}</strong>
-                        </p>
-                        {creator?.bio && (
-                            <p style={{
-                                color: 'rgba(255,255,255,0.35)', fontSize: 13, marginTop: 8,
-                                lineHeight: 1.5, maxWidth: 300, marginLeft: 'auto', marginRight: 'auto',
-                            }}>
-                                {creator.bio}
-                            </p>
-                        )}
-                    </div>
-
-                    {cfOrderId && (
-                        <p style={{ ...orderStyle, textAlign: 'center' }}>Order: {cfOrderId}</p>
+                            {creatorName[0]?.toUpperCase()}
+                        </span>
                     )}
-                </div>
+                </motion.div>
 
-                {/* ── Chat Benefits Unlocked banner ──────────────────────────── */}
-                {creator?.chatEnabled !== false && (
-                    <div style={{
-                        margin: '16px 16px 0',
-                        background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(204,82,184,0.08))',
-                        border: '1px solid rgba(124,58,237,0.25)',
-                        borderRadius: 22,
-                        overflow: 'hidden',
-                    }}>
-                        {/* Banner header */}
-                        <div style={{
-                            padding: '16px 20px 12px',
-                            borderBottom: '1px solid rgba(124,58,237,0.15)',
-                            display: 'flex', alignItems: 'center', gap: 10,
+                {/* ── Title ───────────────────────────────────────────────── */}
+                <motion.h1
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2, duration: 0.4 }}
+                    style={{
+                        color: '#fff', fontWeight: 900,
+                        fontSize: 'clamp(22px, 5.5vw, 28px)',
+                        margin: '0 0 8px', textAlign: 'center',
+                        letterSpacing: '-0.5px', lineHeight: 1.15,
+                    }}
+                >
+                    You're Subscribed!
+                </motion.h1>
+
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.4 }}
+                    style={{
+                        color: 'rgba(255,255,255,0.5)',
+                        fontSize: 'clamp(14px, 3.5vw, 16px)',
+                        margin: '0 0 28px', textAlign: 'center',
+                        lineHeight: 1.5,
+                    }}
+                >
+                    You now have full access to{' '}
+                    <strong style={{ color: '#a78bfa' }}>{creatorName}</strong>'s
+                    exclusive content & chat
+                </motion.p>
+
+                {/* ── Perks row ───────────────────────────────────────────── */}
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35, duration: 0.4 }}
+                    style={{
+                        width: '100%',
+                        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: 10, marginBottom: 28,
+                    }}
+                >
+                    {[
+                        { icon: '💬', label: 'Private Chat' },
+                        { icon: '📸', label: 'Exclusive Posts' },
+                        { icon: '🎁', label: 'Send Gifts' },
+                    ].map(({ icon, label }) => (
+                        <div key={label} style={{
+                            background: 'rgba(124,58,237,0.06)',
+                            border: '1px solid rgba(124,58,237,0.15)',
+                            borderRadius: 16, padding: '14px 8px',
+                            textAlign: 'center',
                         }}>
-                            <div style={{
-                                width: 36, height: 36, borderRadius: '50%',
-                                background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 4px 12px rgba(124,58,237,0.4)',
-                                flexShrink: 0,
-                            }}>
-                                <span style={{ fontSize: 16 }}>💬</span>
-                            </div>
-                            <div>
-                                <p style={{ color: '#fff', fontWeight: 800, fontSize: 15, margin: 0, letterSpacing: '-0.2px' }}>
-                                    Chat Benefits Unlocked
-                                </p>
-                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, margin: 0 }}>
-                                    Included with your subscription
-                                </p>
-                            </div>
+                            <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>
+                            <p style={{
+                                color: 'rgba(255,255,255,0.6)',
+                                fontWeight: 600, fontSize: 12, margin: 0,
+                                letterSpacing: '-0.01em',
+                            }}>{label}</p>
                         </div>
+                    ))}
+                </motion.div>
 
-                        {/* Benefits grid */}
-                        <div style={{ padding: '14px 16px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                            {[
-                                { icon: '💬', title: 'Private Messaging', desc: 'Direct chat with creator' },
-                                { icon: '📷', title: 'Photo Sharing', desc: 'Share images in chat' },
-                                { icon: '🎁', title: 'Send Gifts', desc: 'Surprise the creator' },
-                                { icon: '⚡', title: 'Priority Replies', desc: 'Subscriber-only perks' },
-                            ].map(({ icon, title, desc }) => (
-                                <div key={title} style={{
-                                    background: 'rgba(255,255,255,0.04)',
-                                    border: '1px solid rgba(255,255,255,0.06)',
-                                    borderRadius: 14,
-                                    padding: '12px 12px',
-                                }}>
-                                    <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
-                                    <p style={{ color: '#fff', fontWeight: 700, fontSize: 12, margin: '0 0 2px' }}>{title}</p>
-                                    <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, margin: 0, lineHeight: 1.4 }}>{desc}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Start chatting CTA */}
-                        {chatId ? (
-                            <div style={{ padding: '0 16px 16px' }}>
-                                <Link
-                                    to={`/chat/${chatId}`}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        width: '100%', padding: '14px 0', borderRadius: 16,
-                                        background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
-                                        boxShadow: '0 6px 20px rgba(124,58,237,0.35)',
-                                        color: '#fff', fontWeight: 800, fontSize: 15,
-                                        textDecoration: 'none', letterSpacing: '-0.01em',
-                                        transition: 'transform 0.15s ease',
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-                                >
-                                    <span>💬</span>
-                                    Start Chatting with {creatorName}
-                                </Link>
-                            </div>
-                        ) : (
-                            <div style={{ padding: '0 16px 16px' }}>
-                                <div style={{
-                                    padding: '12px 16px',
-                                    background: 'rgba(74,222,128,0.08)',
-                                    border: '1px solid rgba(74,222,128,0.2)',
-                                    borderRadius: 14,
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                }}>
-                                    <span style={{ fontSize: 18 }}>✅</span>
-                                    <span style={{ color: '#4ade80', fontSize: 13, fontWeight: 600 }}>
-                                        Chat access ready — go to the creator's profile to start chatting!
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* ── Action buttons ────────────────────────────────────────── */}
-                <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {creatorUsername && (
+                {/* ── Primary CTA — Start Chatting ────────────────────────── */}
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45, duration: 0.4 }}
+                    style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}
+                >
+                    {chatId ? (
+                        <Link
+                            to={`/chat/${chatId}`}
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                width: '100%', boxSizing: 'border-box',
+                                padding: '16px 24px', borderRadius: 18,
+                                background: 'linear-gradient(135deg, #7c3aed, #a855f7 50%, #cc52b8)',
+                                boxShadow: '0 8px 28px rgba(124,58,237,0.45)',
+                                color: '#fff', fontWeight: 800,
+                                fontSize: 'clamp(15px, 3.8vw, 16px)',
+                                textDecoration: 'none', letterSpacing: '-0.01em',
+                                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(124,58,237,0.55)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(124,58,237,0.45)'; }}
+                        >
+                            <span style={{ fontSize: 20 }}>💬</span>
+                            Start Chatting with {creatorName}
+                        </Link>
+                    ) : creatorUsername ? (
                         <Link
                             to={`/creator/${creatorUsername}`}
                             style={{
-                                display: 'block', textAlign: 'center',
-                                padding: '14px 0', borderRadius: 16,
-                                background: 'rgba(255,255,255,0.07)',
-                                border: '1px solid rgba(255,255,255,0.12)',
-                                color: '#fff', fontWeight: 700, fontSize: 15,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                width: '100%', boxSizing: 'border-box',
+                                padding: '16px 24px', borderRadius: 18,
+                                background: 'linear-gradient(135deg, #7c3aed, #a855f7 50%, #cc52b8)',
+                                boxShadow: '0 8px 28px rgba(124,58,237,0.45)',
+                                color: '#fff', fontWeight: 800,
+                                fontSize: 'clamp(15px, 3.8vw, 16px)',
                                 textDecoration: 'none',
-                                transition: 'background 0.15s ease',
+                                transition: 'transform 0.15s ease',
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                        >
+                            View {creatorName}'s Profile
+                        </Link>
+                    ) : null}
+
+                    {chatId && creatorUsername && (
+                        <Link
+                            to={`/creator/${creatorUsername}`}
+                            style={{
+                                display: 'block', textAlign: 'center', boxSizing: 'border-box',
+                                padding: '14px 0', borderRadius: 16, width: '100%',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(255,255,255,0.55)',
+                                fontWeight: 600, fontSize: 14, textDecoration: 'none',
+                                transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
                         >
                             View {creatorName}'s Profile
                         </Link>
                     )}
+
                     <Link
                         to="/explore"
                         style={{
                             display: 'block', textAlign: 'center',
-                            padding: '14px 0', borderRadius: 16,
-                            color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: 600,
-                            textDecoration: 'none', background: 'none',
+                            padding: '12px 0', borderRadius: 14,
+                            color: 'rgba(255,255,255,0.3)', fontSize: 14,
+                            fontWeight: 500, textDecoration: 'none',
                             transition: 'color 0.15s ease',
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
                     >
-                        Explore Creators →
+                        Explore more creators →
                     </Link>
-                </div>
-            </div>
+                </motion.div>
+            </motion.div>
+            <style>{globalKeyframes}</style>
         </div>
     );
 }
@@ -593,6 +522,7 @@ const pageStyle = {
     fontFamily: "'Inter', sans-serif",
     position: 'relative',
     overflow: 'hidden',
+    padding: '24px 0',
 };
 
 const cardStyle = {
@@ -622,14 +552,6 @@ const subtitleStyle = {
     lineHeight: 1.6,
 };
 
-const orderStyle = {
-    color: 'rgba(255,255,255,0.2)',
-    fontSize: 11,
-    fontFamily: 'monospace',
-    marginTop: 8,
-    marginBottom: 0,
-};
-
 const btnPrimary = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -642,7 +564,6 @@ const btnPrimary = {
     fontWeight: 800,
     fontSize: 15,
     textDecoration: 'none',
-    letterSpacing: '-0.01em',
 };
 
 const spinnerStyle = {
@@ -654,6 +575,12 @@ const spinnerStyle = {
     animation: 'spin 0.8s linear infinite',
     margin: '0 auto',
 };
+
+const globalKeyframes = `
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.25; } 50% { transform: scale(1.15); opacity: 0.4; } }
+    @keyframes pulseRing { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.15); opacity: 0; } }
+`;
 
 /* ── Decorative background orbs ─────────────────────────────────────────────── */
 function Orbs({ colors = ['#10b981', '#7c3aed'] }) {
