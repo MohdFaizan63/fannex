@@ -143,9 +143,22 @@ const verifyWebhookSignature = (rawBody, signature, timestamp) => {
 const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => {
     const { userId, creatorId, type = 'subscription' } = meta;
 
-    if (!userId || !creatorId) return;
+    if (!userId) return;
 
     const grossAmount = Number(amount);
+
+    // Wallet top-ups have no creatorId — credit wallet and return immediately
+    if (type === 'wallet') {
+        const User = require('../models/User');
+        await User.findByIdAndUpdate(
+            userId,
+            { $inc: { walletBalance: grossAmount } }
+        );
+        return;
+    }
+
+    // For all other types (subscription, gift, chat_unlock), creatorId is required
+    if (!creatorId) return;
 
     // 1. Store/update Payment record (may already exist from order creation step)
     await Payment.findOneAndUpdate(

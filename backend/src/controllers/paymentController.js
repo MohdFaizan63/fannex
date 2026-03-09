@@ -74,8 +74,34 @@ const verifyPayment = async (req, res, next) => {
 
         // Extract metadata from order_tags (stored when we created the order)
         const tags = orderData.order_tags || {};
-        const creatorId = req.body.creatorId || tags.creatorId;
         const type = tags.type || 'subscription';
+
+        // ── Handle wallet top-up early — no creatorId needed ─────────────────
+        if (type === 'wallet') {
+            const walletUserId = tags.userId || userId.toString();
+            await paymentService.handlePaymentCaptured({
+                orderId,
+                cfPaymentId: (await (async () => {
+                    try {
+                        const p = await paymentService.getOrderPayments(orderId);
+                        return p?.[0]?.cf_payment_id?.toString() || null;
+                    } catch { return null; }
+                })()),
+                amount: orderData.order_amount,
+                meta: { userId: walletUserId, type: 'wallet', creatorId: null },
+            });
+            const User = require('../models/User');
+            const freshUser = await User.findById(walletUserId).select('walletBalance');
+            return res.status(200).json({
+                success: true,
+                type: 'wallet',
+                walletBalance: freshUser?.walletBalance ?? 0,
+                amount: orderData.order_amount,
+                message: 'Wallet recharged successfully',
+            });
+        }
+
+        const creatorId = req.body.creatorId || tags.creatorId;
 
         if (!creatorId) {
             return res.status(400).json({ success: false, message: 'Could not determine creator from order' });
@@ -159,7 +185,7 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
-        // For wallet recharge orders, return updated balance
+        // For wallet recharge orders — already handled above, this is a fallback
         if (type === 'wallet') {
             const User = require('../models/User');
             const user = await User.findById(userId).select('walletBalance');
@@ -352,8 +378,8 @@ async function createWalletOrder(req, res, next) {
         const user = req.user;
 
         const parsed = Number(amount);
-        if (!parsed || parsed < 1) {
-            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹1' });
+        if (!parsed || parsed < 0.1) {
+            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹0.1' });
         }
 
         const orderId = `wallet_${user._id.toString().slice(-6)}_${Date.now()}`;
@@ -394,9 +420,9 @@ async function verifyWalletRecharge(req, res, next) {
 
         await paymentService.handlePaymentCaptured({
             orderId,
-            cfPaymentId: orderData.payments?.[0]?.cf_payment_id?.toString() || null,
+            cfPaymentId: null,
             amount,
-            meta: { userId: userId.toString(), type: 'wallet', creatorId: 'none' },
+            meta: { userId: userId.toString(), type: 'wallet', creatorId: null },
         });
 
         const User = require('../models/User');
