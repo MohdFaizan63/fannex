@@ -78,10 +78,12 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
             // Build return URL — the Cashfree redirect after payment
             const returnUrl = `${window.location.origin}/wallet?order_id=${order.orderId}`;
 
-            // Init Cashfree in SANDBOX mode
-            cashfreeRef.current = window.Cashfree({ mode: 'sandbox' });
+            // Use cfMode from the order response — always matches the backend environment.
+            // This prevents the sandbox/production mismatch (payment_session_id_invalid error).
+            const cfMode = order.cfMode || 'production';
+            cashfreeRef.current = window.Cashfree({ mode: cfMode });
 
-            // Switch phase to show the embedded payment container  
+            // Switch phase to show the embedded payment container
             setPhase('paying');
 
             // Small delay to let React render the container div first

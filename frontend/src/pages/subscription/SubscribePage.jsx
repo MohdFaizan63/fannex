@@ -73,7 +73,7 @@ export default function SubscribePage() {
                 });
             }
 
-            const cashfree = window.Cashfree({ mode: 'sandbox' });
+            const cashfree = window.Cashfree({ mode: orderData.cfMode || 'production' });
             cashfree.checkout({
                 paymentSessionId: orderData.paymentSessionId,
                 redirectTarget: '_self', // redirect in same tab
