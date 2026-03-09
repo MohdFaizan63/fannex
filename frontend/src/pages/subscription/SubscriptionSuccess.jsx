@@ -49,49 +49,74 @@ export default function SubscriptionSuccess() {
         const verify = async () => {
             try {
                 const { data } = await api.post('/payment/verify', { orderId: cfOrderId, creatorId: null });
-                if (data.success) {
-                    setVerified(true);
-                    setOrderType(data.type || 'subscription');
-                    setChatId(data.chatId || null);
+                if (!data.success) {
+                    setError('Payment could not be verified. Please contact support@fannex.in');
+                    return;
+                }
 
-                    if (data.type === 'chat_unlock' && data.chatId) {
+                const type = data.type || 'subscription';
+                setVerified(true);
+                setOrderType(type);
+
+                // ── BUG-3 & BUG-4 FIX: Proper exclusive if/else if chain ──────────
+                // Each branch sets all state, then navigates ONCE at the very end.
+                // The original code had `if (gift)` OUTSIDE the else chain, causing
+                // it to run concurrently with the subscription branch's navigate().
+
+                if (type === 'wallet') {
+                    // ── Wallet recharge ──────────────────────────────────────────
+                    setWalletBalance(data.walletBalance);
+                    setWalletAmount(data.amount);
+                    navigate('/subscription-success', { replace: true });
+
+                } else if (type === 'chat_unlock') {
+                    // ── Chat unlock: auto-redirect to chat ───────────────────────
+                    setChatId(data.chatId || null);
+                    if (data.chatId) {
                         setRedirecting(true);
                         timerRef.current = setTimeout(() => navigate(`/chat/${data.chatId}`, { replace: true }), 2000);
-                    } else if (data.type === 'wallet') {
-                        setWalletBalance(data.walletBalance);
-                        setWalletAmount(data.amount);
-                        navigate('/subscription-success', { replace: true });
-                    } else if (data.creator) {
+                    }
+
+                } else if (type === 'gift') {
+                    // ── Gift payment ─────────────────────────────────────────────
+                    // Set creator info if returned by verifyPayment
+                    if (data.creator) setCreator(data.creator);
+                    if (data.amount) setGiftAmount(data.amount);
+
+                    // Call /chat/gift/verify to persist the gift message bubble
+                    const stored = sessionStorage.getItem('fannex_gift_chat');
+                    if (stored) {
+                        try {
+                            const { chatId: giftChatId, amount } = JSON.parse(stored);
+                            setSourceChatId(giftChatId);
+                            await chatService.verifyGift({
+                                orderId: cfOrderId,
+                                chatId: giftChatId,
+                                amount,
+                            });
+                            sessionStorage.removeItem('fannex_gift_chat');
+                        } catch (_) {
+                            // verifyGift failure is non-fatal — show success page anyway
+                            // (idempotency: webhook may have already processed it)
+                        }
+                    }
+                    // Navigate last — after all state is set
+                    navigate('/subscription-success', { replace: true });
+
+                } else {
+                    // ── Subscription (default) ───────────────────────────────────
+                    setChatId(data.chatId || null);
+                    if (data.creator) {
                         setCreator(data.creator);
-                        // Cache result so back-navigation can restore it
                         sessionStorage.setItem('fannex_sub_success', JSON.stringify({
-                            orderType: data.type || 'subscription',
+                            orderType: type,
                             creator: data.creator,
                             chatId: data.chatId || null,
                         }));
-                        navigate('/subscription-success', { replace: true });
                     }
-
-                    if (data.type === 'gift') {
-                        if (data.amount) setGiftAmount(data.amount);
-                        const stored = sessionStorage.getItem('fannex_gift_chat');
-                        if (stored) {
-                            try {
-                                const { chatId: giftChatId, amount } = JSON.parse(stored);
-                                setSourceChatId(giftChatId);
-                                await chatService.verifyGift({
-                                    orderId: cfOrderId,
-                                    chatId: giftChatId,
-                                    amount,
-                                });
-                                sessionStorage.removeItem('fannex_gift_chat');
-                                navigate('/subscription-success', { replace: true });
-                            } catch (_) { }
-                        }
-                    }
-                } else {
-                    setError('Payment could not be verified. Please contact support@fannex.in');
+                    navigate('/subscription-success', { replace: true });
                 }
+
             } catch (err) {
                 setError(err?.response?.data?.message || 'Verification failed. Please contact support@fannex.in');
             } finally {

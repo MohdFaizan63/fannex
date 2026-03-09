@@ -331,13 +331,16 @@ async function createGiftOrder(req, res, next) {
 // @access Private (user)
 async function verifyGift(req, res, next) {
     try {
-        const { orderId, creatorId, amount } = req.body;
+        const { orderId, creatorId } = req.body;
         const userId = req.user._id;
 
         const orderData = await paymentService.getOrderStatus(orderId);
         if (orderData.order_status !== 'PAID') {
             return res.status(400).json({ success: false, message: 'Gift payment not completed' });
         }
+
+        // BUG-5 FIX: use authoritative amount from Cashfree, NOT user-supplied req.body.amount
+        const verifiedAmount = orderData.order_amount;
 
         // Fetch cfPaymentId properly via getOrderPayments
         let cfPaymentId = null;
@@ -349,7 +352,7 @@ async function verifyGift(req, res, next) {
         await paymentService.handlePaymentCaptured({
             orderId,
             cfPaymentId,
-            amount,
+            amount: verifiedAmount,
             meta: { userId: userId.toString(), creatorId: creatorId.toString(), type: 'gift' },
         });
 

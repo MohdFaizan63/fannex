@@ -407,10 +407,12 @@ const createGiftOrder = async (req, res, next) => {
         }
 
         const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('minGift maxGift');
-        if (profile) {
-            if (amount < (profile.minGift ?? 0.1)) return res.status(400).json({ success: false, message: `Minimum gift is ₹${profile.minGift ?? 0.1}` });
-            if (amount > profile.maxGift) return res.status(400).json({ success: false, message: `Maximum gift is ₹${profile.maxGift}` });
-        }
+        // BUG-6 FIX: minimum ₹1 (payment gateways reject sub-₹1 INR amounts)
+        // BUG-8 FIX: default maxGift to ₹10,000 when creator hasn't configured it
+        const minGift = profile?.minGift ?? 1;
+        const maxGift = profile?.maxGift ?? 10000;
+        if (amount < minGift) return res.status(400).json({ success: false, message: `Minimum gift is ₹${minGift}` });
+        if (amount > maxGift) return res.status(400).json({ success: false, message: `Maximum gift is ₹${maxGift}` });
 
         const orderId = `gf_${String(chatId).slice(-8)}_${Date.now()}`;
         const order = await paymentService.createOrder({
