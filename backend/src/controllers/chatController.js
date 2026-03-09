@@ -126,7 +126,7 @@ const createChatUnlockOrder = async (req, res, next) => {
             customerName: user.name || 'Fannex User',
             customerEmail: user.email || 'user@fannex.in',
             customerPhone: user.phone || '9000000000',
-            returnUrl: `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/subscription-success?order_id={order_id}`,
             meta: {
                 userId: user._id.toString(),
                 creatorId: creatorId.toString(),
@@ -395,7 +395,7 @@ const createGiftOrder = async (req, res, next) => {
             customerName: user.name || 'Fannex User',
             customerEmail: user.email || 'user@fannex.in',
             customerPhone: user.phone || '9000000000',
-            returnUrl: `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/subscription-success?order_id={order_id}`,
             meta: { userId: user._id.toString(), creatorId: room.creatorId.toString(), type: 'gift', chatId: String(chatId) },
         });
 
