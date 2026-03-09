@@ -43,6 +43,9 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                 throw new Error('Invalid order response from server');
             }
 
+            // Store chatId + amount before redirect so SubscriptionSuccess can post the chat message
+            sessionStorage.setItem('fannex_gift_chat', JSON.stringify({ chatId, amount }));
+
             // Load Cashfree.js SDK dynamically
             if (!window.Cashfree) {
                 await new Promise((resolve, reject) => {
@@ -59,9 +62,6 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                 paymentSessionId: order.paymentSessionId,
                 redirectTarget: '_self',
             });
-            // Cashfree will redirect to /subscription-success?order_id=gf_...
-            // The SubscriptionSuccess page will show a generic success — the gift
-            // message is posted by the webhook / verify flow on the backend.
         } catch (err) {
             if (err.message !== 'dismissed') {
                 const msg =

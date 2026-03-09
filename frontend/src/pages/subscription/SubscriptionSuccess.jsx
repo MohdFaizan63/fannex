@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import chatService from '../../services/chatService';
 
 export default function SubscriptionSuccess() {
     const [searchParams] = useSearchParams();
@@ -17,9 +18,11 @@ export default function SubscriptionSuccess() {
 
     // Result data from verify
     const [orderType, setOrderType] = useState('subscription');
-    const [creator, setCreator] = useState(null);   // { name, username, profileImage, coverImage, bio, chatEnabled }
+    const [creator, setCreator] = useState(null);
     const [chatId, setChatId] = useState(null);
     const [redirecting, setRedirecting] = useState(false);
+    // For gift-from-chat: store the chatId to go back to
+    const [sourceChatId, setSourceChatId] = useState(null);
     const timerRef = useRef(null);
 
     useEffect(() => {
@@ -38,6 +41,23 @@ export default function SubscriptionSuccess() {
                         timerRef.current = setTimeout(() => navigate(`/chat/${data.chatId}`, { replace: true }), 2000);
                     } else if (data.creator) {
                         setCreator(data.creator);
+                    }
+
+                    // If this was a gift sent FROM chat, post the gift message to chat thread
+                    if (data.type === 'gift') {
+                        const stored = sessionStorage.getItem('fannex_gift_chat');
+                        if (stored) {
+                            try {
+                                const { chatId: giftChatId, amount } = JSON.parse(stored);
+                                setSourceChatId(giftChatId);
+                                await chatService.verifyGift({
+                                    orderId: cfOrderId,
+                                    chatId: giftChatId,
+                                    amount,
+                                });
+                                sessionStorage.removeItem('fannex_gift_chat');
+                            } catch (_) { /* Silent — message may already have been posted by webhook */ }
+                        }
                     }
                 } else {
                     setError('Payment could not be verified. Please contact support@fannex.in');
@@ -213,7 +233,24 @@ export default function SubscriptionSuccess() {
 
                         {/* Actions */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {giftCreatorUsername && (
+                            {/* If gift was sent from chat, show prominent "Back to Chat" button first */}
+                            {sourceChatId && (
+                                <Link
+                                    to={`/chat/${sourceChatId}`}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                        padding: '14px 0', borderRadius: 999,
+                                        background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                                        boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
+                                        color: '#fff', fontWeight: 800, fontSize: 15,
+                                        textDecoration: 'none', letterSpacing: '-0.01em',
+                                    }}
+                                >
+                                    <span>💬</span>
+                                    Back to Chat
+                                </Link>
+                            )}
+                            {!sourceChatId && giftCreatorUsername && (
                                 <Link
                                     to={`/creator/${giftCreatorUsername}`}
                                     style={{
@@ -226,6 +263,21 @@ export default function SubscriptionSuccess() {
                                     }}
                                 >
                                     Visit {giftCreatorName}'s Profile
+                                </Link>
+                            )}
+                            {sourceChatId && giftCreatorUsername && (
+                                <Link
+                                    to={`/creator/${giftCreatorUsername}`}
+                                    style={{
+                                        display: 'block', textAlign: 'center',
+                                        padding: '12px 0', borderRadius: 16,
+                                        background: 'rgba(255,255,255,0.07)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: 14,
+                                        textDecoration: 'none',
+                                    }}
+                                >
+                                    View {giftCreatorName}'s Profile
                                 </Link>
                             )}
                             <Link
