@@ -400,7 +400,14 @@ export default function Chat() {
                             <button
                                 className="chat-action-icon"
                                 aria-label="Send image"
-                                onClick={() => imageInputRef.current?.click()}
+                                onClick={() => {
+                                    // Check wallet balance before opening file picker (same as text send)
+                                    if (!isCreatorRef.current && messagePrice > 0 && walletBalance !== null && walletBalance < messagePrice) {
+                                        setShowInsufficientModal(true);
+                                        return;
+                                    }
+                                    imageInputRef.current?.click();
+                                }}
                                 disabled={uploadingImage}
                             >
                                 {uploadingImage ? (
