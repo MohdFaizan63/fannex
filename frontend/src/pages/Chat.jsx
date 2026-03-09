@@ -241,12 +241,11 @@ export default function Chat() {
         try {
             const formData = new FormData();
             formData.append('image', file);
-            const token = localStorage.getItem('fannex_token');
-            const res = await fetch(
-                `/api/v1/chat/rooms/${chatId}/upload-image`,
-                { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData }
+            const { data: json } = await api.post(
+                `/chat/rooms/${chatId}/upload-image`,
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
             );
-            const json = await res.json();
             if (json.success) {
                 setMessages(prev => prev.map(m => m._id === optimisticId ? { ...json.data } : m));
             } else {

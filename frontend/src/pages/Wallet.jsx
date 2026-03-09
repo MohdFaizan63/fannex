@@ -232,53 +232,30 @@ export default function Wallet() {
                         Your wallet has been topped up successfully.
                     </p>
 
-                    {/* CTA buttons */}
+                    {/* CTA button */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {successBanner.chatId && (
-                            <button
-                                onClick={() => navigate(`/chat/${successBanner.chatId}`)}
-                                style={{
-                                    width: '100%',
-                                    height: 52,
-                                    borderRadius: 16,
-                                    background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
-                                    color: '#fff',
-                                    fontWeight: 800,
-                                    fontSize: 16,
-                                    fontFamily: 'inherit',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 6px 20px rgba(124,58,237,0.4)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                    transition: 'opacity 0.15s',
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
-                                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                            >
-                                <span style={{ fontSize: 18 }}>💬</span>
-                                Go back to Chat
-                            </button>
-                        )}
-
                         <button
-                            onClick={() => setSuccessBanner(null)}
+                            onClick={() => successBanner.chatId ? navigate(`/chat/${successBanner.chatId}`) : navigate('/wallet')}
                             style={{
                                 width: '100%',
-                                height: 48,
+                                height: 52,
                                 borderRadius: 16,
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                color: 'rgba(255,255,255,0.5)',
-                                fontWeight: 600,
-                                fontSize: 14,
+                                background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
+                                color: '#fff',
+                                fontWeight: 800,
+                                fontSize: 16,
                                 fontFamily: 'inherit',
+                                border: 'none',
                                 cursor: 'pointer',
-                                transition: 'all 0.15s',
+                                boxShadow: '0 6px 20px rgba(124,58,237,0.4)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                transition: 'opacity 0.15s',
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                            onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+                            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                         >
-                            View Wallet
+                            <span style={{ fontSize: 18 }}>{successBanner.chatId ? '💬' : '👛'}</span>
+                            {successBanner.chatId ? 'Go back to Chat' : 'Continue'}
                         </button>
                     </div>
                 </motion.div>
