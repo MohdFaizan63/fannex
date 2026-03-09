@@ -1,9 +1,71 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, Component } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import MainLayout from '../layouts/MainLayout';
 import AuthLayout from '../layouts/AuthLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
+
+/**
+ * ChunkErrorBoundary
+ *
+ * Catches "Failed to fetch dynamically imported module" errors that happen
+ * when the browser has a cached index.html pointing to old Vite chunk hashes
+ * that no longer exist after a new deployment.
+ *
+ * On catching such an error, it performs a single hard reload to pick up the
+ * latest index.html (which points to the correct new chunks).
+ * A sessionStorage flag prevents infinite reload loops.
+ */
+class ChunkErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError(error) {
+        const isChunkError =
+            error?.message?.includes('Failed to fetch dynamically imported module') ||
+            error?.message?.includes('Importing a module script failed') ||
+            error?.name === 'ChunkLoadError';
+
+        if (isChunkError) {
+            const reloadKey = 'fannex_chunk_reload';
+            if (!sessionStorage.getItem(reloadKey)) {
+                sessionStorage.setItem(reloadKey, '1');
+                window.location.reload();
+                return { hasError: false }; // stay pending while reloading
+            }
+        }
+        return { hasError: true };
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{
+                    minHeight: '100vh', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: '#050208', color: '#fff',
+                    fontFamily: 'Inter, sans-serif', gap: 16, padding: 24,
+                }}>
+                    <p style={{ fontSize: 18, fontWeight: 700 }}>Something went wrong</p>
+                    <button
+                        onClick={() => { sessionStorage.removeItem('fannex_chunk_reload'); window.location.reload(); }}
+                        style={{
+                            padding: '12px 28px', borderRadius: 12, border: 'none',
+                            background: 'linear-gradient(135deg,#7c3aed,#cc52b8)',
+                            color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+                        }}
+                    >
+                        Reload Page
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 
 // ── Loading spinner ──────────────────────────────────────────────────────────
 const PageLoader = () => (
@@ -177,5 +239,9 @@ const router = createBrowserRouter([
 ]);
 
 export default function AppRouter() {
-    return <RouterProvider router={router} />;
+    return (
+        <ChunkErrorBoundary>
+            <RouterProvider router={router} />
+        </ChunkErrorBoundary>
+    );
 }
