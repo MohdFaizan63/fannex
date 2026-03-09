@@ -50,7 +50,7 @@ const createOrder = async (req, res, next) => {
     }
 };
 
-// @desc  Verify payment after Cashfree redirect/webhook — activate subscription
+// @desc  Verify payment after Cashfree redirect/webhook — activate subscription or chat unlock
 // @route POST /api/payment/verify
 // @access Private (user)
 const verifyPayment = async (req, res, next) => {
@@ -103,7 +103,19 @@ const verifyPayment = async (req, res, next) => {
             },
         });
 
-        res.status(200).json({ success: true, message: 'Payment verified and subscription activated' });
+        // For chat_unlock orders, return the chatId so the frontend can redirect to the chat window
+        if (type === 'chat_unlock') {
+            const ChatRoom = require('../models/ChatRoom');
+            const room = await ChatRoom.findOne({ creatorId, userId });
+            return res.status(200).json({
+                success: true,
+                type: 'chat_unlock',
+                chatId: room?._id ?? null,
+                message: 'Chat unlocked successfully',
+            });
+        }
+
+        res.status(200).json({ success: true, type, message: 'Payment verified and subscription activated' });
     } catch (error) {
         console.error('[verifyPayment] Error:', error.message);
         if (error.response?.data) {

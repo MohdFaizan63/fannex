@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ChatButton from '../../components/chat/ChatButton';
 import api from '../../services/api';
@@ -7,6 +7,7 @@ import api from '../../services/api';
 export default function SubscriptionSuccess() {
     const [searchParams] = useSearchParams();
     const location = useLocation();
+    const navigate = useNavigate();
     const { refreshUser } = useAuth();
 
     // Cashfree appends ?order_id= after redirect
@@ -20,6 +21,9 @@ export default function SubscriptionSuccess() {
     const [verifying, setVerifying] = useState(!!cfOrderId);
     const [verified, setVerified] = useState(!cfOrderId);
     const [error, setError] = useState('');
+    const [orderType, setOrderType] = useState('subscription'); // 'subscription' | 'chat_unlock'
+    const [chatId, setChatId] = useState(null);
+    const [redirecting, setRedirecting] = useState(false);
 
     // If redirected from Cashfree, verify the payment
     useEffect(() => {
@@ -30,6 +34,17 @@ export default function SubscriptionSuccess() {
                 const { data } = await api.post('/payment/verify', { orderId: cfOrderId, creatorId: null });
                 if (data.success) {
                     setVerified(true);
+                    const type = data.type || 'subscription';
+                    setOrderType(type);
+
+                    if (type === 'chat_unlock' && data.chatId) {
+                        setChatId(data.chatId);
+                        // Auto-redirect to the chat window after a short delay
+                        setRedirecting(true);
+                        setTimeout(() => {
+                            navigate(`/chat/${data.chatId}`, { replace: true });
+                        }, 2000);
+                    }
                 } else {
                     setError('Payment could not be verified. Please contact support@fannex.in');
                 }
@@ -42,7 +57,7 @@ export default function SubscriptionSuccess() {
         };
 
         verify();
-    }, [cfOrderId, refreshUser]);
+    }, [cfOrderId, refreshUser, navigate]);
 
     if (verifying) {
         return (
@@ -64,6 +79,60 @@ export default function SubscriptionSuccess() {
         );
     }
 
+    // ── Chat Unlock Success ────────────────────────────────────────────────────
+    if (orderType === 'chat_unlock') {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
+                style={{ backgroundColor: 'var(--color-surface-900)', fontFamily: "'Inter', sans-serif" }}>
+
+                {/* Decorative orbs */}
+                <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-20"
+                        style={{ background: 'radial-gradient(circle, #7c3aed, transparent 65%)' }} />
+                    <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full opacity-10"
+                        style={{ background: 'radial-gradient(circle, #cc52b8, transparent 65%)' }} />
+                </div>
+
+                <div className="relative z-10 max-w-md w-full">
+                    {/* Icon */}
+                    <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg"
+                        style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(204,82,184,0.2))', border: '2px solid rgba(124,58,237,0.4)', boxShadow: '0 8px 32px rgba(124,58,237,0.25)' }}>
+                        <span style={{ fontSize: 44 }}>💬</span>
+                    </div>
+
+                    <h1 className="text-3xl font-black text-white mb-3">Chat Unlocked! 🎉</h1>
+                    <p className="text-surface-400 mb-6 leading-relaxed">
+                        You can now chat privately with <strong className="text-white">{creatorName}</strong>.
+                    </p>
+
+                    {cfOrderId && (
+                        <p className="text-xs text-surface-600 mb-6 font-mono">Order: {cfOrderId}</p>
+                    )}
+
+                    {redirecting ? (
+                        <div className="flex flex-col items-center gap-3 mb-6">
+                            <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+                                style={{ borderColor: 'rgba(124,58,237,0.4)', borderTopColor: '#7c3aed' }} />
+                            <p className="text-surface-400 text-sm">Opening your chat…</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            {chatId && (
+                                <Link to={`/chat/${chatId}`} className="btn-brand px-8 py-3">
+                                    Open Chat
+                                </Link>
+                            )}
+                            <Link to="/explore" className="btn-outline px-8 py-3">
+                                Explore Creators
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Subscription Success ───────────────────────────────────────────────────
     return (
         <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
             style={{ backgroundColor: 'var(--color-surface-900)', fontFamily: "'Inter', sans-serif" }}>
