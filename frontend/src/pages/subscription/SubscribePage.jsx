@@ -56,57 +56,29 @@ export default function SubscribePage() {
         try {
             const creatorId = creator.userId || creator._id;
             const response = await subscriptionService.createOrder(creatorId);
-            const orderData = response.data?.data; // { order: { id, amount, currency }, keyId }
+            const orderData = response.data?.data; // { orderId, paymentSessionId, amount, currency }
 
-            if (!orderData?.order?.id) {
+            if (!orderData?.paymentSessionId) {
                 throw new Error('Invalid order response from server');
             }
 
-            const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY_ID || orderData.keyId,
-                order_id: orderData.order.id,
-                amount: orderData.order.amount,
-                currency: orderData.order.currency,
-                name: 'Fannex',
-                description: `Subscribe to ${creator.displayName}`,
-                handler: async (resp) => {
-                    try {
-                        await subscriptionService.verifyPayment({
-                            razorpayOrderId: resp.razorpay_order_id,
-                            razorpayPaymentId: resp.razorpay_payment_id,
-                            razorpaySignature: resp.razorpay_signature,
-                            creatorId,
-                            amount: orderData.order.amount,
-                        });
-                        // Success — navigate to subscription success page with creator info
-                        navigate(`/subscription-success`, {
-                            replace: true,
-                            state: {
-                                subscribed: true,
-                                creatorId: creatorId,
-                                creatorName: creator.displayName,
-                                creatorUsername: username,
-                            }
-                        });
+            // Load Cashfree.js SDK dynamically
+            if (!window.Cashfree) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            }
 
-                    } catch {
-                        setError('Payment verification failed. Please contact support.');
-                        setSubscribing(false);
-                    }
-                },
-                modal: {
-                    ondismiss: () => setSubscribing(false),
-                },
-                prefill: { name: user?.name, email: user?.email },
-                theme: { color: '#cc52b8' },
-            };
-
-            const rzp = new window.Razorpay(options);
-            rzp.on('payment.failed', () => {
-                setError('Payment failed. Please try again.');
-                setSubscribing(false);
+            const cashfree = window.Cashfree({ mode: 'production' });
+            cashfree.checkout({
+                paymentSessionId: orderData.paymentSessionId,
+                redirectTarget: '_self', // redirect in same tab
             });
-            rzp.open();
+            // After redirect back, SubscriptionSuccess page will call /api/payment/verify
         } catch (err) {
             console.error('Payment initiation error:', err);
             setError(err?.response?.data?.message || err.message || 'Unable to initiate payment. Please try again.');
@@ -235,7 +207,7 @@ export default function SubscribePage() {
                                 </button>
 
                                 <p className="text-center text-xs text-surface-600 mt-3">
-                                    Secure payment via Razorpay. Cancel anytime.
+                                    Secure payment via Cashfree. Cancel anytime.
                                 </p>
                             </>
                         )}

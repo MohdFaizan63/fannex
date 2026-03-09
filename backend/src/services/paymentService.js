@@ -1,169 +1,192 @@
-const Razorpay = require('razorpay');
+/**
+ * Cashfree Payment Service
+ * Replaces the previous Razorpay implementation.
+ * Cashfree API v3 — REST-based: https://docs.cashfree.com/reference/overview
+ */
+
+const axios = require('axios');
 const crypto = require('crypto');
-const mongoose = require('mongoose');
 const Subscription = require('../models/Subscription');
 const Payment = require('../models/Payment');
 const CreatorProfile = require('../models/CreatorProfile');
 const { creditEarningsOnPayment } = require('./earningsService');
 
-// Lazy-initialize Razorpay — only created when payment routes are actually called.
-// This prevents startup crash when RAZORPAY_KEY_ID is a placeholder.
-let _razorpay = null;
-const getRazorpay = () => {
-    if (!_razorpay) {
-        const keyId = process.env.RAZORPAY_KEY_ID;
-        if (!keyId || keyId.includes('placeholder')) {
-            throw new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env');
-        }
-        _razorpay = new Razorpay({ key_id: keyId, key_secret: process.env.RAZORPAY_KEY_SECRET });
+// ── Cashfree config ────────────────────────────────────────────────────────────
+const CF_APP_ID = process.env.CASHFREE_APP_ID;
+const CF_SECRET = process.env.CASHFREE_SECRET_KEY;
+const CF_ENV = (process.env.CASHFREE_ENV || 'production') === 'production'
+    ? 'https://api.cashfree.com'
+    : 'https://sandbox.cashfree.com';
+
+// Shared request headers required by every Cashfree API call
+const cfHeaders = () => ({
+    'x-client-id': CF_APP_ID,
+    'x-client-secret': CF_SECRET,
+    'x-api-version': '2023-08-01',
+    'Content-Type': 'application/json',
+});
+
+// ── Create Payment Order ───────────────────────────────────────────────────────
+/**
+ * Creates a Cashfree payment order.
+ * Returns { orderId, paymentSessionId, amount, currency } for the frontend.
+ *
+ * @param {Object} opts
+ * @param {number}  opts.amount       Amount in INR (not paise)
+ * @param {string}  opts.orderId      Unique order ID (max 50 chars)
+ * @param {string}  opts.customerId   Fan/user ID (for Cashfree customer object)
+ * @param {string}  opts.customerName Customer display name
+ * @param {string}  opts.customerEmail
+ * @param {string}  opts.customerPhone
+ * @param {string}  opts.returnUrl    URL Cashfree redirects to after payment
+ * @param {Object}  opts.meta         Free-form metadata stored in order tags
+ */
+const createOrder = async ({
+    amount,
+    orderId,
+    customerId,
+    customerName = 'Fannex User',
+    customerEmail = 'user@fannex.in',
+    customerPhone = '9000000000',
+    returnUrl,
+    meta = {},
+}) => {
+    if (!CF_APP_ID || !CF_SECRET) {
+        throw new Error('Cashfree is not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY in .env');
     }
-    return _razorpay;
-};
 
-/**
- * Create a Razorpay subscription plan + subscription for a creator
- */
-const createSubscription = async ({ userId, creatorId, creatorProfile }) => {
-    // 1. Create a Razorpay Plan (amount in paise: multiply INR by 100)
-    const plan = await getRazorpay().plans.create({
-        period: 'monthly',
-        interval: 1,
-        item: {
-            name: `Subscription to Creator`,
-            amount: creatorProfile.subscriptionPrice * 100, // paise
-            currency: 'INR',
-            description: `Monthly subscription`,
+    const body = {
+        order_id: orderId,
+        order_amount: amount,
+        order_currency: 'INR',
+        customer_details: {
+            customer_id: customerId,
+            customer_name: customerName,
+            customer_email: customerEmail,
+            customer_phone: customerPhone,
         },
-    });
-
-    // 2. Create Razorpay Subscription against the plan
-    const razorpaySubscription = await getRazorpay().subscriptions.create({
-        plan_id: plan.id,
-        customer_notify: 1,
-        total_count: 12, // 12 billing cycles
-        notes: {
-            userId: userId.toString(),
-            creatorId: creatorId.toString(),
+        order_meta: {
+            return_url: returnUrl || `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            notify_url: `${process.env.API_URL}/api/payment/webhook`,
         },
-    });
+        order_tags: meta,
+    };
 
-    return razorpaySubscription;
+    const { data } = await axios.post(
+        `${CF_ENV}/pg/orders`,
+        body,
+        { headers: cfHeaders() }
+    );
+
+    // data.payment_session_id → used by Cashfree.js on the frontend
+    return {
+        orderId: data.order_id,
+        paymentSessionId: data.payment_session_id,
+        amount: data.order_amount,
+        currency: data.order_currency,
+        status: data.order_status,
+    };
 };
 
-/**
- * Create a one-time Razorpay Order (for direct payments)
- */
-const createOrder = async ({ amount, currency = 'INR', receipt, notes }) => {
-    const order = await getRazorpay().orders.create({
-        amount: amount * 100, // paise
-        currency,
-        receipt,
-        notes,
-    });
-    return order;
+// ── Fetch Order Status ─────────────────────────────────────────────────────────
+const getOrderStatus = async (orderId) => {
+    const { data } = await axios.get(
+        `${CF_ENV}/pg/orders/${orderId}`,
+        { headers: cfHeaders() }
+    );
+    return data; // { order_status: 'PAID'|'ACTIVE'|'EXPIRED'|'CANCELLED', ... }
 };
 
+// ── Verify Webhook Signature ───────────────────────────────────────────────────
 /**
- * Verify Razorpay webhook signature
+ * Cashfree webhook signature verification.
+ * Signature = HMAC-SHA256( timestamp + rawBody, secretKey ) encoded as base64
  */
-const verifyWebhookSignature = (rawBody, signature) => {
-    const expectedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
-        .update(rawBody)
-        .digest('hex');
-
-    return expectedSignature === signature;
+const verifyWebhookSignature = (rawBody, signature, timestamp) => {
+    const payload = timestamp + rawBody;
+    const expectedSig = crypto
+        .createHmac('sha256', CF_SECRET)
+        .update(payload)
+        .digest('base64');
+    return expectedSig === signature;
 };
 
+// ── Handle Successful Payment ─────────────────────────────────────────────────
 /**
- * Verify Razorpay payment signature (client-side verification)
+ * Called after verifying a webhook (event: PAYMENT_SUCCESS_WEBHOOK)
+ * or after client-side order status check confirms PAID.
  */
-const verifyPaymentSignature = ({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) => {
-    const body = razorpayOrderId + '|' + razorpayPaymentId;
-    const expectedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-        .update(body)
-        .digest('hex');
-    return expectedSignature === razorpaySignature;
-};
-
-/**
- * Handle successful payment — store subscription & payment records,
- * then credit creator earnings inside a single Mongo transaction.
- */
-const handlePaymentCaptured = async (payload) => {
-    const { payment } = payload;
-    const entity = payment.entity;
-
-    const notes = entity.notes || {};
-    const userId = notes.userId;
-    const creatorId = notes.creatorId;
+const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => {
+    const { userId, creatorId, type = 'subscription' } = meta;
 
     if (!userId || !creatorId) return;
 
-    // Calculate expiry (1 month from now)
-    const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-
-    const grossAmount = entity.amount / 100; // paise → INR
-
-    // NOTE: We intentionally avoid Mongoose sessions/transactions here because
-    // transactions require a MongoDB replica set. In development (standalone MongoDB)
-    // any use of startTransaction causes a "Transaction numbers are only allowed
-    // on a replica set member" crash. Using sequential writes is safe for dev
-    // and can be upgraded to transactions later with a replica set.
+    const grossAmount = Number(amount);
 
     // 1. Store Payment record
     await Payment.create({
         userId,
         creatorId,
         amount: grossAmount,
-        currency: entity.currency || 'INR',
+        currency: 'INR',
+        type,
         status: 'captured',
-        razorpayOrderId: entity.order_id,
-        razorpayPaymentId: entity.id,
-        razorpaySubscriptionId: entity.subscription_id || null,
+        cfOrderId: orderId,
+        cfPaymentId,
     });
 
-    // 2. Upsert Subscription record
-    await Subscription.findOneAndUpdate(
-        { userId, creatorId },
-        {
+    if (type === 'subscription') {
+        // 2. Upsert Subscription record (active for 1 month)
+        const expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+        await Subscription.findOneAndUpdate(
+            { userId, creatorId },
+            { userId, creatorId, status: 'active', expiresAt, cfOrderId: orderId },
+            { upsert: true, returnDocument: 'after' }
+        );
+
+        // 3. Increment creator's totalSubscribers
+        await CreatorProfile.findOneAndUpdate(
+            { userId: creatorId },
+            { $inc: { totalSubscribers: 1 } }
+        );
+
+        // 4. Credit creator earnings (80% after 20% platform fee)
+        await creditEarningsOnPayment(creatorId, grossAmount, null);
+
+    } else if (type === 'gift') {
+        // Credit 90% to creator for gifts
+        const Earnings = require('../models/Earnings');
+        const creatorCut = Math.floor(grossAmount * 0.9);
+        await Earnings.findOneAndUpdate(
+            { creatorId },
+            { $inc: { totalEarned: creatorCut, pendingAmount: creatorCut } },
+            { upsert: true, new: true }
+        );
+
+    } else if (type === 'wallet') {
+        const User = require('../models/User');
+        await User.findByIdAndUpdate(
             userId,
-            creatorId,
-            status: 'active',
-            expiresAt,
-            stripeSubscriptionId: entity.subscription_id || null,
-        },
-        { upsert: true, returnDocument: 'after' }
-    );
-
-    // 3. Increment creator's totalSubscribers
-    await CreatorProfile.findOneAndUpdate(
-        { userId: creatorId },
-        { $inc: { totalSubscribers: 1 } }
-    );
-
-    // 4. Credit creator earnings (80% after 20% platform fee)
-    await creditEarningsOnPayment(creatorId, grossAmount, null);
+            { $inc: { walletBalance: grossAmount } }
+        );
+    }
 };
 
-
+// ── Cancel Subscription ───────────────────────────────────────────────────────
 /**
- * Handle subscription cancellation via Razorpay API
+ * Cashfree does not have a native "recurring subscription" object like Razorpay.
+ * Cancellation = mark the DB subscription as cancelled; the user won't be charged
+ * again because there's no auto-renewal order on our end.
  */
 const cancelSubscription = async ({ subscriptionId }) => {
-    // Cancel at end of current billing cycle (cancel_at_cycle_end: 1)
-    const cancelled = await getRazorpay().subscriptions.cancel(subscriptionId, { cancel_at_cycle_end: 1 });
-
-    // Update DB record
-    await Subscription.findOneAndUpdate(
-        { razorpaySubscriptionId: subscriptionId },
-        { status: 'canceled' }
+    const sub = await Subscription.findByIdAndUpdate(
+        subscriptionId,
+        { status: 'canceled' },
+        { new: true }
     );
 
-    // Decrement creator's totalSubscribers
-    const sub = await Subscription.findOne({ razorpaySubscriptionId: subscriptionId });
     if (sub) {
         await CreatorProfile.findOneAndUpdate(
             { userId: sub.creatorId },
@@ -171,14 +194,13 @@ const cancelSubscription = async ({ subscriptionId }) => {
         );
     }
 
-    return cancelled;
+    return sub;
 };
 
 module.exports = {
-    createSubscription,
     createOrder,
+    getOrderStatus,
     verifyWebhookSignature,
-    verifyPaymentSignature,
     handlePaymentCaptured,
     cancelSubscription,
 };

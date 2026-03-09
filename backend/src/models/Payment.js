@@ -10,7 +10,6 @@ const paymentSchema = new mongoose.Schema(
         },
         creatorId: {
             type: mongoose.Schema.Types.ObjectId,
-            required: true,
             ref: 'User',
             index: true,
         },
@@ -24,10 +23,9 @@ const paymentSchema = new mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ['subscription', 'chat_unlock', 'gift'],
+            enum: ['subscription', 'chat_unlock', 'gift', 'wallet'],
             default: 'subscription',
         },
-        // For chat_unlock and gift payments
         chatId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'ChatRoom',
@@ -40,20 +38,16 @@ const paymentSchema = new mongoose.Schema(
             enum: ['created', 'captured', 'failed', 'refunded'],
             default: 'created',
         },
-        razorpayOrderId: {
-            type: String,
-            index: true,
-        },
-        razorpayPaymentId: {
-            type: String,
-        },
-        razorpaySignature: {
-            type: String,
-        },
-        razorpaySubscriptionId: {
-            type: String,
-            index: true,
-        },
+
+        // ── Cashfree fields ────────────────────────────────────────────────────
+        cfOrderId: { type: String, index: true },
+        cfPaymentId: { type: String },
+
+        // ── Legacy Razorpay fields (kept for historical records) ───────────────
+        razorpayOrderId: { type: String },
+        razorpayPaymentId: { type: String },
+        razorpaySignature: { type: String },
+        razorpaySubscriptionId: { type: String },
     },
     { timestamps: true }
 );

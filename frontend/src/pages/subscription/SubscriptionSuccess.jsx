@@ -2,23 +2,67 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ChatButton from '../../components/chat/ChatButton';
+import api from '../../services/api';
 
 export default function SubscriptionSuccess() {
     const [searchParams] = useSearchParams();
     const location = useLocation();
     const { refreshUser } = useAuth();
 
-    // Stripe sends ?session_id= after successful checkout
-    const sessionId = searchParams.get('session_id');
+    // Cashfree appends ?order_id= after redirect
+    const cfOrderId = searchParams.get('order_id');
 
-    // Creator info may be passed via location.state from SubscribePage
-    const creatorId = location.state?.creatorId;
+    // Creator info from location.state (if navigated from SubscribePage directly)
+    const creatorId = location.state?.creatorId || null;
     const creatorName = location.state?.creatorName || 'the creator';
     const creatorUsername = location.state?.creatorUsername;
 
+    const [verifying, setVerifying] = useState(!!cfOrderId);
+    const [verified, setVerified] = useState(!cfOrderId);
+    const [error, setError] = useState('');
+
+    // If redirected from Cashfree, verify the payment
     useEffect(() => {
-        refreshUser().catch(() => { });
-    }, [refreshUser]);
+        if (!cfOrderId) return;
+
+        const verify = async () => {
+            try {
+                const { data } = await api.post('/payment/verify', { orderId: cfOrderId, creatorId: null });
+                if (data.success) {
+                    setVerified(true);
+                } else {
+                    setError('Payment could not be verified. Please contact support@fannex.in');
+                }
+            } catch (err) {
+                setError(err?.response?.data?.message || 'Verification failed. Please contact support@fannex.in');
+            } finally {
+                setVerifying(false);
+                refreshUser().catch(() => { });
+            }
+        };
+
+        verify();
+    }, [cfOrderId, refreshUser]);
+
+    if (verifying) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
+                style={{ backgroundColor: 'var(--color-surface-900)' }}>
+                <div className="w-12 h-12 rounded-full border-2 border-brand-500 border-t-transparent animate-spin mb-4" />
+                <p className="text-surface-400">Verifying your payment…</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
+                style={{ backgroundColor: 'var(--color-surface-900)' }}>
+                <p className="text-red-400 mb-4">{error}</p>
+                <Link to="/explore" className="btn-brand px-8 py-3">Explore Creators</Link>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
@@ -45,8 +89,8 @@ export default function SubscriptionSuccess() {
                     Your subscription is now active. Enjoy exclusive content from <strong className="text-white">{creatorName}</strong>!
                 </p>
 
-                {sessionId && (
-                    <p className="text-xs text-surface-600 mb-6 font-mono">Reference: {sessionId}</p>
+                {cfOrderId && (
+                    <p className="text-xs text-surface-600 mb-6 font-mono">Order: {cfOrderId}</p>
                 )}
 
                 {/* ── Premium Chat CTA ─────────────────────────────────────── */}

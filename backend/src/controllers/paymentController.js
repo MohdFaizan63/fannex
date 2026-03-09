@@ -1,131 +1,146 @@
+/**
+ * Payment Controller — Cashfree v3
+ * All Razorpay references have been replaced.
+ */
 const paymentService = require('../services/paymentService');
 const CreatorProfile = require('../models/CreatorProfile');
 
-// @desc    Create Razorpay order for one-time subscription payment
-// @route   POST /api/payment/create-order
-// @access  Private (user)
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBSCRIPTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+// @desc  Create Cashfree order for a subscription payment
+// @route POST /api/payment/create-order
+// @access Private (user)
 const createOrder = async (req, res, next) => {
     try {
         const { creatorId } = req.body;
-        const userId = req.user._id;
+        const user = req.user;
 
         const creatorProfile = await CreatorProfile.findOne({ userId: creatorId });
         if (!creatorProfile) {
             return res.status(404).json({ success: false, message: 'Creator not found' });
         }
 
+        const orderId = `sub_${user._id.toString().slice(-6)}_${Date.now()}`;
+
         const order = await paymentService.createOrder({
             amount: creatorProfile.subscriptionPrice,
-            currency: 'INR',
-            // Razorpay receipt max = 40 chars
-            receipt: `sub_${userId.toString().slice(-6)}_${Date.now().toString().slice(-8)}`,
-            notes: {
-                userId: userId.toString(),
+            orderId,
+            customerId: user._id.toString(),
+            customerName: user.name || 'Fannex User',
+            customerEmail: user.email || 'user@fannex.in',
+            customerPhone: user.phone || '9000000000',
+            returnUrl: `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            meta: {
+                userId: user._id.toString(),
                 creatorId: creatorId.toString(),
+                type: 'subscription',
             },
         });
 
-        res.status(200).json({
-            success: true,
-            data: {
-                order: {
-                    id: order.id,
-                    amount: order.amount,
-                    currency: order.currency,
-                },
-                keyId: process.env.RAZORPAY_KEY_ID,
-            },
-        });
+        res.status(200).json({ success: true, data: order });
     } catch (error) {
-        console.error('[createOrder] Error:', error?.error?.description || error.message, error);
+        console.error('[createOrder] Error:', error.message);
         next(error);
     }
 };
 
-// @desc    Verify payment and activate subscription
-// @route   POST /api/payment/verify
-// @access  Private (user)
+// @desc  Verify payment after Cashfree redirect/webhook — activate subscription
+// @route POST /api/payment/verify
+// @access Private (user)
 const verifyPayment = async (req, res, next) => {
     try {
-        const { razorpayOrderId, razorpayPaymentId, razorpaySignature, creatorId } = req.body;
+        const { orderId, creatorId } = req.body;
         const userId = req.user._id;
 
-        const isValid = paymentService.verifyPaymentSignature({
-            razorpayOrderId,
-            razorpayPaymentId,
-            razorpaySignature,
-        });
+        // Fetch order status from Cashfree
+        const orderData = await paymentService.getOrderStatus(orderId);
 
-        if (!isValid) {
-            return res.status(400).json({ success: false, message: 'Invalid payment signature' });
+        if (orderData.order_status !== 'PAID') {
+            return res.status(400).json({
+                success: false,
+                message: `Payment not completed. Status: ${orderData.order_status}`,
+            });
         }
 
-        // Store subscription & payment records
+        // Get the payment ID from payments array (first successful payment)
+        const cfPaymentId = orderData.payments?.[0]?.cf_payment_id?.toString() || null;
+        const amount = orderData.order_amount;
+
         await paymentService.handlePaymentCaptured({
-            payment: {
-                entity: {
-                    id: razorpayPaymentId,
-                    order_id: razorpayOrderId,
-                    amount: req.body.amount,
-                    currency: 'INR',
-                    notes: {
-                        userId: userId.toString(),
-                        creatorId: creatorId.toString(),
-                    },
-                },
+            orderId,
+            cfPaymentId,
+            amount,
+            meta: {
+                userId: userId.toString(),
+                creatorId: creatorId.toString(),
+                type: 'subscription',
             },
         });
 
         res.status(200).json({ success: true, message: 'Payment verified and subscription activated' });
     } catch (error) {
+        console.error('[verifyPayment] Error:', error.message);
         next(error);
     }
 };
 
-// @desc    Cancel a subscription
-// @route   POST /api/payment/cancel
-// @access  Private (user)
+// @desc  Cancel a subscription
+// @route POST /api/payment/cancel
+// @access Private (user)
 const cancelSubscription = async (req, res, next) => {
     try {
         const { subscriptionId } = req.body;
-
         const result = await paymentService.cancelSubscription({ subscriptionId });
-
         res.status(200).json({ success: true, message: 'Subscription cancelled successfully', data: result });
     } catch (error) {
         next(error);
     }
 };
 
-// @desc    Razorpay Webhook handler (raw body required)
-// @route   POST /api/payment/webhook
-// @access  Public (Razorpay server)
+// @desc  Cashfree Webhook handler (raw body required)
+// @route POST /api/payment/webhook
+// @access Public (Cashfree servers)
 const handleWebhook = async (req, res, next) => {
     try {
-        const signature = req.headers['x-razorpay-signature'];
-        const rawBody = req.rawBody; // set via express middleware
+        const signature = req.headers['x-webhook-signature'];
+        const timestamp = req.headers['x-webhook-timestamp'];
+        const rawBody = req.rawBody;
 
-        const isValid = paymentService.verifyWebhookSignature(rawBody, signature);
-        if (!isValid) {
+        if (!paymentService.verifyWebhookSignature(rawBody, signature, timestamp)) {
             return res.status(400).json({ success: false, message: 'Invalid webhook signature' });
         }
 
-        const event = req.body.event;
-        const payload = req.body.payload;
+        const event = req.body;
+        const eventType = event?.type;
 
-        if (event === 'payment.captured') {
-            await paymentService.handlePaymentCaptured(payload);
+        // Cashfree webhook event types:
+        // PAYMENT_SUCCESS_WEBHOOK, PAYMENT_FAILED_WEBHOOK, PAYMENT_USER_DROPPED_WEBHOOK
+        if (eventType === 'PAYMENT_SUCCESS_WEBHOOK') {
+            const data = event.data;
+            const orderData = data.order;
+            const paymentData = data.payment;
+
+            const meta = orderData.order_tags || {};
+            await paymentService.handlePaymentCaptured({
+                orderId: orderData.order_id,
+                cfPaymentId: paymentData.cf_payment_id?.toString(),
+                amount: orderData.order_amount,
+                meta,
+            });
         }
 
         res.status(200).json({ success: true, received: true });
     } catch (error) {
+        console.error('[handleWebhook] Error:', error.message);
         next(error);
     }
 };
 
-// @desc    Check if user is subscribed to a creator
-// @route   GET /api/payment/subscription-status/:creatorId
-// @access  Private (user)
+// @desc  Check if user is subscribed to a creator
+// @route GET /api/payment/subscription-status/:creatorId
+// @access Private (user)
 const checkSubscriptionStatus = async (req, res, next) => {
     try {
         const { creatorId } = req.params;
@@ -143,10 +158,7 @@ const checkSubscriptionStatus = async (req, res, next) => {
             success: true,
             data: {
                 subscribed: !!subscription,
-                subscription: subscription ? {
-                    id: subscription._id,
-                    expiresAt: subscription.expiresAt,
-                } : null,
+                subscription: subscription ? { id: subscription._id, expiresAt: subscription.expiresAt } : null,
             },
         });
     } catch (error) {
@@ -154,19 +166,17 @@ const checkSubscriptionStatus = async (req, res, next) => {
     }
 };
 
-module.exports = { createOrder, verifyPayment, cancelSubscription, handleWebhook, checkSubscriptionStatus, createGiftOrder, verifyGift, createWalletOrder, verifyWalletRecharge, getWalletBalance };
-
 // ─────────────────────────────────────────────────────────────────────────────
 // GIFT PAYMENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-// @desc  Create Razorpay order for a gift to a creator
+// @desc  Create Cashfree order for a gift to a creator
 // @route POST /api/payment/gift-order
 // @access Private (user)
 async function createGiftOrder(req, res, next) {
     try {
         const { creatorId, amount } = req.body;
-        const userId = req.user._id;
+        const user = req.user;
 
         if (!creatorId || !amount || amount < 1) {
             return res.status(400).json({ success: false, message: 'Invalid gift amount' });
@@ -183,63 +193,48 @@ async function createGiftOrder(req, res, next) {
             return res.status(400).json({ success: false, message: `Gift must be between ₹${minGift} and ₹${maxGift}` });
         }
 
+        const orderId = `gift_${user._id.toString().slice(-6)}_${Date.now()}`;
+
         const order = await paymentService.createOrder({
             amount,
-            currency: 'INR',
-            receipt: `gift_${userId.toString().slice(-6)}_${Date.now().toString().slice(-8)}`,
-            notes: { userId: userId.toString(), creatorId: creatorId.toString(), type: 'gift' },
-        });
-
-        res.status(200).json({
-            success: true,
-            data: {
-                order: { id: order.id, amount: order.amount, currency: order.currency },
-                keyId: process.env.RAZORPAY_KEY_ID,
+            orderId,
+            customerId: user._id.toString(),
+            customerName: user.name || 'Fannex User',
+            customerEmail: user.email || 'user@fannex.in',
+            customerPhone: user.phone || '9000000000',
+            returnUrl: `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            meta: {
+                userId: user._id.toString(),
+                creatorId: creatorId.toString(),
+                type: 'gift',
             },
         });
+
+        res.status(200).json({ success: true, data: order });
     } catch (err) {
         next(err);
     }
 }
 
-// @desc  Verify gift payment and credit creator
+// @desc  Verify gift payment after redirect
 // @route POST /api/payment/gift-verify
 // @access Private (user)
 async function verifyGift(req, res, next) {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, creatorId, amount } = req.body;
+        const { orderId, creatorId, amount } = req.body;
         const userId = req.user._id;
 
-        const isValid = paymentService.verifyPaymentSignature({
-            razorpayOrderId: razorpay_order_id,
-            razorpayPaymentId: razorpay_payment_id,
-            razorpaySignature: razorpay_signature,
-        });
-        if (!isValid) return res.status(400).json({ success: false, message: 'Invalid payment signature' });
+        const orderData = await paymentService.getOrderStatus(orderId);
+        if (orderData.order_status !== 'PAID') {
+            return res.status(400).json({ success: false, message: 'Gift payment not completed' });
+        }
 
-        const Payment = require('../models/Payment');
-        const Earnings = require('../models/Earnings');
-
-        await Payment.create({
-            userId,
-            creatorId,
+        await paymentService.handlePaymentCaptured({
+            orderId,
+            cfPaymentId: orderData.payments?.[0]?.cf_payment_id?.toString() || null,
             amount,
-            currency: 'INR',
-            type: 'gift',
-            giftAmount: amount,
-            status: 'captured',
-            razorpayOrderId: razorpay_order_id,
-            razorpayPaymentId: razorpay_payment_id,
-            razorpaySignature: razorpay_signature,
+            meta: { userId: userId.toString(), creatorId: creatorId.toString(), type: 'gift' },
         });
-
-        // Credit creator earnings (90% to creator, platform keeps 10%)
-        const creatorCut = Math.floor(amount * 0.9);
-        await Earnings.findOneAndUpdate(
-            { creatorId },
-            { $inc: { totalEarned: creatorCut, pendingAmount: creatorCut } },
-            { upsert: true, new: true }
-        );
 
         res.status(200).json({ success: true, message: 'Gift sent successfully!' });
     } catch (err) {
@@ -251,33 +246,37 @@ async function verifyGift(req, res, next) {
 // WALLET RECHARGE
 // ─────────────────────────────────────────────────────────────────────────────
 
-// @desc  Create Razorpay order for wallet top-up
+// @desc  Create Cashfree order for wallet top-up
 // @route POST /api/payment/wallet-order
 // @access Private (user)
 async function createWalletOrder(req, res, next) {
     try {
         const { amount } = req.body;
-        const userId = req.user._id;
+        const user = req.user;
 
         const parsed = Number(amount);
         if (!parsed || parsed < 10 || !Number.isInteger(parsed)) {
             return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹10 (whole numbers only)' });
         }
 
+        const orderId = `wallet_${user._id.toString().slice(-6)}_${Date.now()}`;
+
         const order = await paymentService.createOrder({
             amount: parsed,
-            currency: 'INR',
-            receipt: `wallet_${userId.toString().slice(-6)}_${Date.now().toString().slice(-8)}`,
-            notes: { userId: userId.toString(), type: 'wallet' },
-        });
-
-        res.status(200).json({
-            success: true,
-            data: {
-                order: { id: order.id, amount: order.amount, currency: order.currency },
-                keyId: process.env.RAZORPAY_KEY_ID,
+            orderId,
+            customerId: user._id.toString(),
+            customerName: user.name || 'Fannex User',
+            customerEmail: user.email || 'user@fannex.in',
+            customerPhone: user.phone || '9000000000',
+            returnUrl: `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            meta: {
+                userId: user._id.toString(),
+                type: 'wallet',
+                creatorId: 'none',
             },
         });
+
+        res.status(200).json({ success: true, data: order });
     } catch (err) {
         next(err);
     }
@@ -288,23 +287,24 @@ async function createWalletOrder(req, res, next) {
 // @access Private (user)
 async function verifyWalletRecharge(req, res, next) {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
-        const User = require('../models/User');
+        const { orderId, amount } = req.body;
+        const userId = req.user._id;
 
-        const isValid = paymentService.verifyPaymentSignature({
-            razorpayOrderId: razorpay_order_id,
-            razorpayPaymentId: razorpay_payment_id,
-            razorpaySignature: razorpay_signature,
+        const orderData = await paymentService.getOrderStatus(orderId);
+        if (orderData.order_status !== 'PAID') {
+            return res.status(400).json({ success: false, message: 'Wallet recharge not completed' });
+        }
+
+        await paymentService.handlePaymentCaptured({
+            orderId,
+            cfPaymentId: orderData.payments?.[0]?.cf_payment_id?.toString() || null,
+            amount,
+            meta: { userId: userId.toString(), type: 'wallet', creatorId: 'none' },
         });
-        if (!isValid) return res.status(400).json({ success: false, message: 'Invalid payment signature' });
 
-        const user = await User.findByIdAndUpdate(
-            req.user._id,
-            { $inc: { walletBalance: Number(amount) } },
-            { new: true }
-        );
-
-        res.status(200).json({ success: true, data: { walletBalance: user.walletBalance } });
+        const User = require('../models/User');
+        const user = await User.findById(userId).select('walletBalance');
+        res.status(200).json({ success: true, data: { walletBalance: user?.walletBalance ?? 0 } });
     } catch (err) {
         next(err);
     }
@@ -323,3 +323,15 @@ async function getWalletBalance(req, res, next) {
     }
 }
 
+module.exports = {
+    createOrder,
+    verifyPayment,
+    cancelSubscription,
+    handleWebhook,
+    checkSubscriptionStatus,
+    createGiftOrder,
+    verifyGift,
+    createWalletOrder,
+    verifyWalletRecharge,
+    getWalletBalance,
+};
