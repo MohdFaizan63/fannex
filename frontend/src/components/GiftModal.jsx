@@ -18,7 +18,7 @@ export default function GiftModal({ creatorId, creatorName, onClose }) {
     const amount = custom ? Number(custom) : selected;
 
     const handleGift = async () => {
-        if (!amount || amount < 0.1) { setError('Minimum gift amount is ₹0.1.'); return; }
+        if (!amount || amount < 1) { setError('Minimum gift amount is ₹1.'); return; }
         setLoading(true);
         setError('');
         try {
@@ -135,7 +135,7 @@ export default function GiftModal({ creatorId, creatorName, onClose }) {
                             style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 15, padding: 0 }}>✕</button>
                     )}
                 </div>
-                <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginBottom: 18, paddingLeft: 4 }}>Min ₹0.1 · Max ₹10,000</p>
+                <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginBottom: 18, paddingLeft: 4 }}>Min ₹1 · Max ₹10,000</p>
 
                 {error && (
                     <div style={{
@@ -154,11 +154,11 @@ export default function GiftModal({ creatorId, creatorName, onClose }) {
                         boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
                         color: '#fff', fontWeight: 800, fontSize: 15, fontFamily: 'inherit',
                         cursor: !amount || amount < 0.1 || loading ? 'not-allowed' : 'pointer',
-                        opacity: !amount || amount < 0.1 || loading ? 0.45 : 1,
+                        opacity: !amount || amount < 1 || loading ? 0.45 : 1,
                         transition: 'opacity 0.2s ease, transform 0.15s ease',
                         letterSpacing: '-0.01em',
                     }}
-                    onMouseEnter={e => { if (amount && amount >= 0.1 && !loading) e.currentTarget.style.transform = 'scale(1.02)'; }}
+                    onMouseEnter={e => { if (amount && amount >= 1 && !loading) e.currentTarget.style.transform = 'scale(1.02)'; }}
                     onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                 >
                     {loading ? 'Processing…' : amount ? `Send ₹${Number(amount).toLocaleString('en-IN')} Gift 🎁` : 'Select an amount'}

@@ -200,16 +200,18 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                                 fontWeight: 700, fontSize: 16, pointerEvents: 'none',
                             }}>₹</span>
                             <input
-                                type="number" min={1} step={1}
+                                type="text"
+                                inputMode="numeric"
                                 placeholder="Custom amount (min ₹1)"
                                 value={customAmt}
+                                onKeyDown={e => {
+                                    // Block decimal point and comma at keyboard level
+                                    if (e.key === '.' || e.key === ',' || e.key === '-') e.preventDefault();
+                                }}
                                 onChange={e => {
-                                    const val = e.target.value;
-                                    if (val === '') { setCustomAmt(''); }
-                                    else {
-                                        const n = parseFloat(val);
-                                        if (!isNaN(n) && n >= 0) setCustomAmt(val);
-                                    }
+                                    // Strip everything except digits — no floats allowed
+                                    const val = e.target.value.replace(/[^0-9]/g, '');
+                                    setCustomAmt(val);
                                     setSelected(null);
                                 }}
                                 style={{
