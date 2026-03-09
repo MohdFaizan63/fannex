@@ -395,7 +395,6 @@ async function createWalletOrder(req, res, next) {
             meta: {
                 userId: user._id.toString(),
                 type: 'wallet',
-                creatorId: null,
             },
         });
 
