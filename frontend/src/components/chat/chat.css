@@ -252,12 +252,16 @@
     display: flex;
     align-items: flex-end;
     gap: 8px;
-    padding: 0 14px;
+    /* Default: left-aligned (received) */
+    padding: 0 14px 0 10px;
     margin-top: 2px;
 }
 
+/* Sent messages hug the right edge — tighter right padding */
 .chat-msg-row--sent {
     flex-direction: row-reverse;
+    padding-left: 14px;
+    padding-right: 6px;
 }
 
 .chat-msg-row--gap {
@@ -705,7 +709,13 @@
     }
 
     .chat-msg-row {
-        padding: 0 20px;
+        padding: 0 20px 0 16px;
+    }
+
+    /* Desktop: sent messages still hug right */
+    .chat-msg-row--sent {
+        padding-left: 20px;
+        padding-right: 10px;
     }
 
     .chat-input-bar {
@@ -749,7 +759,12 @@
     }
 
     .chat-msg-row {
-        padding: 0 10px;
+        padding: 0 8px 0 8px;
+    }
+
+    .chat-msg-row--sent {
+        padding-right: 4px;
+        padding-left: 8px;
     }
 
     .chat-gift-trigger {
