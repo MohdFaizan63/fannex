@@ -160,9 +160,9 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                         }}>₹</span>
                         <input
                             type="number"
-                            min={1}
-                            step={1}
-                            placeholder="Custom amount (min ₹1)"
+                            min={0.1}
+                            step={0.1}
+                            placeholder="Custom amount (min ₹0.1)"
                             value={customAmt}
                             onChange={(e) => {
                                 const val = e.target.value;

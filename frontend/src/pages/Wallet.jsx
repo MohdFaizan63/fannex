@@ -313,10 +313,10 @@ export default function Wallet() {
                         }}>₹</span>
                         <input
                             type="number"
-                            min={1}
+                            min={0.1}
                             max={50000}
-                            step={1}
-                            placeholder="Custom amount (₹1 – ₹50,000)"
+                            step={0.1}
+                            placeholder="Custom amount (₹0.1 – ₹50,000)"
                             value={customAmt}
                             onChange={e => {
                                 const val = e.target.value;
