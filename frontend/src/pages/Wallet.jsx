@@ -102,23 +102,27 @@ export default function Wallet() {
      * But /wallet?order_id is already verified+stripped so re-visiting
      * cashfree redirect lands on /wallet → session guard → redirects home.
      * ──────────────────────────────────────────────────────────────────── */
+    const chatIdRef = useRef(null); // ref so closure is never stale
     useEffect(() => {
         if (!successBanner) return;
+        chatIdRef.current = successBanner.chatId;
 
-        // Push dummy entry: now [... cashfree, /wallet, DUMMY]
+        // Push dummy entry so back-press lands HERE first (not on Cashfree)
         window.history.pushState({ walletSuccessTrap: true }, '');
 
         const handlePopState = (e) => {
-            // User pressed back — intercept and redirect instead of showing cashfree
-            const dest = successBanner.chatId
-                ? `/chat/${successBanner.chatId}`
-                : '/';
-            // Full replace clears both DUMMY and /wallet entries
+            // CAPTURE PHASE — we run before React Router's bubble-phase listener
+            // stopImmediatePropagation prevents React Router from also handling this
+            e.stopImmediatePropagation();
+
+            const dest = chatIdRef.current ? `/chat/${chatIdRef.current}` : '/';
+            // location.replace removes this entry from history — Cashfree is skipped
             window.location.replace(dest);
         };
 
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
+        // capture: true → fires in capture phase, before React Router
+        window.addEventListener('popstate', handlePopState, { capture: true });
+        return () => window.removeEventListener('popstate', handlePopState, { capture: true });
     }, [successBanner]);
 
     /* ── Navigate away from success ─────────────────────────────────────
