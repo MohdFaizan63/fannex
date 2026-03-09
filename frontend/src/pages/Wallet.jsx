@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
@@ -61,15 +61,16 @@ export default function Wallet() {
     }, [fetchBalance, fetchTransactions]);
 
     // ── Detect return from Cashfree payment (order_id in URL) ──────────────────
-    // This handles the wallet recharge success — show banner then clear URL
+    const verifiedRef = useRef(false);
     useEffect(() => {
+        if (verifiedRef.current) return;
         const orderId = searchParams.get('order_id');
         if (!orderId || !orderId.startsWith('wallet_')) return;
+        verifiedRef.current = true;
 
         // Strip the order_id from the URL immediately to prevent re-verify
         navigate('/wallet', { replace: true });
 
-        // Refresh balance and transactions to reflect the newly credited amount
         const stored = sessionStorage.getItem('fannex_wallet_recharge');
         let amount = null;
         if (stored) {
@@ -77,15 +78,18 @@ export default function Wallet() {
             sessionStorage.removeItem('fannex_wallet_recharge');
         }
 
-        // Fetch fresh balance to show in success banner
-        api.get('/payment/wallet-balance')
+        // Verify payment server-side first, THEN show success banner
+        api.post('/payment/wallet-verify', { orderId, amount })
             .then(r => {
-                const newBalance = r.data.data.walletBalance;
+                const newBalance = r.data.data?.walletBalance ?? 0;
                 setBalance(newBalance);
                 setSuccessBanner({ amount, newBalance });
                 refreshUser().catch(() => { });
             })
-            .catch(() => { });
+            .catch(() => {
+                // If wallet-verify fails, still try to fetch the latest balance
+                fetchBalance();
+            });
 
         fetchTransactions();
     }, []); // intentionally empty — only run on mount
@@ -104,15 +108,20 @@ export default function Wallet() {
             const order = data.data;
             if (!order?.paymentSessionId) throw new Error('Invalid order response. Please try again.');
 
-            // Load Cashfree SDK dynamically
+            // Load Cashfree SDK dynamically (guard against duplicate script tags)
             if (!window.Cashfree) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-                    script.onload = resolve;
-                    script.onerror = () => reject(new Error('Failed to load payment SDK'));
-                    document.head.appendChild(script);
-                });
+                const existingScript = document.querySelector('script[src*="cashfree"]');
+                if (existingScript) {
+                    await new Promise(r => { existingScript.addEventListener('load', r); setTimeout(r, 3000); });
+                } else {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                        script.onload = resolve;
+                        script.onerror = () => reject(new Error('Failed to load payment SDK'));
+                        document.head.appendChild(script);
+                    });
+                }
             }
 
             // Store metadata for the success banner on return
@@ -309,7 +318,15 @@ export default function Wallet() {
                             step={1}
                             placeholder="Custom amount (₹1 – ₹50,000)"
                             value={customAmt}
-                            onChange={e => { setCustomAmt(e.target.value); setSelected(null); setError(''); }}
+                            onChange={e => {
+                                const val = e.target.value;
+                                if (val === '') { setCustomAmt(''); }
+                                else {
+                                    const n = parseFloat(val);
+                                    if (!isNaN(n) && n >= 0) setCustomAmt(val);
+                                }
+                                setSelected(null); setError('');
+                            }}
                             style={{
                                 width: '100%', height: 48, boxSizing: 'border-box',
                                 background: customAmt ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.04)',

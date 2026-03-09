@@ -13,13 +13,13 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
     const [customAmt, setCustomAmt] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState(false);
 
     const finalAmount = selected ?? (customAmt ? Number(customAmt) : null);
 
     const handleRecharge = async () => {
         if (!finalAmount) { setError('Please select or enter an amount.'); return; }
-        if (finalAmount < 0.1) { setError('Minimum recharge is ₹0.1.'); return; }
+        if (finalAmount < 1) { setError('Minimum recharge is ₹1.'); return; }
+        if (finalAmount > 50000) { setError('Maximum recharge is ₹50,000.'); return; }
 
         setLoading(true);
         setError('');
@@ -31,15 +31,20 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                 throw new Error('Invalid order response from server. Please try again.');
             }
 
-            // Load Cashfree SDK dynamically if not already loaded
+            // Load Cashfree SDK dynamically (guard against duplicate script tags)
             if (!window.Cashfree) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-                    script.onload = resolve;
-                    script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
-                    document.head.appendChild(script);
-                });
+                const existingScript = document.querySelector('script[src*="cashfree"]');
+                if (existingScript) {
+                    await new Promise(r => { existingScript.addEventListener('load', r); setTimeout(r, 3000); });
+                } else {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                        script.onload = resolve;
+                        script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+                        document.head.appendChild(script);
+                    });
+                }
             }
 
             // Store wallet recharge metadata so verify endpoint knows to credit wallet
@@ -155,11 +160,19 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                         }}>₹</span>
                         <input
                             type="number"
-                            min={0.1}
-                            step={0.1}
-                            placeholder="Custom amount (min ₹0.1)"
+                            min={1}
+                            step={1}
+                            placeholder="Custom amount (min ₹1)"
                             value={customAmt}
-                            onChange={(e) => { setCustomAmt(e.target.value); setSelected(null); }}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') { setCustomAmt(''); }
+                                else {
+                                    const n = parseFloat(val);
+                                    if (!isNaN(n) && n >= 0) setCustomAmt(val);
+                                }
+                                setSelected(null);
+                            }}
                             style={{
                                 width: '100%',
                                 height: 48,
@@ -189,20 +202,11 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                             {error}
                         </div>
                     )}
-                    {success && (
-                        <div style={{
-                            color: '#4ade80', fontSize: 13, marginBottom: 12,
-                            background: 'rgba(74,222,128,0.08)',
-                            border: '1px solid rgba(74,222,128,0.15)',
-                            borderRadius: 12, padding: '8px 12px',
-                        }}>
-                            ✅ Wallet recharged!
-                        </div>
-                    )}
+
 
                     <button
                         onClick={handleRecharge}
-                        disabled={loading || !finalAmount || success}
+                        disabled={loading || !finalAmount}
                         style={{
                             width: '100%',
                             height: 52,
@@ -212,8 +216,8 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                             fontWeight: 700,
                             fontSize: 15,
                             fontFamily: 'inherit',
-                            opacity: loading || !finalAmount || success ? 0.4 : 1,
-                            cursor: loading || !finalAmount || success ? 'not-allowed' : 'pointer',
+                            opacity: loading || !finalAmount ? 0.4 : 1,
+                            cursor: loading || !finalAmount ? 'not-allowed' : 'pointer',
                             border: 'none',
                             marginBottom: 14,
                             transition: 'all 0.2s ease',

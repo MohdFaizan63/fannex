@@ -255,13 +255,6 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { $inc: { totalEarned: grossAmount, pendingAmount: grossAmount } },
             { upsert: true }
         );
-
-    } else if (type === 'wallet') {
-        const User = require('../models/User');
-        await User.findByIdAndUpdate(
-            userId,
-            { $inc: { walletBalance: grossAmount } }
-        );
     }
 };
 

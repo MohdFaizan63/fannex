@@ -185,19 +185,6 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
-        // For wallet recharge orders — already handled above, this is a fallback
-        if (type === 'wallet') {
-            const User = require('../models/User');
-            const user = await User.findById(userId).select('walletBalance');
-            return res.status(200).json({
-                success: true,
-                type: 'wallet',
-                walletBalance: user?.walletBalance ?? 0,
-                amount: orderData.order_amount,
-                message: 'Wallet recharged successfully',
-            });
-        }
-
         res.status(200).json({ success: true, type, message: 'Payment verified and subscription activated' });
     } catch (error) {
         console.error('[verifyPayment] Error:', error.message);
@@ -352,9 +339,16 @@ async function verifyGift(req, res, next) {
             return res.status(400).json({ success: false, message: 'Gift payment not completed' });
         }
 
+        // Fetch cfPaymentId properly via getOrderPayments
+        let cfPaymentId = null;
+        try {
+            const payments = await paymentService.getOrderPayments(orderId);
+            cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
+        } catch { /* ignore — cfPaymentId is optional */ }
+
         await paymentService.handlePaymentCaptured({
             orderId,
-            cfPaymentId: orderData.payments?.[0]?.cf_payment_id?.toString() || null,
+            cfPaymentId,
             amount,
             meta: { userId: userId.toString(), creatorId: creatorId.toString(), type: 'gift' },
         });
@@ -378,8 +372,14 @@ async function createWalletOrder(req, res, next) {
         const user = req.user;
 
         const parsed = Number(amount);
-        if (!parsed || parsed < 0.1) {
-            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹0.1' });
+        if (isNaN(parsed) || parsed <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid amount' });
+        }
+        if (parsed < 1) {
+            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹1' });
+        }
+        if (parsed > 50000) {
+            return res.status(400).json({ success: false, message: 'Maximum recharge amount is ₹50,000' });
         }
 
         const orderId = `wallet_${user._id.toString().slice(-6)}_${Date.now()}`;
@@ -391,11 +391,11 @@ async function createWalletOrder(req, res, next) {
             customerName: user.name || 'Fannex User',
             customerEmail: user.email || 'user@fannex.in',
             customerPhone: user.phone || '9000000000',
-            returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/subscription-success?order_id={order_id}`,
+            returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/wallet?order_id={order_id}`,
             meta: {
                 userId: user._id.toString(),
                 type: 'wallet',
-                creatorId: 'none',
+                creatorId: null,
             },
         });
 
