@@ -112,6 +112,15 @@ const getOrderStatus = async (orderId) => {
     return data; // { order_status: 'PAID'|'ACTIVE'|'EXPIRED'|'CANCELLED', ... }
 };
 
+// ── Fetch Payments for an Order ───────────────────────────────────────────────
+const getOrderPayments = async (orderId) => {
+    const { data } = await axios.get(
+        `${CF_ENV}/pg/orders/${orderId}/payments`,
+        { headers: cfHeaders() }
+    );
+    return data; // array of payment objects
+};
+
 // ── Verify Webhook Signature ───────────────────────────────────────────────────
 /**
  * Cashfree webhook signature verification.
@@ -215,6 +224,7 @@ const cancelSubscription = async ({ subscriptionId }) => {
 module.exports = {
     createOrder,
     getOrderStatus,
+    getOrderPayments,
     verifyWebhookSignature,
     handlePaymentCaptured,
     cancelSubscription,

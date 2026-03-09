@@ -55,8 +55,12 @@ const createOrder = async (req, res, next) => {
 // @access Private (user)
 const verifyPayment = async (req, res, next) => {
     try {
-        const { orderId, creatorId } = req.body;
+        const { orderId } = req.body;
         const userId = req.user._id;
+
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: 'orderId is required' });
+        }
 
         // Fetch order status from Cashfree
         const orderData = await paymentService.getOrderStatus(orderId);
@@ -68,8 +72,24 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
-        // Get the payment ID from payments array (first successful payment)
-        const cfPaymentId = orderData.payments?.[0]?.cf_payment_id?.toString() || null;
+        // Extract metadata from order_tags (stored when we created the order)
+        const tags = orderData.order_tags || {};
+        const creatorId = req.body.creatorId || tags.creatorId;
+        const type = tags.type || 'subscription';
+
+        if (!creatorId) {
+            return res.status(400).json({ success: false, message: 'Could not determine creator from order' });
+        }
+
+        // Fetch payment details to get cf_payment_id
+        let cfPaymentId = null;
+        try {
+            const payments = await paymentService.getOrderPayments(orderId);
+            cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
+        } catch (e) {
+            console.warn('[verifyPayment] Could not fetch payment details:', e.message);
+        }
+
         const amount = orderData.order_amount;
 
         await paymentService.handlePaymentCaptured({
@@ -79,14 +99,18 @@ const verifyPayment = async (req, res, next) => {
             meta: {
                 userId: userId.toString(),
                 creatorId: creatorId.toString(),
-                type: 'subscription',
+                type,
             },
         });
 
         res.status(200).json({ success: true, message: 'Payment verified and subscription activated' });
     } catch (error) {
         console.error('[verifyPayment] Error:', error.message);
-        next(error);
+        if (error.response?.data) {
+            console.error('[verifyPayment] API response:', JSON.stringify(error.response.data, null, 2));
+        }
+        const message = error.response?.data?.message || error.message || 'Payment verification failed';
+        res.status(error.response?.status || 500).json({ success: false, message });
     }
 };
 
