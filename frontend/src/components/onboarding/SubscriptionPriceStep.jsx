@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const PRESETS = [99, 199, 499, 999];
+const PRESETS = [1, 49, 199, 499, 999];
 
 export default function SubscriptionPriceStep({ register, errors, watch, setValue }) {
     const price = watch('subscriptionPrice');
@@ -34,8 +34,8 @@ export default function SubscriptionPriceStep({ register, errors, watch, setValu
                         type="button"
                         onClick={() => pick(p)}
                         className={`rounded-xl py-4 flex flex-col items-center gap-1 border-2 transition-all duration-200 ${!custom && price === p
-                                ? 'border-brand-500 bg-brand-500/10 shadow-[0_0_16px_rgba(204,82,184,.2)]'
-                                : 'border-surface-700 bg-surface-800/50 hover:border-surface-500'
+                            ? 'border-brand-500 bg-brand-500/10 shadow-[0_0_16px_rgba(204,82,184,.2)]'
+                            : 'border-surface-700 bg-surface-800/50 hover:border-surface-500'
                             }`}
                     >
                         <span className="text-xs text-surface-500 font-medium">₹</span>
@@ -50,8 +50,8 @@ export default function SubscriptionPriceStep({ register, errors, watch, setValu
                 type="button"
                 onClick={pickCustom}
                 className={`w-full rounded-xl py-3 border-2 text-sm font-semibold transition-all duration-200 ${custom
-                        ? 'border-brand-500 bg-brand-500/10 text-brand-400'
-                        : 'border-surface-700 bg-surface-800/50 text-surface-400 hover:border-surface-500'
+                    ? 'border-brand-500 bg-brand-500/10 text-brand-400'
+                    : 'border-surface-700 bg-surface-800/50 text-surface-400 hover:border-surface-500'
                     }`}
             >
                 ✏️ Custom amount
@@ -71,7 +71,7 @@ export default function SubscriptionPriceStep({ register, errors, watch, setValu
                             placeholder="e.g. 299"
                             {...register('subscriptionPrice', {
                                 required: 'Price is required',
-                                min: { value: 49, message: 'Minimum price is ₹49' },
+                                min: { value: 0.1, message: 'Minimum price is ₹0.1' },
                                 max: { value: 9999, message: 'Maximum price is ₹9999' },
                                 valueAsNumber: true,
                             })}

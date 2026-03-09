@@ -31,7 +31,7 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
 
     const handleSendGift = async () => {
         const amount = effectiveAmount;
-        if (!amount || amount < 1) { setError('Please select or enter a gift amount.'); return; }
+        if (!amount || amount < 0.1) { setError('Please select or enter a gift amount (min ₹0.1).'); return; }
 
         setLoading(true);
         setError('');
@@ -189,7 +189,7 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                             )}
                         </div>
                         <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 6, paddingLeft: 4 }}>
-                            Min ₹50 · Max ₹10,000
+                            Min ₹0.1 · Max ₹10,000
                         </p>
                     </div>
 
@@ -201,7 +201,7 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
 
                     <button
                         onClick={handleSendGift}
-                        disabled={!effectiveAmount || effectiveAmount < 1 || loading}
+                        disabled={!effectiveAmount || effectiveAmount < 0.1 || loading}
                         style={{
                             width: '100%',
                             padding: '15px 0',

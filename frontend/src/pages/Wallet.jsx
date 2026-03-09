@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 
-const PRESETS = [100, 500, 1000, 2000];
+const PRESETS = [10, 50, 100, 500, 1000, 2000];
 
 export default function Wallet() {
     const navigate = useNavigate();
@@ -26,46 +26,38 @@ export default function Wallet() {
 
     const handleRecharge = async () => {
         if (!finalAmount) { setError('Please select or enter an amount.'); return; }
-        if (finalAmount < 10 || !Number.isInteger(finalAmount)) { setError('Minimum ₹10, whole numbers only.'); return; }
-        if (!window.Razorpay) { setError('Payment system not loaded. Please refresh.'); return; }
+        if (finalAmount < 0.1) { setError('Minimum recharge is ₹0.1.'); return; }
 
         setLoading(true);
         setError('');
         setSuccess('');
         try {
             const { data } = await api.post('/payment/wallet-order', { amount: finalAmount });
-            const { order, keyId } = data.data;
+            const order = data.data; // { orderId, paymentSessionId, ... }
 
-            const result = await new Promise((resolve, reject) => {
-                const rzp = new window.Razorpay({
-                    key: keyId,
-                    amount: order.amount,
-                    currency: 'INR',
-                    name: 'Fannex',
-                    description: 'Wallet Recharge',
-                    order_id: order.id,
-                    theme: { color: '#7c3aed' },
-                    handler: (res) => resolve(res),
-                    modal: { ondismiss: () => reject(new Error('dismissed')) },
+            if (!order?.paymentSessionId) throw new Error('Invalid order response. Please try again.');
+
+            // Load Cashfree SDK dynamically
+            if (!window.Cashfree) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('Failed to load payment SDK'));
+                    document.head.appendChild(script);
                 });
-                rzp.open();
-            });
+            }
 
-            const verifyRes = await api.post('/payment/wallet-verify', {
-                razorpay_order_id: result.razorpay_order_id,
-                razorpay_payment_id: result.razorpay_payment_id,
-                razorpay_signature: result.razorpay_signature,
-                amount: finalAmount,
-            });
+            sessionStorage.setItem('fannex_wallet_recharge', JSON.stringify({ orderId: order.orderId, amount: finalAmount }));
 
-            const newBal = verifyRes.data.data.walletBalance;
-            setBalance(newBal);
-            setSuccess(`₹${finalAmount} added! New balance: ₹${newBal}`);
-            setSelected(null);
-            setCustomAmt('');
+            window.Cashfree({ mode: 'production' }).checkout({
+                paymentSessionId: order.paymentSessionId,
+                redirectTarget: '_self',
+            });
         } catch (err) {
-            if (err.message === 'dismissed') { setLoading(false); return; }
-            setError(err?.response?.data?.message || 'Recharge failed. Please try again.');
+            if (err.message !== 'dismissed') {
+                setError(err?.response?.data?.message || err?.message || 'Recharge failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -143,7 +135,7 @@ export default function Wallet() {
                     </div>
 
                     {/* Preset chips */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
                         {PRESETS.map(p => (
                             <motion.button
                                 key={p}
@@ -176,8 +168,9 @@ export default function Wallet() {
                         }}>₹</span>
                         <input
                             type="number"
-                            min={10}
-                            placeholder="Custom amount (min ₹10)"
+                            min={0.1}
+                            step={0.1}
+                            placeholder="Custom amount (min ₹0.1)"
                             value={customAmt}
                             onChange={e => { setCustomAmt(e.target.value); setSelected(null); setError(''); }}
                             style={{
