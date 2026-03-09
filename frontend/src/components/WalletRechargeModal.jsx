@@ -8,7 +8,7 @@ const PRESETS = [100, 500, 1000, 2000];
  * WalletRechargeModal — Premium wallet top-up modal.
  * Props: currentBalance, onClose, onRecharged(newBalance)
  */
-export default function WalletRechargeModal({ currentBalance = 0, onClose, onRecharged }) {
+export default function WalletRechargeModal({ currentBalance = 0, onClose, onRecharged, sourceChatId }) {
     const [selected, setSelected] = useState(null);
     const [customAmt, setCustomAmt] = useState('');
     const [loading, setLoading] = useState(false);
@@ -51,6 +51,7 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
             sessionStorage.setItem('fannex_wallet_recharge', JSON.stringify({
                 orderId: order.orderId,
                 amount: finalAmount,
+                chatId: sourceChatId || null,
             }));
 
             // Redirect to Cashfree checkout — same pattern as gift/subscription

@@ -453,6 +453,7 @@ export default function Chat() {
                     currentBalance={walletBalance ?? 0}
                     onClose={() => setShowWallet(false)}
                     onRecharged={(newBal) => setWalletBalance(newBal)}
+                    sourceChatId={chatId}
                 />
             )}
 

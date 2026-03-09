@@ -33,8 +33,8 @@ export default function Wallet() {
     const [transactions, setTransactions] = useState([]);
     const [loadingTx, setLoadingTx] = useState(true);
 
-    // Success banner — shown after returning from Cashfree payment
-    const [successBanner, setSuccessBanner] = useState(null); // { amount, newBalance }
+    // Success screen — shown after returning from Cashfree payment
+    const [successBanner, setSuccessBanner] = useState(null); // { amount, newBalance, chatId }
 
     const finalAmount = selected ?? (customAmt ? Number(customAmt) : null);
 
@@ -73,17 +73,22 @@ export default function Wallet() {
 
         const stored = sessionStorage.getItem('fannex_wallet_recharge');
         let amount = null;
+        let chatId = null;
         if (stored) {
-            try { amount = JSON.parse(stored).amount; } catch { }
+            try {
+                const parsed = JSON.parse(stored);
+                amount = parsed.amount;
+                chatId = parsed.chatId || null;
+            } catch { }
             sessionStorage.removeItem('fannex_wallet_recharge');
         }
 
-        // Verify payment server-side first, THEN show success banner
+        // Verify payment server-side first, THEN show success screen
         api.post('/payment/wallet-verify', { orderId, amount })
             .then(r => {
                 const newBalance = r.data.data?.walletBalance ?? 0;
                 setBalance(newBalance);
-                setSuccessBanner({ amount, newBalance });
+                setSuccessBanner({ amount, newBalance, chatId });
                 refreshUser().catch(() => { });
             })
             .catch(() => {
@@ -143,6 +148,144 @@ export default function Wallet() {
         }
     };
 
+    // ── Success screen ───────────────────────────────────────────────────
+    if (successBanner) {
+        return (
+            <div style={{
+                minHeight: '100dvh',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'linear-gradient(180deg, #07070f 0%, #0c0a1a 100%)',
+                fontFamily: "'Inter', sans-serif",
+                padding: '24px 16px',
+                position: 'relative',
+                overflow: 'hidden',
+            }}>
+                {/* Background glow */}
+                <div style={{
+                    position: 'absolute', top: '30%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 320, height: 320, borderRadius: '50%', opacity: 0.12,
+                    background: 'radial-gradient(circle, #7c3aed, transparent 70%)',
+                    pointerEvents: 'none',
+                }} />
+
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    style={{
+                        width: '100%',
+                        maxWidth: 360,
+                        textAlign: 'center',
+                        position: 'relative',
+                        zIndex: 1,
+                    }}
+                >
+                    {/* Check icon */}
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.15, type: 'spring', damping: 14, stiffness: 300 }}
+                        style={{
+                            width: 80, height: 80, borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
+                            boxShadow: '0 12px 40px rgba(124,58,237,0.45)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 24px',
+                        }}
+                    >
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                            <motion.path
+                                d="M5 13l4 4L19 7"
+                                stroke="#fff"
+                                strokeWidth={2.5}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                initial={{ pathLength: 0 }}
+                                animate={{ pathLength: 1 }}
+                                transition={{ delay: 0.3, duration: 0.4, ease: 'easeOut' }}
+                            />
+                        </svg>
+                    </motion.div>
+
+                    {/* Message */}
+                    <h1 style={{
+                        color: '#fff',
+                        fontWeight: 900,
+                        fontSize: 'clamp(20px, 5vw, 26px)',
+                        margin: '0 0 10px',
+                        letterSpacing: '-0.4px',
+                        lineHeight: 1.2,
+                    }}>
+                        {successBanner.amount ? `₹${fmt(successBanner.amount)} Added to Wallet!` : 'Wallet Recharged! 🎉'}
+                    </h1>
+
+                    <p style={{
+                        color: 'rgba(255,255,255,0.45)',
+                        fontSize: 15,
+                        margin: '0 0 32px',
+                        lineHeight: 1.6,
+                    }}>
+                        Your wallet has been topped up successfully.
+                    </p>
+
+                    {/* CTA buttons */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {successBanner.chatId && (
+                            <button
+                                onClick={() => navigate(`/chat/${successBanner.chatId}`)}
+                                style={{
+                                    width: '100%',
+                                    height: 52,
+                                    borderRadius: 16,
+                                    background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
+                                    color: '#fff',
+                                    fontWeight: 800,
+                                    fontSize: 16,
+                                    fontFamily: 'inherit',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 6px 20px rgba(124,58,237,0.4)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                    transition: 'opacity 0.15s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+                                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                            >
+                                <span style={{ fontSize: 18 }}>💬</span>
+                                Go back to Chat
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => setSuccessBanner(null)}
+                            style={{
+                                width: '100%',
+                                height: 48,
+                                borderRadius: 16,
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(255,255,255,0.5)',
+                                fontWeight: 600,
+                                fontSize: 14,
+                                fontFamily: 'inherit',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                        >
+                            View Wallet
+                        </button>
+                    </div>
+                </motion.div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
     return (
         <div style={{
             minHeight: '100vh',
