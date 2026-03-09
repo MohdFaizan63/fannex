@@ -147,17 +147,21 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
 
     const grossAmount = Number(amount);
 
-    // 1. Store Payment record
-    await Payment.create({
-        userId,
-        creatorId,
-        amount: grossAmount,
-        currency: 'INR',
-        type,
-        status: 'captured',
-        cfOrderId: orderId,
-        cfPaymentId,
-    });
+    // 1. Store/update Payment record (may already exist from order creation step)
+    await Payment.findOneAndUpdate(
+        { cfOrderId: orderId },
+        {
+            userId,
+            creatorId,
+            amount: grossAmount,
+            currency: 'INR',
+            type,
+            status: 'captured',
+            cfOrderId: orderId,
+            cfPaymentId,
+        },
+        { upsert: true }
+    );
 
     if (type === 'subscription') {
         // 2. Upsert Subscription record (active for 1 month)
@@ -187,6 +191,24 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { creatorId },
             { $inc: { totalEarned: creatorCut, pendingAmount: creatorCut } },
             { upsert: true, new: true }
+        );
+
+    } else if (type === 'chat_unlock') {
+        // Create/unlock chat room and credit creator
+        const ChatRoom = require('../models/ChatRoom');
+        const Earnings = require('../models/Earnings');
+
+        const room = await ChatRoom.findOneAndUpdate(
+            { creatorId, userId },
+            { isPaid: true, chatPaymentId: cfPaymentId, unlockedAt: new Date() },
+            { upsert: true, returnDocument: 'after' }
+        );
+
+        // Credit full amount to creator for chat unlocks
+        await Earnings.findOneAndUpdate(
+            { creatorId },
+            { $inc: { totalEarned: grossAmount, pendingAmount: grossAmount } },
+            { upsert: true }
         );
 
     } else if (type === 'wallet') {
