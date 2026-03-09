@@ -100,8 +100,20 @@ export default function Navbar() {
         <>
             {/* ── Header ───────────────────────────────────────────────────────── */}
             <header
-                style={{ transform: headerVis ? 'translateY(0)' : 'translateY(-100%)', transition: 'transform 0.3s cubic-bezier(0.25, 0.4, 0.25, 1)', willChange: 'transform' }}
-                className={`fixed top-0 inset-x-0 z-50 ${scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'}`}
+                style={{
+                    transform: headerVis ? 'translateY(0)' : 'translateY(-100%)',
+                    transition: 'transform 0.3s cubic-bezier(0.25, 0.4, 0.25, 1)',
+                    willChange: 'transform',
+                    ...(isAuthenticated ? {
+                        background: 'rgba(10, 10, 18, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                    } : {})
+                }}
+                className={`fixed top-0 inset-x-0 z-50 ${isAuthenticated
+                        ? 'border-b border-white/5 shadow-lg'
+                        : scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'
+                    }`}
             >
                 <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
                     <div className="flex items-center h-16 gap-4">
