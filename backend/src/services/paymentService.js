@@ -55,6 +55,10 @@ const createOrder = async ({
         throw new Error('Cashfree is not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY in .env');
     }
 
+    // CLIENT_URL may contain comma-separated values (e.g. for local dev); pick the first one
+    const clientUrl = (process.env.CLIENT_URL || '').split(',')[0].trim();
+    const apiUrl = (process.env.API_URL || '').trim();
+
     const body = {
         order_id: orderId,
         order_amount: amount,
@@ -66,26 +70,37 @@ const createOrder = async ({
             customer_phone: customerPhone,
         },
         order_meta: {
-            return_url: returnUrl || `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
-            notify_url: `${process.env.API_URL}/api/payment/webhook`,
+            return_url: returnUrl || `${clientUrl}/subscription-success?order_id={order_id}`,
+            ...(apiUrl ? { notify_url: `${apiUrl}/api/v1/payment/webhook` } : {}),
         },
         order_tags: meta,
     };
 
-    const { data } = await axios.post(
-        `${CF_ENV}/pg/orders`,
-        body,
-        { headers: cfHeaders() }
-    );
+    try {
+        const { data } = await axios.post(
+            `${CF_ENV}/pg/orders`,
+            body,
+            { headers: cfHeaders() }
+        );
 
-    // data.payment_session_id → used by Cashfree.js on the frontend
-    return {
-        orderId: data.order_id,
-        paymentSessionId: data.payment_session_id,
-        amount: data.order_amount,
-        currency: data.order_currency,
-        status: data.order_status,
-    };
+        // data.payment_session_id → used by Cashfree.js on the frontend
+        return {
+            orderId: data.order_id,
+            paymentSessionId: data.payment_session_id,
+            amount: data.order_amount,
+            currency: data.order_currency,
+            status: data.order_status,
+        };
+    } catch (err) {
+        // Log the full Cashfree error response for debugging
+        if (err.response) {
+            console.error('[Cashfree createOrder] Status:', err.response.status);
+            console.error('[Cashfree createOrder] Response:', JSON.stringify(err.response.data, null, 2));
+        } else {
+            console.error('[Cashfree createOrder] Error:', err.message);
+        }
+        throw err;
+    }
 };
 
 // ── Fetch Order Status ─────────────────────────────────────────────────────────

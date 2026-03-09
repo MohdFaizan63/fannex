@@ -42,7 +42,11 @@ const createOrder = async (req, res, next) => {
         res.status(200).json({ success: true, data: order });
     } catch (error) {
         console.error('[createOrder] Error:', error.message);
-        next(error);
+        if (error.response?.data) {
+            console.error('[createOrder] Cashfree response:', JSON.stringify(error.response.data, null, 2));
+        }
+        const message = error.response?.data?.message || error.message || 'Payment order creation failed';
+        res.status(error.response?.status || 500).json({ success: false, message });
     }
 };
 
