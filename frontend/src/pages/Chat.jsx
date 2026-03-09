@@ -42,7 +42,8 @@ export default function Chat() {
     const imageInputRef = useRef(null);
 
     // Is this user the creator in the room (no deduction for creators)
-    const isCreatorRef = useRef(false);
+    const [isCreator, setIsCreator] = useState(false);
+    const isCreatorRef = useRef(false); // keep ref for non-reactive callbacks
 
     // ── Lock body on Android Chrome ────────────────────────────────────────────
     useEffect(() => {
@@ -96,6 +97,7 @@ export default function Chat() {
                 if (room?.creatorProfile?.displayName) setOtherName(room.creatorProfile.displayName);
                 else if (room?.userId?.name) setOtherName(room.userId.name);
                 isCreatorRef.current = false;
+                setIsCreator(false);
             })
             .catch(() => {
                 chatService.getCreatorRooms()
@@ -103,6 +105,7 @@ export default function Chat() {
                         const room = findRoom(data?.data ?? []);
                         if (room?.userId?.name) setOtherName(room.userId.name);
                         isCreatorRef.current = true; // creator viewing this chat
+                        setIsCreator(true);
                     })
                     .catch(() => { });
             });
@@ -176,7 +179,7 @@ export default function Chat() {
         if (!trimmed) return;
 
         // Client-side pre-send balance check (only for fans, not creators)
-        if (!isCreatorRef.current && messagePrice > 0 && walletBalance !== null && walletBalance < messagePrice) {
+        if (!isCreatorRef.current && !isCreator && messagePrice > 0 && walletBalance !== null && walletBalance < messagePrice) {
             setShowInsufficientModal(true);
             return;
         }
@@ -305,9 +308,9 @@ export default function Chat() {
                     </div>
                 </div>
 
-                {/* Right: wallet balance + recharge */}
+                {/* Right: wallet balance + recharge (hidden for creators) */}
                 <div className="chat-header-actions">
-                    {walletBalance !== null && !isCreatorRef.current && (
+                    {walletBalance !== null && !isCreator && (
                         <button onClick={() => setShowWallet(true)} className="chat-wallet-btn">
                             <span>💳</span>
                             <span>₹{walletBalance}</span>
@@ -344,10 +347,12 @@ export default function Chat() {
 
             {/* ── Input bar ─────────────────────────────────────────────────── */}
             <div className="chat-input-bar">
-                {/* Gift button */}
-                <button onClick={() => setShowGifts(true)} className="chat-gift-trigger" aria-label="Send a gift">
-                    🎁
-                </button>
+                {/* Gift button — hidden for creators */}
+                {!isCreator && (
+                    <button onClick={() => setShowGifts(true)} className="chat-gift-trigger" aria-label="Send a gift">
+                        🎁
+                    </button>
+                )}
 
                 {/* Pill input area */}
                 <div className="chat-input-field-wrap">
@@ -401,8 +406,8 @@ export default function Chat() {
                                 className="chat-action-icon"
                                 aria-label="Send image"
                                 onClick={() => {
-                                    // Check wallet balance before opening file picker (same as text send)
-                                    if (!isCreatorRef.current && messagePrice > 0 && walletBalance !== null && walletBalance < messagePrice) {
+                                    // Check wallet balance before opening file picker (fans only, not creators)
+                                    if (!isCreator && messagePrice > 0 && walletBalance !== null && walletBalance < messagePrice) {
                                         setShowInsufficientModal(true);
                                         return;
                                     }

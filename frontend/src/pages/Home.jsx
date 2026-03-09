@@ -28,11 +28,11 @@ const CREATOR_IMAGES = [
 ];
 
 // ─── Local Creator Images Set 2 ───────────────────────────────────────────────
-import img2_1 from '../assets/images 2/1.jpeg';
-import img2_2 from '../assets/images 2/2.jpeg';
-import img2_3 from '../assets/images 2/3.jpeg';
-import img2_4 from '../assets/images 2/4.jpeg';
-import img2_5 from '../assets/images 2/5.jpeg';
+import img2_1 from '../assets/images2/1.jpeg';
+import img2_2 from '../assets/images2/2.jpeg';
+import img2_3 from '../assets/images2/3.jpeg';
+import img2_4 from '../assets/images2/4.jpeg';
+import img2_5 from '../assets/images2/5.jpeg';
 
 const SPOTLIGHT_IMAGES = [
     { src: img2_1, name: 'Ivy Thornton', title: 'Brand Strategist', color: '#c084fc' },
@@ -69,7 +69,7 @@ const CATEGORIES = [
 ];
 
 // ─── Feature flag: set to true once Paytm gateway is live ───────────────────
-const SHOW_IMAGE_GALLERIES = false;
+const SHOW_IMAGE_GALLERIES = true;
 
 const FEATURES = [
     { icon: '💬', tag: 'New', title: 'AI Voice Messages', desc: 'Send personalised messages to every fan at scale, automatically.' },

@@ -159,6 +159,19 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
+        // For wallet recharge orders, return updated balance
+        if (type === 'wallet') {
+            const User = require('../models/User');
+            const user = await User.findById(userId).select('walletBalance');
+            return res.status(200).json({
+                success: true,
+                type: 'wallet',
+                walletBalance: user?.walletBalance ?? 0,
+                amount: orderData.order_amount,
+                message: 'Wallet recharged successfully',
+            });
+        }
+
         res.status(200).json({ success: true, type, message: 'Payment verified and subscription activated' });
     } catch (error) {
         console.error('[verifyPayment] Error:', error.message);
@@ -262,7 +275,7 @@ async function createGiftOrder(req, res, next) {
         const { creatorId, amount } = req.body;
         const user = req.user;
 
-        if (!creatorId || !amount || amount < 1) {
+        if (!creatorId || !amount || amount < 0.1) {
             return res.status(400).json({ success: false, message: 'Invalid gift amount' });
         }
 
@@ -271,7 +284,7 @@ async function createGiftOrder(req, res, next) {
             return res.status(404).json({ success: false, message: 'Creator not found' });
         }
 
-        const minGift = creatorProfile.minGift ?? 50;
+        const minGift = creatorProfile.minGift ?? 0.1;
         const maxGift = creatorProfile.maxGift ?? 10000;
         if (amount < minGift || amount > maxGift) {
             return res.status(400).json({ success: false, message: `Gift must be between ₹${minGift} and ₹${maxGift}` });

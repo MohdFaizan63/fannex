@@ -162,7 +162,6 @@ export default function CreatorChatDashboard() {
                             </div>
 
                             {[
-                                { key: 'chatPrice', label: 'Chat Unlock Price (₹)', placeholder: '299', help: 'One-time fee to start a conversation' },
                                 { key: 'messagePrice', label: 'Message Price (₹)', placeholder: '20', help: 'Deducted from fan wallet per message sent' },
                             ].map(field => (
                                 <div key={field.key} style={{ marginTop: 16 }}>

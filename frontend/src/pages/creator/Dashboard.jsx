@@ -159,7 +159,6 @@ export default function Dashboard() {
 
     // Chat settings state
     const [chatSettings, setChatSettings] = useState({ chatEnabled: true, chatPrice: 299, messagePrice: 20 });
-    const [chatPriceInput, setChatPriceInput] = useState('');
     const [msgPriceInput, setMsgPriceInput] = useState('');
     const [chatSaving, setChatSaving] = useState(false);
     const [chatSaved, setChatSaved] = useState(false);
@@ -188,7 +187,6 @@ export default function Dashboard() {
                     const { data } = await chatService.getChatSettings();
                     const s = data.data;
                     setChatSettings({ chatEnabled: s.chatEnabled, chatPrice: s.chatPrice, messagePrice: s.messagePrice ?? 20 });
-                    setChatPriceInput(String(s.chatPrice));
                     setMsgPriceInput(String(s.messagePrice ?? 20));
                 } catch (_) { }
             } finally {
@@ -228,7 +226,6 @@ export default function Dashboard() {
             const { data } = await chatService.updateChatSettings(newSettings);
             const d = data.data;
             setChatSettings(d);
-            setChatPriceInput(String(d.chatPrice));
             setMsgPriceInput(String(d.messagePrice ?? 20));
             setChatSaved(true);
             setTimeout(() => setChatSaved(false), 2000);
@@ -478,25 +475,6 @@ export default function Dashboard() {
                     {/* Price inputs */}
                     {chatSettings.chatEnabled && (
                         <div className="flex flex-col gap-3">
-                            {/* Chat unlock price */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-surface-500 text-xs font-medium w-16 shrink-0">Unlock</span>
-                                <span className="text-surface-400 text-sm">₹</span>
-                                <input
-                                    type="number" min="1"
-                                    value={chatPriceInput}
-                                    onChange={(e) => setChatPriceInput(e.target.value)}
-                                    className="input-dark w-20 text-sm py-1.5"
-                                    placeholder="299"
-                                />
-                                <button
-                                    onClick={() => { const p = Number(chatPriceInput); if (p > 0) handleSaveChatSettings({ chatPrice: p }); }}
-                                    disabled={chatSaving || Number(chatPriceInput) === chatSettings.chatPrice}
-                                    className="btn-outline text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
-                                >
-                                    {chatSaving ? '…' : 'Update'}
-                                </button>
-                            </div>
                             {/* Message price */}
                             <div className="flex items-center gap-2">
                                 <span className="text-surface-500 text-xs font-medium w-16 shrink-0">Per msg</span>

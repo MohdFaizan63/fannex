@@ -18,12 +18,12 @@ export default function GiftModal({ creatorId, creatorName, onClose }) {
     const amount = custom ? Number(custom) : selected;
 
     const handleGift = async () => {
-        if (!amount || amount < 50) { setError('Minimum gift amount is ₹50.'); return; }
+        if (!amount || amount < 0.1) { setError('Minimum gift amount is ₹0.1.'); return; }
         setLoading(true);
         setError('');
         try {
             const { data } = await api.post('/payment/gift-order', { creatorId, amount });
-            const { order } = data.data;
+            const order = data.data; // backend returns { success, data: { orderId, paymentSessionId, ... } }
 
             if (!order?.paymentSessionId) throw new Error('Invalid order from server');
 
@@ -135,7 +135,7 @@ export default function GiftModal({ creatorId, creatorName, onClose }) {
                             style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 15, padding: 0 }}>✕</button>
                     )}
                 </div>
-                <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginBottom: 18, paddingLeft: 4 }}>Min ₹50 · Max ₹10,000</p>
+                <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginBottom: 18, paddingLeft: 4 }}>Min ₹0.1 · Max ₹10,000</p>
 
                 {error && (
                     <div style={{
@@ -147,18 +147,18 @@ export default function GiftModal({ creatorId, creatorName, onClose }) {
 
                 <button
                     onClick={handleGift}
-                    disabled={!amount || amount < 50 || loading}
+                    disabled={!amount || amount < 0.1 || loading}
                     style={{
                         width: '100%', padding: '15px 0', borderRadius: 999, border: 'none',
                         background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
                         boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
                         color: '#fff', fontWeight: 800, fontSize: 15, fontFamily: 'inherit',
-                        cursor: !amount || amount < 50 || loading ? 'not-allowed' : 'pointer',
-                        opacity: !amount || amount < 50 || loading ? 0.45 : 1,
+                        cursor: !amount || amount < 0.1 || loading ? 'not-allowed' : 'pointer',
+                        opacity: !amount || amount < 0.1 || loading ? 0.45 : 1,
                         transition: 'opacity 0.2s ease, transform 0.15s ease',
                         letterSpacing: '-0.01em',
                     }}
-                    onMouseEnter={e => { if (amount && amount >= 50 && !loading) e.currentTarget.style.transform = 'scale(1.02)'; }}
+                    onMouseEnter={e => { if (amount && amount >= 0.1 && !loading) e.currentTarget.style.transform = 'scale(1.02)'; }}
                     onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                 >
                     {loading ? 'Processing…' : amount ? `Send ₹${Number(amount).toLocaleString('en-IN')} Gift 🎁` : 'Select an amount'}

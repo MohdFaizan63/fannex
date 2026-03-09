@@ -19,44 +19,46 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
 
     const handleRecharge = async () => {
         if (!finalAmount) { setError('Please select or enter an amount.'); return; }
-        if (finalAmount < 10) { setError('Minimum recharge is ₹10.'); return; }
-        if (!window.Razorpay) { setError('Payment system not loaded. Please refresh.'); return; }
+        if (finalAmount < 0.1) { setError('Minimum recharge is ₹0.1.'); return; }
 
         setLoading(true);
         setError('');
         try {
             const { data } = await api.post('/payment/wallet-order', { amount: finalAmount });
-            const { order, keyId } = data.data;
+            const order = data.data; // { orderId, paymentSessionId, amount, ... }
 
-            const result = await new Promise((resolve, reject) => {
-                const rzp = new window.Razorpay({
-                    key: keyId,
-                    amount: order.amount,
-                    currency: 'INR',
-                    name: 'Fannex',
-                    description: 'Wallet Recharge',
-                    order_id: order.id,
-                    theme: { color: '#7c3aed' },
-                    handler: (res) => resolve(res),
-                    modal: { ondismiss: () => reject(new Error('dismissed')) },
+            if (!order?.paymentSessionId) {
+                throw new Error('Invalid order response from server. Please try again.');
+            }
+
+            // Load Cashfree SDK dynamically if not already loaded
+            if (!window.Cashfree) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+                    document.head.appendChild(script);
                 });
-                rzp.open();
-            });
+            }
 
-            const verifyRes = await api.post('/payment/wallet-verify', {
-                razorpay_order_id: result.razorpay_order_id,
-                razorpay_payment_id: result.razorpay_payment_id,
-                razorpay_signature: result.razorpay_signature,
+            // Store wallet recharge metadata so verify endpoint knows to credit wallet
+            sessionStorage.setItem('fannex_wallet_recharge', JSON.stringify({
+                orderId: order.orderId,
                 amount: finalAmount,
+            }));
+
+            // Redirect to Cashfree checkout — same pattern as gift/subscription
+            const cashfree = window.Cashfree({ mode: 'production' });
+            cashfree.checkout({
+                paymentSessionId: order.paymentSessionId,
+                redirectTarget: '_self',
             });
 
-            setSuccess(true);
-            const newBal = verifyRes.data.data.walletBalance;
-            onRecharged?.(newBal);
-            setTimeout(() => onClose(), 1800);
         } catch (err) {
-            if (err.message === 'dismissed') return;
-            setError(err?.response?.data?.message || 'Recharge failed. Please try again.');
+            if (err.message !== 'dismissed') {
+                setError(err?.response?.data?.message || err?.message || 'Recharge failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -153,8 +155,9 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                         }}>₹</span>
                         <input
                             type="number"
-                            min={10}
-                            placeholder="Custom amount (min ₹10)"
+                            min={0.1}
+                            step={0.1}
+                            placeholder="Custom amount (min ₹0.1)"
                             value={customAmt}
                             onChange={(e) => { setCustomAmt(e.target.value); setSelected(null); }}
                             style={{

@@ -408,7 +408,7 @@ const createGiftOrder = async (req, res, next) => {
 
         const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('minGift maxGift');
         if (profile) {
-            if (amount < profile.minGift) return res.status(400).json({ success: false, message: `Minimum gift is ₹${profile.minGift}` });
+            if (amount < (profile.minGift ?? 0.1)) return res.status(400).json({ success: false, message: `Minimum gift is ₹${profile.minGift ?? 0.1}` });
             if (amount > profile.maxGift) return res.status(400).json({ success: false, message: `Maximum gift is ₹${profile.maxGift}` });
         }
 

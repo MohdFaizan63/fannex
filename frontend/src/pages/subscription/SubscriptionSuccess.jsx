@@ -21,6 +21,9 @@ export default function SubscriptionSuccess() {
     const [creator, setCreator] = useState(null);
     const [chatId, setChatId] = useState(null);
     const [redirecting, setRedirecting] = useState(false);
+    // For wallet recharge
+    const [walletBalance, setWalletBalance] = useState(null);
+    const [walletAmount, setWalletAmount] = useState(null);
     // For gift-from-chat: store the chatId to go back to
     const [sourceChatId, setSourceChatId] = useState(null);
     const timerRef = useRef(null);
@@ -39,6 +42,9 @@ export default function SubscriptionSuccess() {
                     if (data.type === 'chat_unlock' && data.chatId) {
                         setRedirecting(true);
                         timerRef.current = setTimeout(() => navigate(`/chat/${data.chatId}`, { replace: true }), 2000);
+                    } else if (data.type === 'wallet') {
+                        setWalletBalance(data.walletBalance);
+                        setWalletAmount(data.amount);
                     } else if (data.creator) {
                         setCreator(data.creator);
                     }
@@ -93,6 +99,43 @@ export default function SubscriptionSuccess() {
                     <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
                     <p style={{ color: '#f87171', marginBottom: 20, lineHeight: 1.6 }}>{error}</p>
                     <Link to="/explore" style={btnPrimary}>Explore Creators</Link>
+                </div>
+            </div>
+        );
+    }
+
+    /* ── Wallet Recharge Success ──────────────────────────────────────────────── */
+    if (orderType === 'wallet') {
+        return (
+            <div style={pageStyle}>
+                <Orbs colors={['#7c3aed', '#10b981']} />
+                <div style={{ ...cardStyle, textAlign: 'center' }}>
+                    <div style={{
+                        width: 72, height: 72, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #7c3aed, #10b981)',
+                        boxShadow: '0 8px 28px rgba(124,58,237,0.4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 32, margin: '0 auto 18px',
+                    }}>💳</div>
+                    <h1 style={headingStyle}>Wallet Recharged! 🎉</h1>
+                    <p style={subtitleStyle}>Your wallet has been topped up successfully.</p>
+                    {walletAmount && (
+                        <div style={{
+                            background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)',
+                            borderRadius: 14, padding: '12px 20px', marginBottom: 16,
+                            display: 'inline-block',
+                        }}>
+                            <span style={{ color: '#a78bfa', fontWeight: 900, fontSize: 22 }}>
+                                +₹{Number(walletAmount).toLocaleString('en-IN')} Added
+                            </span>
+                        </div>
+                    )}
+                    {walletBalance !== null && (
+                        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, marginBottom: 24 }}>
+                            New balance: <strong style={{ color: '#fff' }}>₹{walletBalance}</strong>
+                        </p>
+                    )}
+                    <Link to="/chat" style={btnPrimary}>Go to Chat</Link>
                 </div>
             </div>
         );
