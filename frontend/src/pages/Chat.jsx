@@ -40,6 +40,8 @@ export default function Chat() {
     const socketRef = useRef(null);
     const textareaRef = useRef(null);
     const imageInputRef = useRef(null);
+    // Track image IDs that WE uploaded — prevents socket broadcast from doubling them
+    const uploadedImageIdsRef = useRef(new Set());
 
     // Is this user the creator in the room (no deduction for creators)
     const [isCreator, setIsCreator] = useState(false);
@@ -124,7 +126,14 @@ export default function Chat() {
 
         socket.on('new_message', (msg) => {
             setMessages(prev => {
-                if (msg._id && prev.some(m => m._id?.toString() === msg._id.toString())) return prev;
+                const msgId = msg._id?.toString();
+                // Skip if already in list (text message dedup)
+                if (msgId && prev.some(m => m._id?.toString() === msgId)) return prev;
+                // Skip if this is an image we just uploaded (prevents duplicate from socket broadcast)
+                if (msgId && uploadedImageIdsRef.current.has(msgId)) {
+                    uploadedImageIdsRef.current.delete(msgId); // clean up
+                    return prev;
+                }
                 return [...prev, msg];
             });
             socket.emit('mark_seen', { chatId });
@@ -247,6 +256,9 @@ export default function Chat() {
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
             if (json.success) {
+                const realId = json.data._id?.toString();
+                // Register the real ID so the socket new_message event doesn't duplicate it
+                if (realId) uploadedImageIdsRef.current.add(realId);
                 setMessages(prev => prev.map(m => m._id === optimisticId ? { ...json.data } : m));
             } else {
                 setMessages(prev => prev.filter(m => m._id !== optimisticId));
