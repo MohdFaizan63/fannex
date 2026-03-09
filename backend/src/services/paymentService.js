@@ -147,15 +147,39 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
 
     const grossAmount = Number(amount);
 
-    // Wallet top-ups have no creatorId — credit wallet and return immediately
+    // Wallet top-ups — idempotent: only credit if not already captured
     if (type === 'wallet') {
         const User = require('../models/User');
-        await User.findByIdAndUpdate(
-            userId,
-            { $inc: { walletBalance: grossAmount } }
+
+        // Check if this order was already captured — prevents double credit on re-verify
+        const existingPayment = await Payment.findOne({ cfOrderId: orderId });
+        const alreadyCaptured = existingPayment?.status === 'captured';
+
+        // Always upsert the Payment record (idempotency key)
+        await Payment.findOneAndUpdate(
+            { cfOrderId: orderId },
+            {
+                userId,
+                amount: grossAmount,
+                currency: 'INR',
+                type: 'wallet',
+                status: 'captured',
+                cfOrderId: orderId,
+                cfPaymentId: cfPaymentId || null,
+            },
+            { upsert: true }
         );
+
+        // Only credit walletBalance on first capture
+        if (!alreadyCaptured) {
+            await User.findByIdAndUpdate(
+                userId,
+                { $inc: { walletBalance: grossAmount } }
+            );
+        }
         return;
     }
+
 
     // For all other types (subscription, gift, chat_unlock), creatorId is required
     if (!creatorId) return;

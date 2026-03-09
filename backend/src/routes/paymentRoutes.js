@@ -11,6 +11,7 @@ const {
     createWalletOrder,
     verifyWalletRecharge,
     getWalletBalance,
+    getWalletTransactions,
 } = require('../controllers/paymentController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -31,6 +32,7 @@ router.post('/gift-verify', protect, verifyGift);
 router.post('/wallet-order', protect, createWalletOrder);
 router.post('/wallet-verify', protect, verifyWalletRecharge);
 router.get('/wallet-balance', protect, getWalletBalance);
+router.get('/wallet-transactions', protect, getWalletTransactions);
 
 module.exports = router;
 

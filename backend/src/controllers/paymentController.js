@@ -433,9 +433,31 @@ async function verifyWalletRecharge(req, res, next) {
     }
 }
 
+// @desc  Get user's wallet transaction history
+// @route GET /api/payment/wallet-transactions
+// @access Private (user)
+async function getWalletTransactions(req, res, next) {
+    try {
+        const PaymentModel = require('../models/Payment');
+        const transactions = await PaymentModel.find({
+
+            userId: req.user._id,
+            type: 'wallet',
+            status: 'captured',
+        })
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .select('amount cfOrderId createdAt status');
+        res.status(200).json({ success: true, data: transactions });
+    } catch (err) {
+        next(err);
+    }
+}
+
 // @desc  Get current user wallet balance
 // @route GET /api/payment/wallet-balance
 // @access Private (user)
+
 async function getWalletBalance(req, res, next) {
     try {
         const User = require('../models/User');
@@ -457,4 +479,5 @@ module.exports = {
     createWalletOrder,
     verifyWalletRecharge,
     getWalletBalance,
+    getWalletTransactions,
 };

@@ -46,8 +46,12 @@ export default function SubscriptionSuccess() {
                     } else if (data.type === 'wallet') {
                         setWalletBalance(data.walletBalance);
                         setWalletAmount(data.amount);
+                        // ✅ Strip order_id from URL so back-navigation doesn't re-verify
+                        navigate('/subscription-success', { replace: true });
                     } else if (data.creator) {
                         setCreator(data.creator);
+                        // ✅ Strip order_id from URL so back-navigation doesn't re-verify
+                        navigate('/subscription-success', { replace: true });
                     }
 
                     // If this was a gift sent FROM chat, post the gift message to chat thread
@@ -64,6 +68,8 @@ export default function SubscriptionSuccess() {
                                     amount,
                                 });
                                 sessionStorage.removeItem('fannex_gift_chat');
+                                // Strip order_id from URL
+                                navigate('/subscription-success', { replace: true });
                             } catch (_) { /* Silent — message may already have been posted by webhook */ }
                         }
                     }
@@ -80,6 +86,7 @@ export default function SubscriptionSuccess() {
         verify();
         return () => clearTimeout(timerRef.current);
     }, [cfOrderId, navigate, refreshUser]);
+
 
     /* ── Loading ─────────────────────────────────────────────────────────────── */
     if (verifying) {
