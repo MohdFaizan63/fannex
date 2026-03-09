@@ -1,152 +1,174 @@
 import { useState } from 'react';
 import api from '../services/api';
 
-const PRESETS = [50, 100, 500, 1000];
+const PRESETS = [50, 100, 500, 1000, 2000, 5000];
 
 /**
- * GiftModal — lets a fan send a gift to a creator via Razorpay.
- * Props: creatorId, creatorName, onClose, onSuccess
+ * GiftModal — lets a fan send a gift to a creator via Cashfree.
+ * Works for both subscribers and non-subscribers.
+ * After payment, Cashfree redirect takes user to /subscription-success?order_id=gift_...
+ * which shows a beautiful gift success screen.
  */
-export default function GiftModal({ creatorId, creatorName, onClose, onSuccess }) {
+export default function GiftModal({ creatorId, creatorName, onClose }) {
     const [selected, setSelected] = useState(null);
     const [custom, setCustom] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState(false);
 
-    const amount = selected ?? (custom ? Number(custom) : null);
+    const amount = custom ? Number(custom) : selected;
 
     const handleGift = async () => {
         if (!amount || amount < 50) { setError('Minimum gift amount is ₹50.'); return; }
-        if (!window.Razorpay) { setError('Payment system not loaded. Please refresh.'); return; }
-
         setLoading(true);
         setError('');
         try {
             const { data } = await api.post('/payment/gift-order', { creatorId, amount });
-            const { order, keyId } = data.data;
+            const { order } = data.data;
 
-            const result = await new Promise((resolve, reject) => {
-                const rzp = new window.Razorpay({
-                    key: keyId,
-                    amount: order.amount,
-                    currency: 'INR',
-                    name: 'Fannex',
-                    description: `Gift to ${creatorName}`,
-                    order_id: order.id,
-                    theme: { color: '#ff7a18' },
-                    handler: (res) => resolve(res),
-                    modal: { ondismiss: () => reject(new Error('dismissed')) },
+            if (!order?.paymentSessionId) throw new Error('Invalid order from server');
+
+            // Load Cashfree SDK
+            if (!window.Cashfree) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
                 });
-                rzp.open();
-            });
+            }
 
-            await api.post('/payment/gift-verify', {
-                razorpay_order_id: result.razorpay_order_id,
-                razorpay_payment_id: result.razorpay_payment_id,
-                razorpay_signature: result.razorpay_signature,
-                creatorId,
-                amount,
+            window.Cashfree({ mode: 'production' }).checkout({
+                paymentSessionId: order.paymentSessionId,
+                redirectTarget: '_self',
             });
-
-            setSuccess(true);
-            setTimeout(() => { onSuccess?.(); onClose(); }, 2000);
         } catch (err) {
-            if (err.message === 'dismissed') return;
-            setError(err?.response?.data?.message || 'Gift failed. Please try again.');
-        } finally {
+            setError(err?.response?.data?.message || err?.message || 'Gift failed. Please try again.');
             setLoading(false);
         }
     };
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            style={{
+                position: 'fixed', inset: 0, zIndex: 50,
+                display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+            }}
             onClick={onClose}
         >
             <div
-                className="w-full max-w-sm rounded-3xl p-7 text-center shadow-2xl"
-                style={{ background: '#0f0f1a', border: '1px solid rgba(255,255,255,0.08)' }}
-                onClick={(e) => e.stopPropagation()}
+                style={{
+                    width: '100%', maxWidth: 520,
+                    background: 'linear-gradient(160deg, #0e0e1e, #12091f)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '28px 28px 0 0',
+                    padding: '12px 20px 36px',
+                    fontFamily: "'Inter', sans-serif",
+                }}
+                onClick={e => e.stopPropagation()}
             >
-                {/* Icon */}
-                <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"
-                    style={{ background: 'linear-gradient(135deg,#ff7a18,#ffb347)', boxShadow: '0 8px 24px rgba(255,122,24,0.35)' }}
-                >
-                    <span className="text-2xl">🎁</span>
-                </div>
-                <h2 className="text-white font-black text-xl mb-1">Send a Gift</h2>
-                <p className="text-white/40 text-sm mb-6">Show some love to {creatorName}</p>
+                {/* Handle */}
+                <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 999, margin: '0 auto 22px' }} />
 
-                {/* Preset chips */}
-                <div className="grid grid-cols-4 gap-2 mb-4">
+                {/* Header */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 22 }}>
+                    <div style={{
+                        width: 64, height: 64, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                        boxShadow: '0 8px 28px rgba(255,122,24,0.4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 28, marginBottom: 14,
+                    }}>🎁</div>
+                    <h2 style={{ color: '#fff', fontWeight: 900, fontSize: 20, margin: '0 0 6px', letterSpacing: '-0.3px' }}>
+                        Send a Gift
+                    </h2>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, margin: 0 }}>
+                        Show some love to <strong style={{ color: 'rgba(255,200,100,0.8)' }}>{creatorName}</strong>
+                    </p>
+                </div>
+
+                {/* Preset grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
                     {PRESETS.map((p) => (
                         <button
                             key={p}
                             onClick={() => { setSelected(p); setCustom(''); }}
                             style={{
-                                borderRadius: 12,
-                                height: 44,
-                                background: selected === p ? 'linear-gradient(135deg,#ff7a18,#ffb347)' : 'rgba(255,255,255,0.05)',
+                                padding: '13px 0', borderRadius: 14,
+                                fontWeight: 700, fontSize: 14, fontFamily: 'inherit',
+                                cursor: 'pointer', transition: 'all 0.15s ease',
+                                background: selected === p
+                                    ? 'linear-gradient(135deg, #ff7a18, #ffb347)'
+                                    : 'rgba(255,255,255,0.04)',
                                 border: selected === p ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                                color: selected === p ? '#fff' : 'rgba(255,255,255,0.7)',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                transition: 'all 0.15s ease',
+                                color: selected === p ? '#fff' : 'rgba(255,255,255,0.65)',
+                                boxShadow: selected === p ? '0 4px 16px rgba(255,122,24,0.35)' : 'none',
+                                transform: selected === p ? 'scale(1.04)' : 'scale(1)',
                             }}
                         >
-                            ₹{p}
+                            ₹{p.toLocaleString('en-IN')}
                         </button>
                     ))}
                 </div>
 
                 {/* Custom amount */}
-                <input
-                    type="number"
-                    placeholder="Custom amount (₹)"
-                    value={custom}
-                    onChange={(e) => { setCustom(e.target.value); setSelected(null); }}
-                    style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.10)',
-                        borderRadius: 12,
-                        padding: '12px 16px',
-                        color: '#fff',
-                        fontSize: 14,
-                        outline: 'none',
-                        marginBottom: 16,
-                    }}
-                />
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: custom ? 'rgba(255,122,24,0.07)' : 'rgba(255,255,255,0.03)',
+                    border: custom ? '1.5px solid rgba(255,122,24,0.4)' : '1.5px solid rgba(255,255,255,0.08)',
+                    borderRadius: 14, padding: '12px 16px', marginBottom: 8,
+                    transition: 'all 0.2s ease',
+                }}>
+                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 17, fontWeight: 700 }}>₹</span>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Custom amount…"
+                        value={custom}
+                        onChange={e => { setCustom(e.target.value.replace(/[^0-9]/g, '')); setSelected(null); }}
+                        style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontWeight: 700, fontSize: 15, fontFamily: 'inherit' }}
+                    />
+                    {custom && (
+                        <button onClick={() => setCustom('')}
+                            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 15, padding: 0 }}>✕</button>
+                    )}
+                </div>
+                <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginBottom: 18, paddingLeft: 4 }}>Min ₹50 · Max ₹10,000</p>
 
-                {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
-                {success && <p className="text-green-400 text-sm mb-3">🎉 Gift sent successfully!</p>}
+                {error && (
+                    <div style={{
+                        padding: '10px 14px', borderRadius: 12, marginBottom: 14,
+                        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+                        color: '#fca5a5', fontSize: 13,
+                    }}>{error}</div>
+                )}
 
                 <button
                     onClick={handleGift}
-                    disabled={loading || !amount || success}
+                    disabled={!amount || amount < 50 || loading}
                     style={{
-                        width: '100%',
-                        height: 52,
-                        borderRadius: 16,
-                        background: 'linear-gradient(135deg,#ff7a18,#ffb347)',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: 15,
-                        opacity: loading || !amount || success ? 0.5 : 1,
-                        cursor: loading || !amount || success ? 'not-allowed' : 'pointer',
-                        border: 'none',
-                        transition: 'opacity 0.2s ease',
-                        marginBottom: 12,
+                        width: '100%', padding: '15px 0', borderRadius: 999, border: 'none',
+                        background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                        boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
+                        color: '#fff', fontWeight: 800, fontSize: 15, fontFamily: 'inherit',
+                        cursor: !amount || amount < 50 || loading ? 'not-allowed' : 'pointer',
+                        opacity: !amount || amount < 50 || loading ? 0.45 : 1,
+                        transition: 'opacity 0.2s ease, transform 0.15s ease',
+                        letterSpacing: '-0.01em',
                     }}
+                    onMouseEnter={e => { if (amount && amount >= 50 && !loading) e.currentTarget.style.transform = 'scale(1.02)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                 >
-                    {loading ? 'Processing…' : `Send Gift${amount ? ` ₹${amount}` : ''}`}
+                    {loading ? 'Processing…' : amount ? `Send ₹${Number(amount).toLocaleString('en-IN')} Gift 🎁` : 'Select an amount'}
                 </button>
 
                 <button
                     onClick={onClose}
-                    style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}
+                    style={{ marginTop: 14, display: 'block', width: '100%', color: 'rgba(255,255,255,0.3)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'color 0.15s ease' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
                 >
                     Cancel
                 </button>

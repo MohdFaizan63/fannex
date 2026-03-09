@@ -141,6 +141,24 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
+        // For gift orders, return creator info + amount so success page can show gift confirmation
+        if (type === 'gift') {
+            const creatorProfile = await CreatorProfile.findOne({ userId: creatorId })
+                .select('displayName username profileImage');
+            return res.status(200).json({
+                success: true,
+                type: 'gift',
+                amount: orderData.order_amount,
+                creator: {
+                    id: creatorId,
+                    name: creatorProfile?.displayName || 'the creator',
+                    username: creatorProfile?.username || null,
+                    profileImage: creatorProfile?.profileImage || null,
+                },
+                message: 'Gift sent successfully',
+            });
+        }
+
         res.status(200).json({ success: true, type, message: 'Payment verified and subscription activated' });
     } catch (error) {
         console.error('[verifyPayment] Error:', error.message);

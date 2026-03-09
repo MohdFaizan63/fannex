@@ -101,6 +101,152 @@ export default function SubscriptionSuccess() {
         );
     }
 
+    /* ── Gift Success screen ───────────────────────────────────────────────────── */
+    if (orderType === 'gift') {
+        const giftCreatorName = creator?.name || 'the creator';
+        const giftCreatorUsername = creator?.username;
+        const giftProfileImage = creator?.profileImage;
+        const giftAmount = verified ? (creator?.amount ?? null) : null;
+
+        return (
+            <div style={{ ...pageStyle, justifyContent: 'center' }}>
+                <Orbs colors={['#ff7a18', '#ffb347']} />
+                <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, padding: '0 16px' }}>
+
+                    {/* Floating confetti-style orb */}
+                    <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                        <div style={{
+                            position: 'relative', display: 'inline-block',
+                        }}>
+                            {/* Outer glow ring */}
+                            <div style={{
+                                position: 'absolute', inset: -14,
+                                borderRadius: '50%',
+                                background: 'radial-gradient(circle, rgba(255,122,24,0.25), transparent 70%)',
+                                animation: 'pulse 2s ease-in-out infinite',
+                            }} />
+                            <div style={{
+                                width: 96, height: 96, borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                                boxShadow: '0 12px 40px rgba(255,122,24,0.5)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 44, position: 'relative',
+                            }}>🎁</div>
+                        </div>
+                    </div>
+
+                    {/* Main card */}
+                    <div style={{
+                        background: 'linear-gradient(160deg, #0e0e1e, #130a00)',
+                        border: '1px solid rgba(255,122,24,0.2)',
+                        borderRadius: 28,
+                        padding: '28px 24px 24px',
+                        textAlign: 'center',
+                        boxShadow: '0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,180,71,0.08)',
+                    }}>
+                        <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 24, margin: '0 0 6px', letterSpacing: '-0.4px' }}>
+                            Gift Sent! 🎉
+                        </h1>
+                        <p style={{ color: 'rgba(255,180,71,0.7)', fontSize: 14, margin: '0 0 22px', lineHeight: 1.6 }}>
+                            Your heartfelt gift is on its way to someone special
+                        </p>
+
+                        {/* Creator receipt row */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 14,
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,122,24,0.15)',
+                            borderRadius: 18, padding: '14px 16px',
+                            marginBottom: 18,
+                        }}>
+                            <div style={{
+                                width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
+                                border: '2px solid rgba(255,122,24,0.4)',
+                                background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                overflow: 'hidden',
+                            }}>
+                                {giftProfileImage
+                                    ? <img src={giftProfileImage} alt={giftCreatorName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <span style={{ color: '#fff', fontWeight: 900, fontSize: 20 }}>{giftCreatorName[0]?.toUpperCase()}</span>
+                                }
+                            </div>
+                            <div style={{ flex: 1, textAlign: 'left' }}>
+                                <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: '0 0 2px' }}>
+                                    To {giftCreatorName}
+                                </p>
+                                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, margin: 0 }}>
+                                    Your favorite creator
+                                </p>
+                            </div>
+                            {/* Gift amount badge */}
+                            <div style={{
+                                background: 'linear-gradient(135deg, rgba(255,122,24,0.2), rgba(255,179,71,0.15))',
+                                border: '1px solid rgba(255,122,24,0.35)',
+                                borderRadius: 12, padding: '6px 14px',
+                                color: '#ffb347', fontWeight: 900, fontSize: 16,
+                                flexShrink: 0,
+                            }}>
+                                {cfOrderId ? `₹${Number(cfOrderId.split('_').pop() || 0)}` : '🎁'}
+                            </div>
+                        </div>
+
+                        {/* Order ID */}
+                        {cfOrderId && (
+                            <p style={{ color: 'rgba(255,255,255,0.18)', fontSize: 11, fontFamily: 'monospace', margin: '0 0 20px' }}>
+                                Order: {cfOrderId}
+                            </p>
+                        )}
+
+                        {/* Heartfelt note */}
+                        <div style={{
+                            background: 'rgba(255,122,24,0.06)',
+                            border: '1px solid rgba(255,122,24,0.12)',
+                            borderRadius: 16, padding: '14px 16px', marginBottom: 22,
+                        }}>
+                            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
+                                ✨ You just made <strong style={{ color: 'rgba(255,180,71,0.8)' }}>{giftCreatorName}</strong>'s day a little brighter.
+                                Creators like <strong style={{ color: 'rgba(255,180,71,0.8)' }}>{giftCreatorName}</strong> are fuelled
+                                by the love and support of amazing fans like you.
+                            </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {giftCreatorUsername && (
+                                <Link
+                                    to={`/creator/${giftCreatorUsername}`}
+                                    style={{
+                                        display: 'block', textAlign: 'center',
+                                        padding: '14px 0', borderRadius: 999,
+                                        background: 'linear-gradient(135deg, #ff7a18, #ffb347)',
+                                        boxShadow: '0 6px 20px rgba(255,122,24,0.4)',
+                                        color: '#fff', fontWeight: 800, fontSize: 15,
+                                        textDecoration: 'none', letterSpacing: '-0.01em',
+                                    }}
+                                >
+                                    Visit {giftCreatorName}'s Profile
+                                </Link>
+                            )}
+                            <Link
+                                to="/explore"
+                                style={{
+                                    display: 'block', textAlign: 'center', padding: '12px 0',
+                                    color: 'rgba(255,255,255,0.35)', fontSize: 14, textDecoration: 'none',
+                                    transition: 'color 0.15s ease',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; }}
+                            >
+                                Explore more creators →
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     /* ── Subscription Success ─────────────────────────────────────────────────── */
     const creatorName = creator?.name || 'the creator';
     const creatorUsername = creator?.username;
