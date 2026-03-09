@@ -26,6 +26,7 @@ export default function SubscriptionSuccess() {
     const [walletAmount, setWalletAmount] = useState(null);
     // For gift-from-chat: store the chatId to go back to
     const [sourceChatId, setSourceChatId] = useState(null);
+    const [giftAmount, setGiftAmount] = useState(null);
     const timerRef = useRef(null);
 
     useEffect(() => {
@@ -51,6 +52,7 @@ export default function SubscriptionSuccess() {
 
                     // If this was a gift sent FROM chat, post the gift message to chat thread
                     if (data.type === 'gift') {
+                        if (data.amount) setGiftAmount(data.amount);
                         const stored = sessionStorage.getItem('fannex_gift_chat');
                         if (stored) {
                             try {
@@ -250,7 +252,7 @@ export default function SubscriptionSuccess() {
                                 color: '#ffb347', fontWeight: 900, fontSize: 16,
                                 flexShrink: 0,
                             }}>
-                                {cfOrderId ? `₹${Number(cfOrderId.split('_').pop() || 0)}` : '🎁'}
+                                {giftAmount ? `₹${Number(giftAmount).toLocaleString('en-IN')}` : '🎁'}
                             </div>
                         </div>
 
