@@ -1,13 +1,15 @@
 /**
- * Wallet.jsx — Minimal payment-return handler.
+ * Wallet.jsx — Minimal payment-return handler with back-button protection.
  *
- * This page only exists to handle the Cashfree return URL:
- *   /wallet?order_id=wallet_xxx
+ * Only exists to handle Cashfree return URL: /wallet?order_id=wallet_xxx
  *
- * There is NO wallet management UI here — all recharging happens
- * through the WalletRechargeModal inside Chat.
+ * Back-button protection strategy:
+ *   When success screen shows, we push a dummy history entry so that pressing
+ *   back triggers our popstate handler instead of showing the Cashfree page.
+ *   The handler then uses window.location.replace() to send the user to
+ *   chat — skipping Cashfree completely.
  *
- * Direct visits (no order_id) → redirect to /home.
+ * Direct visits (no order_id) → redirect to home.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -24,9 +26,9 @@ export default function Wallet() {
 
     const [successBanner, setSuccessBanner] = useState(null);
     const [verifying, setVerifying] = useState(false);
-
     const verifiedRef = useRef(false);
 
+    /* ── Payment verification on mount ─────────────────────────────────── */
     useEffect(() => {
         if (verifiedRef.current) return;
 
@@ -38,7 +40,8 @@ export default function Wallet() {
             return;
         }
 
-        // Session token guard: prevent replay on refresh
+        // ── One-time session token guard ─────────────────────────────────
+        // Prevents re-running on browser refresh or back+forward replay
         const verifiedKey = 'fannex_verified_orders';
         let alreadyVerified = [];
         try { alreadyVerified = JSON.parse(sessionStorage.getItem(verifiedKey) || '[]'); } catch { }
@@ -51,17 +54,18 @@ export default function Wallet() {
         verifiedRef.current = true;
         setVerifying(true);
 
-        // Strip order_id from URL immediately
+        // Strip order_id from URL right away  
         navigate('/wallet', { replace: true });
 
+        // Read chat context stored before redirect
         const stored = sessionStorage.getItem('fannex_wallet_recharge');
         let amount = null;
         let chatId = null;
         if (stored) {
             try {
-                const parsed = JSON.parse(stored);
-                amount = parsed.amount;
-                chatId = parsed.chatId || null;
+                const p = JSON.parse(stored);
+                amount = p.amount;
+                chatId = p.chatId || null;
             } catch { }
             sessionStorage.removeItem('fannex_wallet_recharge');
         }
@@ -72,13 +76,61 @@ export default function Wallet() {
                 setSuccessBanner({ amount, newBalance, chatId });
                 refreshUser().catch(() => { });
             })
-            .catch(() => {
-                // Verify failed — just go home
-                navigate('/', { replace: true });
-            })
+            .catch(() => navigate('/', { replace: true }))
             .finally(() => setVerifying(false));
 
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ── Back-button trap ───────────────────────────────────────────────
+     *
+     * Problem: History after payment return looks like:
+     *   [...chat_page, cashfree_page, /wallet (current)]
+     *
+     * When we navigate to /chat with replace:true:
+     *   [...chat_page, cashfree_page, /chat]
+     *
+     * Pressing back → cashfree_page (bad).
+     *
+     * Fix: Push a dummy state onto history so it becomes:
+     *   [...chat_page, cashfree_page, /wallet, DUMMY]
+     *
+     * User presses back → pops DUMMY → fires popstate → we intercept
+     * and use window.location.replace('/chat/xxx') which replaces DUMMY.
+     * New history: [...chat_page, cashfree_page, /chat]
+     *
+     * If user presses back again from /chat → cashfree_page.
+     * But /wallet?order_id is already verified+stripped so re-visiting
+     * cashfree redirect lands on /wallet → session guard → redirects home.
+     * ──────────────────────────────────────────────────────────────────── */
+    useEffect(() => {
+        if (!successBanner) return;
+
+        // Push dummy entry: now [... cashfree, /wallet, DUMMY]
+        window.history.pushState({ walletSuccessTrap: true }, '');
+
+        const handlePopState = (e) => {
+            // User pressed back — intercept and redirect instead of showing cashfree
+            const dest = successBanner.chatId
+                ? `/chat/${successBanner.chatId}`
+                : '/';
+            // Full replace clears both DUMMY and /wallet entries
+            window.location.replace(dest);
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [successBanner]);
+
+    /* ── Navigate away from success ─────────────────────────────────────
+     * Using window.location.replace ensures the success URL is fully
+     * removed from the browser's forward/back stack.
+     * ─────────────────────────────────────────────────────────────────── */
+    const handleLeave = () => {
+        const dest = successBanner?.chatId
+            ? `/chat/${successBanner.chatId}`
+            : '/';
+        window.location.replace(dest);
+    };
 
     /* ── Loading ──────────────────────────────────────────────────────── */
     if (verifying) {
@@ -116,7 +168,7 @@ export default function Wallet() {
                         padding: '0 20px',
                     }}
                 >
-                    {/* Animated check */}
+                    {/* Animated checkmark */}
                     <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -161,13 +213,7 @@ export default function Wallet() {
                     </p>
 
                     <button
-                        onClick={() => {
-                            if (successBanner.chatId) {
-                                navigate(`/chat/${successBanner.chatId}`, { replace: true });
-                            } else {
-                                navigate('/', { replace: true });
-                            }
-                        }}
+                        onClick={handleLeave}
                         style={{
                             width: '100%', height: 52, borderRadius: 16, border: 'none',
                             background: 'linear-gradient(135deg, #7c3aed, #cc52b8)',
@@ -191,7 +237,6 @@ export default function Wallet() {
         );
     }
 
-    // Fallback while redirecting
     return null;
 }
 
