@@ -39,7 +39,7 @@ export default function ChatUnlockModal({ creatorId, creatorName, chatPrice, onS
                 });
             }
 
-            const cashfree = window.Cashfree({ mode: 'production' });
+            const cashfree = window.Cashfree({ mode: 'sandbox' });
             cashfree.checkout({
                 paymentSessionId: order.paymentSessionId,
                 redirectTarget: '_self',

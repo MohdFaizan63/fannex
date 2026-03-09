@@ -55,7 +55,7 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
             }));
 
             // Redirect to Cashfree checkout — same pattern as gift/subscription
-            const cashfree = window.Cashfree({ mode: 'production' });
+            const cashfree = window.Cashfree({ mode: 'sandbox' });
             cashfree.checkout({
                 paymentSessionId: order.paymentSessionId,
                 redirectTarget: '_self',

@@ -135,7 +135,7 @@ export default function Wallet() {
                 amount: finalAmount,
             }));
 
-            window.Cashfree({ mode: 'production' }).checkout({
+            window.Cashfree({ mode: 'sandbox' }).checkout({
                 paymentSessionId: order.paymentSessionId,
                 redirectTarget: '_self',
             });

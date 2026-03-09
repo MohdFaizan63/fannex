@@ -38,7 +38,7 @@ export default function GiftModal({ creatorId, creatorName, onClose }) {
                 });
             }
 
-            window.Cashfree({ mode: 'production' }).checkout({
+            window.Cashfree({ mode: 'sandbox' }).checkout({
                 paymentSessionId: order.paymentSessionId,
                 redirectTarget: '_self',
             });

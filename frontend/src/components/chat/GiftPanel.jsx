@@ -57,7 +57,7 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                 });
             }
 
-            const cashfree = window.Cashfree({ mode: 'production' });
+            const cashfree = window.Cashfree({ mode: 'sandbox' });
             cashfree.checkout({
                 paymentSessionId: order.paymentSessionId,
                 redirectTarget: '_self',
