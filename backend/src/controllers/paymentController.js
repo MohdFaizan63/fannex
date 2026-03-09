@@ -115,6 +115,32 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
+        // For subscription orders, return creator info + chatId so success page can display creator profile
+        if (type === 'subscription') {
+            const ChatRoom = require('../models/ChatRoom');
+            const [room, creatorProfile] = await Promise.all([
+                ChatRoom.findOne({ creatorId, userId }),
+                CreatorProfile.findOne({ userId: creatorId }).select('displayName username profileImage coverImage bio subscriptionPrice chatEnabled chatPrice'),
+            ]);
+            return res.status(200).json({
+                success: true,
+                type: 'subscription',
+                chatId: room?._id ?? null,
+                creator: {
+                    id: creatorId,
+                    name: creatorProfile?.displayName || 'the creator',
+                    username: creatorProfile?.username || null,
+                    profileImage: creatorProfile?.profileImage || null,
+                    coverImage: creatorProfile?.coverImage || null,
+                    bio: creatorProfile?.bio || null,
+                    subscriptionPrice: creatorProfile?.subscriptionPrice || 0,
+                    chatEnabled: creatorProfile?.chatEnabled ?? true,
+                    chatPrice: creatorProfile?.chatPrice || 0,
+                },
+                message: 'Payment verified and subscription activated',
+            });
+        }
+
         res.status(200).json({ success: true, type, message: 'Payment verified and subscription activated' });
     } catch (error) {
         console.error('[verifyPayment] Error:', error.message);

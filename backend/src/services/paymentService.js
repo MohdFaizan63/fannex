@@ -180,7 +180,15 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { $inc: { totalSubscribers: 1 } }
         );
 
-        // 4. Credit creator earnings (80% after 20% platform fee)
+        // 4. Auto-create / unlock chat room so subscriber can chat immediately
+        const ChatRoom = require('../models/ChatRoom');
+        await ChatRoom.findOneAndUpdate(
+            { creatorId, userId },
+            { isPaid: true, unlockedAt: new Date() },
+            { upsert: true }
+        );
+
+        // 5. Credit creator earnings (80% after 20% platform fee)
         await creditEarningsOnPayment(creatorId, grossAmount, null);
 
     } else if (type === 'gift') {

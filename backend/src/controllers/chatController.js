@@ -492,6 +492,7 @@ const verifyGift = async (req, res, next) => {
 };
 
 // @desc  Check if user has paid for a chat with a creator
+//        Subscribers automatically get chat access for free.
 // @route GET /api/v1/chat/status/:creatorId
 // @access User (logged in)
 const getChatStatus = async (req, res, next) => {
@@ -499,15 +500,46 @@ const getChatStatus = async (req, res, next) => {
         const { creatorId } = req.params;
         const userId = req.user._id;
 
-        const room = await ChatRoom.findOne({ creatorId, userId });
+        const Subscription = require('../models/Subscription');
+
+        // Check if user has an active subscription to this creator
+        const activeSubscription = await Subscription.findOne({
+            userId,
+            creatorId,
+            status: 'active',
+            expiresAt: { $gt: new Date() },
+        });
+
+        let room = await ChatRoom.findOne({ creatorId, userId });
         const profile = await CreatorProfile.findOne({ userId: creatorId })
             .select('chatEnabled chatPrice minGift maxGift displayName profileImage username');
+
+        // If subscribed but no chat room yet, auto-create one
+        if (activeSubscription && !room) {
+            room = await ChatRoom.findOneAndUpdate(
+                { creatorId, userId },
+                { isPaid: true, unlockedAt: new Date() },
+                { upsert: true, returnDocument: 'after' }
+            );
+        }
+
+        // If subscribed but room exists and is not paid, upgrade it
+        if (activeSubscription && room && !room.isPaid) {
+            room = await ChatRoom.findByIdAndUpdate(
+                room._id,
+                { isPaid: true, unlockedAt: new Date() },
+                { returnDocument: 'after' }
+            );
+        }
+
+        const isPaid = activeSubscription ? true : (room?.isPaid ?? false);
 
         res.json({
             success: true,
             data: {
-                isPaid: room?.isPaid ?? false,
+                isPaid,
                 chatId: room?._id ?? null,
+                isSubscriber: !!activeSubscription,
                 profile,
             },
         });
