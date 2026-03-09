@@ -66,9 +66,22 @@ export default function Wallet() {
         if (verifiedRef.current) return;
         const orderId = searchParams.get('order_id');
         if (!orderId || !orderId.startsWith('wallet_')) return;
+
+        // ── Session token guard: ignore if this order was already verified (refresh/back replay) ──
+        const verifiedKey = 'fannex_verified_orders';
+        let alreadyVerified = [];
+        try { alreadyVerified = JSON.parse(sessionStorage.getItem(verifiedKey) || '[]'); } catch { }
+        if (alreadyVerified.includes(orderId)) {
+            // Replay attempt — strip URL and bail
+            navigate('/wallet', { replace: true });
+            return;
+        }
+        // Mark as verified immediately to prevent race conditions / double-calls
+        sessionStorage.setItem(verifiedKey, JSON.stringify([...alreadyVerified, orderId]));
+
         verifiedRef.current = true;
 
-        // Strip the order_id from the URL immediately to prevent re-verify
+        // Strip the order_id from the URL immediately
         navigate('/wallet', { replace: true });
 
         const stored = sessionStorage.getItem('fannex_wallet_recharge');
@@ -92,7 +105,6 @@ export default function Wallet() {
                 refreshUser().catch(() => { });
             })
             .catch(() => {
-                // If wallet-verify fails, still try to fetch the latest balance
                 fetchBalance();
             });
 
@@ -235,7 +247,15 @@ export default function Wallet() {
                     {/* CTA button */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <button
-                            onClick={() => successBanner.chatId ? navigate(`/chat/${successBanner.chatId}`) : navigate('/wallet')}
+                            onClick={() => {
+                                if (successBanner.chatId) {
+                                    // replace: true removes the wallet page from history
+                                    // so back-button from chat never returns here
+                                    navigate(`/chat/${successBanner.chatId}`, { replace: true });
+                                } else {
+                                    navigate('/wallet', { replace: true });
+                                }
+                            }}
                             style={{
                                 width: '100%',
                                 height: 52,
