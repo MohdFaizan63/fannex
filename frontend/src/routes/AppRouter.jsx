@@ -164,9 +164,6 @@ const router = createBrowserRouter([
         ],
     },
 
-    // ── 404 ──────────────────────────────────────────────────────────────────
-    { path: '*', element: wrap(NotFound) },
-
     // ── Chat: full-screen, no Navbar/Footer ──────────────────────────────────
     {
         element: <ProtectedRoute />,
@@ -174,6 +171,9 @@ const router = createBrowserRouter([
             { path: '/chat/:chatId', element: wrap(Chat) },
         ],
     },
+
+    // ── 404 (must be last) ───────────────────────────────────────────────────
+    { path: '*', element: wrap(NotFound) },
 ]);
 
 export default function AppRouter() {

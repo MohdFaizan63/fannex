@@ -137,7 +137,7 @@ export default function SubscriptionSuccess() {
                             New balance: <strong style={{ color: '#fff' }}>₹{walletBalance}</strong>
                         </p>
                     )}
-                    <Link to="/chat" style={btnPrimary}>Go to Chat</Link>
+                    <Link to="/wallet" style={btnPrimary}>Go to Wallet</Link>
                 </div>
             </div>
         );
