@@ -163,34 +163,44 @@ export default function ChatButton({ creatorId, creatorName, className = '', var
                             !chatEnabled ? 'Creator has disabled chat' : undefined
                     }
                     style={{
-                        flex: 1, height: 52, borderRadius: 999,
+                        flex: 1, height: 52, borderRadius: 14,
                         background: isDisabled
                             ? 'rgba(251,191,36,0.05)'
                             : isPaid
-                                ? 'linear-gradient(135deg, #16a34a, #15803d)'
-                                : 'rgba(255,255,255,0.07)',
+                                ? 'linear-gradient(135deg, rgba(22,163,74,0.12), rgba(21,128,61,0.06))'
+                                : 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(168,85,247,0.05))',
                         border: isDisabled
                             ? '1.5px solid rgba(251,191,36,0.18)'
-                            : isPaid ? 'none' : '1.5px solid rgba(255,255,255,0.12)',
+                            : isPaid
+                                ? '1.5px solid rgba(74,222,128,0.3)'
+                                : '1.5px solid rgba(139,92,246,0.25)',
+                        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
                         color: isDisabled ? 'rgba(251,191,36,0.45)' : '#fff',
                         fontWeight: 700, fontSize: 15,
                         cursor: isDisabled || loading ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                        transition: 'all 0.2s ease',
-                        letterSpacing: isDisabled ? '0.01em' : '-0.01em',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        letterSpacing: '-0.01em',
                         opacity: loading ? 0.6 : 1,
-                        boxShadow: isPaid && !isDisabled ? '0 6px 20px rgba(22,163,74,0.45)' : 'none',
                     }}
                     onMouseEnter={e => {
                         if (!isDisabled && !loading) {
-                            e.currentTarget.style.transform = 'scale(1.02)';
-                            e.currentTarget.style.boxShadow = isPaid ? '0 8px 28px rgba(22,163,74,0.6)' : '0 4px 14px rgba(255,255,255,0.1)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = isPaid
+                                ? '0 8px 24px rgba(34,197,94,0.25)'
+                                : '0 8px 24px rgba(139,92,246,0.2)';
+                            e.currentTarget.style.borderColor = isPaid
+                                ? 'rgba(74,222,128,0.5)'
+                                : 'rgba(139,92,246,0.45)';
                         }
                     }}
                     onMouseLeave={e => {
                         if (!isDisabled && !loading) {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.boxShadow = isPaid ? '0 6px 20px rgba(22,163,74,0.45)' : 'none';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'none';
+                            e.currentTarget.style.borderColor = isPaid
+                                ? 'rgba(74,222,128,0.3)'
+                                : 'rgba(139,92,246,0.25)';
                         }
                     }}
                 >
