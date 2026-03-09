@@ -515,51 +515,80 @@ export default function CreatorProfile() {
                                     {bio && <p className="text-surface-300 text-sm mt-3 leading-relaxed max-w-prose">{bio}</p>}
                                 </div>
 
-                                {/* ── Premium action button stack (Fanvue-style) ── */}
-                                <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {/* ── Premium action buttons ── */}
+                                <style>{`
+                                    @keyframes btnShine { 0% { left: -100%; } 100% { left: 200%; } }
+                                    @keyframes pulseGlow { 0%,100% { box-shadow: 0 8px 32px rgba(168,85,247,0.4); } 50% { box-shadow: 0 12px 40px rgba(168,85,247,0.6); } }
+                                    .creator-btn-stack { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+                                    .creator-btn-row { display: flex; gap: 12px; }
+                                    @media (max-width: 480px) {
+                                        .creator-btn-row { flex-direction: column; }
+                                    }
+                                `}</style>
+                                <div className="creator-btn-stack">
 
-                                    {/* 1. Subscribe / Subscribed */}
+                                    {/* 1. Subscribe / Subscribed — full-width hero button */}
                                     {isSubscribed ? (
-                                        /* Subscribed state — clean bordered pill */
                                         <div style={{
-                                            width: '100%', height: 58, borderRadius: 999,
-                                            background: 'rgba(255,255,255,0.05)',
-                                            border: '1.5px solid rgba(255,255,255,0.14)',
+                                            width: '100%', height: 56, borderRadius: 16,
+                                            background: 'linear-gradient(135deg, rgba(74,222,128,0.06), rgba(74,222,128,0.02))',
+                                            border: '1.5px solid rgba(74,222,128,0.22)',
+                                            backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            gap: 8, userSelect: 'none',
+                                            gap: 10, userSelect: 'none',
                                         }}>
-                                            <svg width="17" height="17" viewBox="0 0 20 20" fill="#4ade80"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                            <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>Subscribed</span>
+                                            <div style={{
+                                                width: 24, height: 24, borderRadius: '50%',
+                                                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                boxShadow: '0 2px 10px rgba(34,197,94,0.4)',
+                                            }}>
+                                                <svg width="13" height="13" viewBox="0 0 20 20" fill="#fff">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+                                            <span style={{ color: '#4ade80', fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em' }}>Subscribed</span>
                                         </div>
                                     ) : (
-                                        /* Subscribe — bold Fanvue-style pill: text left + price right */
                                         <button
                                             onClick={handleSubscribe}
                                             disabled={subscribing}
                                             style={{
-                                                width: '100%', height: 58, borderRadius: 999, border: 'none',
-                                                background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
-                                                boxShadow: '0 8px 28px rgba(168,85,247,0.45)',
+                                                position: 'relative', overflow: 'hidden',
+                                                width: '100%', height: 56, borderRadius: 16, border: 'none',
+                                                background: 'linear-gradient(135deg, #9333ea 0%, #ec4899 50%, #f97316 100%)',
                                                 color: '#fff',
                                                 display: 'flex', alignItems: 'center',
                                                 justifyContent: 'space-between',
-                                                padding: '0 28px',
+                                                padding: '0 24px',
                                                 cursor: subscribing ? 'not-allowed' : 'pointer',
                                                 opacity: subscribing ? 0.6 : 1,
-                                                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                                animation: 'pulseGlow 3s ease-in-out infinite',
                                             }}
-                                            onMouseEnter={e => { if (!subscribing) { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 10px 34px rgba(168,85,247,0.55)'; } }}
-                                            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(168,85,247,0.45)'; }}
+                                            onMouseEnter={e => { if (!subscribing) { e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)'; } }}
+                                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
                                         >
-                                            <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em' }}>
-                                                {subscribing ? 'Processing…' : 'Join now'}
+                                            {/* Shine sweep animation */}
+                                            <div style={{
+                                                position: 'absolute', top: 0, left: '-100%',
+                                                width: '60%', height: '100%',
+                                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
+                                                animation: 'btnShine 3s ease-in-out infinite',
+                                                pointerEvents: 'none',
+                                            }} />
+                                            <span style={{ fontWeight: 900, fontSize: 17, letterSpacing: '-0.03em', position: 'relative', zIndex: 1 }}>
+                                                {subscribing ? 'Processing…' : '⚡ Subscribe Now'}
                                             </span>
                                             {!subscribing && subscriptionPrice > 0 && (
                                                 <span style={{
-                                                    background: 'rgba(0,0,0,0.22)',
-                                                    borderRadius: 999, padding: '4px 14px',
-                                                    fontWeight: 700, fontSize: 14,
+                                                    background: 'rgba(0,0,0,0.25)',
+                                                    backdropFilter: 'blur(8px)',
+                                                    borderRadius: 12, padding: '5px 16px',
+                                                    fontWeight: 800, fontSize: 14,
                                                     letterSpacing: '-0.01em',
+                                                    position: 'relative', zIndex: 1,
+                                                    border: '1px solid rgba(255,255,255,0.1)',
                                                 }}>
                                                     ₹{subscriptionPrice}/mo
                                                 </span>
@@ -568,24 +597,36 @@ export default function CreatorProfile() {
                                     )}
 
                                     {/* 2. Secondary buttons row: Gift + Chat */}
-                                    <div style={{ display: 'flex', gap: 10 }}>
-                                        {/* Gift button */}
+                                    <div className="creator-btn-row">
+                                        {/* Gift button — warm amber gradient */}
                                         <button
                                             onClick={() => setShowGift(true)}
                                             style={{
-                                                flex: 1, height: 52, borderRadius: 999,
-                                                background: 'rgba(255,255,255,0.07)',
-                                                border: '1.5px solid rgba(255,255,255,0.12)',
+                                                flex: 1, height: 52, borderRadius: 14,
+                                                background: 'linear-gradient(135deg, rgba(255,122,24,0.1), rgba(255,179,71,0.05))',
+                                                border: '1.5px solid rgba(255,122,24,0.25)',
+                                                backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
                                                 color: '#fff', fontWeight: 700, fontSize: 15,
                                                 cursor: 'pointer', display: 'flex',
-                                                alignItems: 'center', justifyContent: 'center', gap: 7,
-                                                transition: 'background 0.15s ease, border-color 0.15s ease',
+                                                alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                letterSpacing: '-0.01em',
                                             }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255,122,24,0.2), rgba(255,179,71,0.12))';
+                                                e.currentTarget.style.borderColor = 'rgba(255,122,24,0.45)';
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = '0 8px 24px rgba(255,122,24,0.2)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255,122,24,0.1), rgba(255,179,71,0.05))';
+                                                e.currentTarget.style.borderColor = 'rgba(255,122,24,0.25)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = 'none';
+                                            }}
                                         >
-                                            <span style={{ fontSize: 19 }}>🎁</span>
-                                            <span>Gift</span>
+                                            <span style={{ fontSize: 20 }}>🎁</span>
+                                            <span>Send Gift</span>
                                         </button>
 
                                         {/* Chat button */}
