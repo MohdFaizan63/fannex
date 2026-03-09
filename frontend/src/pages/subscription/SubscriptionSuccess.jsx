@@ -27,9 +27,21 @@ export default function SubscriptionSuccess() {
     const timerRef = useRef(null);
 
     useEffect(() => {
-        // BUG FIX: No order_id means the user navigated back — redirect away
+        // No order_id — check sessionStorage for cached result (back-navigation)
         if (!cfOrderId) {
-            navigate('/explore', { replace: true });
+            const cached = sessionStorage.getItem('fannex_sub_success');
+            if (cached) {
+                try {
+                    const d = JSON.parse(cached);
+                    setVerified(true);
+                    setOrderType(d.orderType || 'subscription');
+                    setCreator(d.creator || null);
+                    setChatId(d.chatId || null);
+                    setVerifying(false);
+                } catch { navigate('/explore', { replace: true }); }
+            } else {
+                navigate('/explore', { replace: true });
+            }
             return;
         }
 
@@ -50,6 +62,12 @@ export default function SubscriptionSuccess() {
                         navigate('/subscription-success', { replace: true });
                     } else if (data.creator) {
                         setCreator(data.creator);
+                        // Cache result so back-navigation can restore it
+                        sessionStorage.setItem('fannex_sub_success', JSON.stringify({
+                            orderType: data.type || 'subscription',
+                            creator: data.creator,
+                            chatId: data.chatId || null,
+                        }));
                         navigate('/subscription-success', { replace: true });
                     }
 
