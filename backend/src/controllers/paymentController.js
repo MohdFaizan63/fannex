@@ -255,8 +255,8 @@ async function createWalletOrder(req, res, next) {
         const user = req.user;
 
         const parsed = Number(amount);
-        if (!parsed || parsed < 10 || !Number.isInteger(parsed)) {
-            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹10 (whole numbers only)' });
+        if (!parsed || parsed < 1) {
+            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹1' });
         }
 
         const orderId = `wallet_${user._id.toString().slice(-6)}_${Date.now()}`;

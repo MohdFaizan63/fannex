@@ -27,13 +27,13 @@ const creatorProfileSchema = new mongoose.Schema(
         coverImagePosition: { type: Number, default: 50, min: 0, max: 100 },
 
         // Monetisation
-        subscriptionPrice: { type: Number, default: 99 },
+        subscriptionPrice: { type: Number, default: 1 },
 
         // Chat monetisation
         chatEnabled: { type: Boolean, default: true },
-        chatPrice: { type: Number, default: 299 },    // ₹ per conversation unlock
-        messagePrice: { type: Number, default: 20 },   // ₹ per message deducted from fan wallet
-        minGift: { type: Number, default: 50 },       // minimum gift amount
+        chatPrice: { type: Number, default: 1 },    // ₹ per conversation unlock
+        messagePrice: { type: Number, default: 1 },   // ₹ per message deducted from fan wallet
+        minGift: { type: Number, default: 1 },       // minimum gift amount
         maxGift: { type: Number, default: 10000 },    // maximum gift amount
 
 
