@@ -68,6 +68,9 @@ const CATEGORIES = [
     { name: 'Travel', img: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=80', creator: 'Juliette M. · 190k+ fans' },
 ];
 
+// ─── Feature flag: set to true once Paytm gateway is live ───────────────────
+const SHOW_IMAGE_GALLERIES = false;
+
 const FEATURES = [
     { icon: '💬', tag: 'New', title: 'AI Voice Messages', desc: 'Send personalised messages to every fan at scale, automatically.' },
     { icon: '🎙️', tag: 'New', title: 'AI Voice Notes', desc: 'Build deeper fan intimacy without spending hours in your inbox.' },
@@ -567,8 +570,8 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ── CREATOR TICKER ───────────────────────────────────────────────── */}
-            <section className="py-12 overflow-hidden">
+            {/* ── CREATOR TICKER + IMAGE SHOWCASE ────────────────────────────── */}
+            {SHOW_IMAGE_GALLERIES && (<section className="py-12 overflow-hidden">
                 <Reveal className="text-center mb-10 px-6">
                     <p className="text-white/25 text-xs uppercase tracking-[0.3em]">Chosen by creators redefining what&apos;s possible</p>
                 </Reveal>
@@ -691,10 +694,10 @@ export default function Home() {
                         }}
                     />
                 </div>
-            </section>
+            </section>)}
 
             {/* ── SPOTLIGHT GALLERY (Images 2) ──────────────────────────────────── */}
-            <section className="py-20 relative overflow-hidden" style={{ background: '#050210' }}>
+            {SHOW_IMAGE_GALLERIES && (<section className="py-20 relative overflow-hidden" style={{ background: '#050210' }}>
                 {/* Section heading */}
                 <Reveal className="text-center mb-16 px-6">
                     <p className="text-brand-400 text-xs uppercase tracking-widest font-semibold mb-4">Our creators</p>
@@ -779,7 +782,7 @@ export default function Home() {
                         ))}
                     </div>
                 </div>
-            </section>
+            </section>)}
 
             {/* ── CATEGORY SECTION ─────────────────────────────────────────────── */}
             <CategoryParallax />
