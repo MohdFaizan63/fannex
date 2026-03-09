@@ -4,13 +4,7 @@ const CreatorProfile = require('../models/CreatorProfile');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const Earnings = require('../models/Earnings');
-const Razorpay = require('razorpay');
-const crypto = require('crypto');
-
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+const paymentService = require('../services/paymentService');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHAT SETTINGS (Creator only)
@@ -101,122 +95,88 @@ const getChatInfo = async (req, res, next) => {
 // CHAT UNLOCK (User)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// @desc  Create Razorpay order to unlock a chat room
+// @desc  Create Cashfree order to unlock a chat room
 // @route POST /api/v1/chat/unlock
 // @access User (logged in)
 const createChatUnlockOrder = async (req, res, next) => {
     try {
         const { creatorId } = req.body;
-        const userId = req.user._id;
+        const user = req.user;
 
         // Check existing room
-        const existing = await ChatRoom.findOne({ creatorId, userId });
+        const existing = await ChatRoom.findOne({ creatorId, userId: user._id });
         if (existing?.isPaid) {
             return res.json({ success: true, alreadyUnlocked: true, chatId: existing._id });
         }
 
         // Get creator's chat price
         const profile = await CreatorProfile.findOne({ userId: creatorId }).select('chatPrice chatEnabled displayName');
-        if (!profile) {
-            return res.status(400).json({ success: false, message: 'Creator not found' });
-        }
-        // Block unlock if creator has disabled chat
+        if (!profile) return res.status(400).json({ success: false, message: 'Creator not found' });
         if (!profile.chatEnabled) {
             return res.status(400).json({ success: false, message: 'Chat not available — creator has disabled chat' });
         }
 
         const chatPrice = profile.chatPrice || 299;
-        const amountPaise = Math.round(chatPrice * 100);
+        const orderId = `cu_${String(user._id).slice(-8)}_${Date.now()}`;
 
-        // Razorpay requires at minimum ₹1 (100 paise)
-        if (amountPaise < 100) {
-            return res.status(400).json({ success: false, message: 'Chat price must be at least ₹1.' });
-        }
-
-        // Validate Razorpay is configured
-        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-            return res.status(503).json({ success: false, message: 'Payment gateway not configured. Contact support.' });
-        }
-
-        // Razorpay receipt has a 40-char limit — keep it short
-        const receipt = `cu_${String(userId).slice(-8)}_${Date.now().toString().slice(-8)}`;
-
-        let order;
-        try {
-            order = await razorpay.orders.create({
-                amount: amountPaise,
-                currency: 'INR',
-                receipt,
-                notes: { type: 'chat_unlock', creatorId: String(creatorId), userId: String(userId) },
-            });
-        } catch (rzpErr) {
-            // Extract a human-readable message from Razorpay's error format
-            const description =
-                rzpErr?.error?.description ||
-                rzpErr?.error?.reason ||
-                rzpErr?.message ||
-                'Razorpay order creation failed';
-            console.error('[chatController] Razorpay order error:', rzpErr?.error || rzpErr);
-            return res.status(502).json({ success: false, message: `Payment gateway error: ${description}` });
-        }
+        const order = await paymentService.createOrder({
+            amount: chatPrice,
+            orderId,
+            customerId: user._id.toString(),
+            customerName: user.name || 'Fannex User',
+            customerEmail: user.email || 'user@fannex.in',
+            customerPhone: user.phone || '9000000000',
+            returnUrl: `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            meta: {
+                userId: user._id.toString(),
+                creatorId: creatorId.toString(),
+                type: 'chat_unlock',
+            },
+        });
 
         // Save payment record
         await Payment.create({
-            userId,
+            userId: user._id,
             creatorId,
-            amount: profile.chatPrice,
+            amount: chatPrice,
             type: 'chat_unlock',
-            razorpayOrderId: order.id,
+            cfOrderId: order.orderId,
             status: 'created',
         });
 
-        res.json({
-            success: true,
-            order,
-            chatPrice: profile.chatPrice,
-            creatorName: profile.displayName,
-            keyId: process.env.RAZORPAY_KEY_ID,
-        });
+        res.json({ success: true, order, chatPrice: profile.chatPrice, creatorName: profile.displayName });
     } catch (err) { next(err); }
 };
 
-// @desc  Verify Razorpay payment and unlock chat room
+// @desc  Verify Cashfree payment and unlock chat room
 // @route POST /api/v1/chat/unlock/verify
 // @access User
 const verifyChatUnlock = async (req, res, next) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, creatorId } = req.body;
+        const { orderId, creatorId } = req.body;
         const userId = req.user._id;
 
-        // Verify signature
-        const expectedSig = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-            .digest('hex');
-
-        if (expectedSig !== razorpay_signature) {
-            return res.status(400).json({ success: false, message: 'Payment verification failed' });
+        const orderData = await paymentService.getOrderStatus(orderId);
+        if (orderData.order_status !== 'PAID') {
+            return res.status(400).json({ success: false, message: 'Payment not completed' });
         }
+
+        const cfPaymentId = orderData.payments?.[0]?.cf_payment_id?.toString() || null;
 
         // Update payment record
         const payment = await Payment.findOneAndUpdate(
-            { razorpayOrderId: razorpay_order_id },
-            { razorpayPaymentId: razorpay_payment_id, razorpaySignature: razorpay_signature, status: 'captured' },
+            { cfOrderId: orderId },
+            { cfPaymentId, status: 'captured' },
             { returnDocument: 'after' }
         );
 
         // Create or unlock chat room
         const room = await ChatRoom.findOneAndUpdate(
             { creatorId, userId },
-            {
-                isPaid: true,
-                chatPaymentId: razorpay_payment_id,
-                unlockedAt: new Date(),
-            },
+            { isPaid: true, chatPaymentId: cfPaymentId, unlockedAt: new Date() },
             { upsert: true, returnDocument: 'after' }
         );
 
-        // Update payment with chatId
         if (payment) { payment.chatId = room._id; await payment.save({ validateBeforeSave: false }); }
 
         // Credit creator earnings
@@ -407,60 +367,50 @@ const sendMessage = async (req, res, next) => {
 // GIFTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-// @desc  Create Razorpay order for a gift
+// @desc  Create Cashfree order for a gift
 // @route POST /api/v1/chat/gift/order
 // @access User
 const createGiftOrder = async (req, res, next) => {
     try {
         const { chatId, amount } = req.body;
-        const userId = req.user._id;
+        const user = req.user;
 
         const room = await ChatRoom.findById(chatId);
         if (!room || !room.isPaid) return res.status(403).json({ success: false, message: 'Chat not unlocked' });
-        if (room.userId.toString() !== userId.toString()) {
+        if (room.userId.toString() !== user._id.toString()) {
             return res.status(403).json({ success: false, message: 'Only the fan can send gifts' });
         }
 
-        // Enforce gift limits
         const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('minGift maxGift');
         if (profile) {
             if (amount < profile.minGift) return res.status(400).json({ success: false, message: `Minimum gift is ₹${profile.minGift}` });
             if (amount > profile.maxGift) return res.status(400).json({ success: false, message: `Maximum gift is ₹${profile.maxGift}` });
         }
 
-        // Razorpay receipt has a 40-char limit — keep it short
-        const receipt = `gf_${String(chatId).slice(-8)}_${Date.now().toString().slice(-8)}`;
-
-        let order;
-        try {
-            order = await razorpay.orders.create({
-                amount: Math.round(amount * 100),
-                currency: 'INR',
-                receipt,
-                notes: { type: 'gift', chatId: String(chatId), userId: String(userId) },
-            });
-        } catch (rzpErr) {
-            const description =
-                rzpErr?.error?.description ||
-                rzpErr?.error?.reason ||
-                rzpErr?.message ||
-                'Razorpay order creation failed';
-            console.error('[chatController] Gift Razorpay error:', rzpErr?.error || rzpErr);
-            return res.status(502).json({ success: false, message: `Payment gateway error: ${description}` });
-        }
+        const orderId = `gf_${String(chatId).slice(-8)}_${Date.now()}`;
+        const order = await paymentService.createOrder({
+            amount,
+            orderId,
+            customerId: user._id.toString(),
+            customerName: user.name || 'Fannex User',
+            customerEmail: user.email || 'user@fannex.in',
+            customerPhone: user.phone || '9000000000',
+            returnUrl: `${process.env.CLIENT_URL}/subscription-success?order_id={order_id}`,
+            meta: { userId: user._id.toString(), creatorId: room.creatorId.toString(), type: 'gift', chatId: String(chatId) },
+        });
 
         await Payment.create({
-            userId,
+            userId: user._id,
             creatorId: room.creatorId,
             amount,
             giftAmount: amount,
             type: 'gift',
             chatId,
-            razorpayOrderId: order.id,
+            cfOrderId: order.orderId,
             status: 'created',
         });
 
-        res.json({ success: true, order, keyId: process.env.RAZORPAY_KEY_ID });
+        res.json({ success: true, order });
     } catch (err) { next(err); }
 };
 
@@ -469,22 +419,19 @@ const createGiftOrder = async (req, res, next) => {
 // @access User
 const verifyGift = async (req, res, next) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, chatId, amount } = req.body;
+        const { orderId, chatId, amount } = req.body;
         const userId = req.user._id;
 
-        // Verify signature
-        const expectedSig = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-            .digest('hex');
-        if (expectedSig !== razorpay_signature) {
-            return res.status(400).json({ success: false, message: 'Gift payment verification failed' });
+        const orderData = await paymentService.getOrderStatus(orderId);
+        if (orderData.order_status !== 'PAID') {
+            return res.status(400).json({ success: false, message: 'Gift payment not completed' });
         }
+        const cfPaymentId = orderData.payments?.[0]?.cf_payment_id?.toString() || null;
 
         // Update payment
         const payment = await Payment.findOneAndUpdate(
-            { razorpayOrderId: razorpay_order_id },
-            { razorpayPaymentId: razorpay_payment_id, razorpaySignature: razorpay_signature, status: 'captured' },
+            { cfOrderId: orderId },
+            { cfPaymentId, status: 'captured' },
             { returnDocument: 'after' }
         );
 
@@ -497,10 +444,9 @@ const verifyGift = async (req, res, next) => {
             type: 'gift',
             content: `Sent a gift of ₹${amount}`,
             giftAmount: amount,
-            giftPaymentId: razorpay_payment_id,
+            giftPaymentId: cfPaymentId,
         });
 
-        // Update room
         await ChatRoom.findByIdAndUpdate(chatId, {
             lastMessage: `🎁 ₹${amount} gift`,
             lastMessageAt: new Date(),
@@ -508,7 +454,6 @@ const verifyGift = async (req, res, next) => {
             $inc: { unreadByCreator: 1 },
         });
 
-        // Credit creator earnings
         if (room) {
             await Earnings.findOneAndUpdate(
                 { creatorId: room.creatorId },
