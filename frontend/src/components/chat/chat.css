@@ -251,17 +251,17 @@
 .chat-msg-row {
     display: flex;
     align-items: flex-end;
-    gap: 8px;
-    /* Default: left-aligned (received) */
-    padding: 0 14px 0 10px;
+    gap: 6px;
+    /* Received messages: 8px from each edge like WhatsApp */
+    padding: 0 8px 0 8px;
     margin-top: 2px;
 }
 
-/* Sent messages hug the right edge — tighter right padding */
+/* Sent messages: same 8px right edge gap */
 .chat-msg-row--sent {
     flex-direction: row-reverse;
-    padding-left: 14px;
-    padding-right: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
 }
 
 .chat-msg-row--gap {
@@ -289,7 +289,7 @@
 
 /* ── Message Bubble ────────────────────────────────────────────────────────── */
 .chat-bubble {
-    max-width: 82%;
+    max-width: 85%;
     padding: 10px 14px;
     color: var(--chat-text);
     font-size: 14px;
@@ -709,13 +709,13 @@
     }
 
     .chat-msg-row {
-        padding: 0 20px 0 16px;
+        padding: 0 12px 0 12px;
     }
 
-    /* Desktop: sent messages still hug right */
+    /* Desktop: slight extra space from edges */
     .chat-msg-row--sent {
-        padding-left: 20px;
-        padding-right: 10px;
+        padding-left: 12px;
+        padding-right: 12px;
     }
 
     .chat-input-bar {
@@ -759,12 +759,12 @@
     }
 
     .chat-msg-row {
-        padding: 0 8px 0 8px;
+        padding: 0 6px 0 6px;
     }
 
     .chat-msg-row--sent {
-        padding-right: 4px;
-        padding-left: 8px;
+        padding-right: 6px;
+        padding-left: 6px;
     }
 
     .chat-gift-trigger {
