@@ -24,7 +24,7 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
 
     // Control message grouping (avatar, bubble shape) — still 10-min gap
     const shouldGroup = (msg, prevMsg) => {
-        if (!prevMsg) return false;
+        if (!msg || !prevMsg) return false;   // guard: either can be undefined
         const sameSender = (m) => {
             const s = m.senderId;
             if (!s) return '';
