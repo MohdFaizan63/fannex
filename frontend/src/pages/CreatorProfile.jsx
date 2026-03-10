@@ -292,6 +292,8 @@ export default function CreatorProfile() {
     const [showGate, setShowGate] = useState(false);
     const [showGift, setShowGift] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
+    // Tracks if user just paid — prevents profile re-fetch from overwriting isSubscribed=true
+    const subscribedFromPaymentRef = useRef(false);
 
     // ── Load creator profile ─────────────────────────────────────────────────
     useEffect(() => {
@@ -299,7 +301,10 @@ export default function CreatorProfile() {
         api.get(`/creator/profile/${usernameParam}`)
             .then(({ data }) => {
                 setCreator(data.data);
-                setIsSubscribed(data.data.isSubscribed ?? false);
+                // Don't overwrite isSubscribed if we just came from a payment success 
+                if (!subscribedFromPaymentRef.current) {
+                    setIsSubscribed(data.data.isSubscribed ?? false);
+                }
             })
             .catch(() => setError('Creator not found.'))
             .finally(() => setLoadingProfile(false));
@@ -324,17 +329,29 @@ export default function CreatorProfile() {
             .catch(() => { });
     }, [creator?.username]);
 
-    // ── Handle success return from SubscribePage ─────────────────────────────
+    // ── Handle success return from SubscribePage / SubscriptionSuccess ──────────
     const location = useLocation();
     useEffect(() => {
-        if (location.state?.subscribed && creator) {
-            setIsSubscribed(true);
+        if (!location.state?.subscribed) return;
+
+        // Mark paid — prevents profile API from overwriting isSubscribed=true
+        subscribedFromPaymentRef.current = true;
+
+        // Immediately update the button — don't wait for creator to load
+        setIsSubscribed(true);
+
+        // Clear the state so a browser refresh doesn't trigger this again
+        window.history.replaceState({}, '', window.location.pathname);
+
+        // Re-fetch posts if creator is already loaded (unlocks gated content)
+        if (creator) {
             const id = creator.userId || creator._id;
             postService.getByCreator(id, { limit: 30 })
                 .then(({ data }) => setPosts(data.results ?? []))
                 .catch(() => { });
         }
-    }, [location.state, creator]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.state?.subscribed]);
 
     // ── Subscribe ────────────────────────────────────────────────────────────
     const handleSubscribe = () => {

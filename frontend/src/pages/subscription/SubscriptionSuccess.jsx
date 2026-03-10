@@ -41,7 +41,7 @@ export default function SubscriptionSuccess() {
                 try {
                     const d = JSON.parse(cached);
                     if (d.creator?.username) {
-                        navigate(`/creator/${d.creator.username}`, { replace: true });
+                        navigate(`/creator/${d.creator.username}`, { replace: true, state: { subscribed: true } });
                     } else {
                         navigate('/explore', { replace: true });
                     }
@@ -501,6 +501,7 @@ export default function SubscriptionSuccess() {
                     ) : creatorUsername ? (
                         <Link
                             to={`/creator/${creatorUsername}`}
+                            state={{ subscribed: true }}
                             style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                                 width: '100%', boxSizing: 'border-box',
