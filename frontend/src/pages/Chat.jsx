@@ -340,7 +340,14 @@ export default function Chat() {
                     </div>
                 </div>
 
+                {/* Right: wallet balance + recharge (hidden for creators) */}
                 <div className="chat-header-actions">
+                    {walletBalance !== null && !isCreator && (
+                        <button onClick={() => setShowWallet(true)} className="chat-wallet-btn">
+                            <span>💳</span>
+                            <span>₹{Math.round(walletBalance)}</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -390,8 +397,13 @@ export default function Chat() {
 
             {/* ── Input bar ─────────────────────────────────────────────────── */}
             <div className="chat-input-bar">
+                {/* Gift button — hidden for creators */}
+                {!isCreator && (
+                    <button onClick={() => setShowGifts(true)} className="chat-gift-trigger" aria-label="Send a gift">
+                        🎁
+                    </button>
+                )}
 
-                {/* Pill input area */}
                 <div className="chat-input-field-wrap">
                     <textarea
                         ref={textareaRef}
