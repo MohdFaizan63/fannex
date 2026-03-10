@@ -45,9 +45,10 @@ export default function Chat() {
     // Track image IDs that WE uploaded — prevents socket broadcast from doubling them
     const uploadedImageIdsRef = useRef(new Set());
 
-    // Is this user the creator in the room (no deduction for creators)
-    const [isCreator, setIsCreator] = useState(false);
-    const isCreatorRef = useRef(false); // keep ref for non-reactive callbacks
+    // Is this user the creator in the room — derived directly from user.role (reliable, immediate)
+    const isCreator = user?.role === 'creator';
+    const isCreatorRef = useRef(isCreator); // keep ref for non-reactive callbacks
+    useEffect(() => { isCreatorRef.current = isCreator; }, [isCreator]);
 
     // ── Lock body on Android Chrome ────────────────────────────────────────────
     useEffect(() => {
@@ -95,25 +96,25 @@ export default function Chat() {
     useEffect(() => {
         const findRoom = (rooms) => rooms.find(r => String(r._id) === String(chatId));
 
-        chatService.getUserRooms()
-            .then(({ data }) => {
-                const room = findRoom(data?.data ?? []);
-                if (room?.creatorProfile?.displayName) setOtherName(room.creatorProfile.displayName);
-                else if (room?.userId?.name) setOtherName(room.userId.name);
-                isCreatorRef.current = false;
-                setIsCreator(false);
-            })
-            .catch(() => {
-                chatService.getCreatorRooms()
-                    .then(({ data }) => {
-                        const room = findRoom(data?.data ?? []);
-                        if (room?.userId?.name) setOtherName(room.userId.name);
-                        isCreatorRef.current = true; // creator viewing this chat
-                        setIsCreator(true);
-                    })
-                    .catch(() => { });
-            });
-    }, [chatId]);
+        if (isCreator) {
+            // Creator: look up fan's name from creator rooms
+            chatService.getCreatorRooms()
+                .then(({ data }) => {
+                    const room = findRoom(data?.data ?? []);
+                    if (room?.userId?.name) setOtherName(room.userId.name);
+                })
+                .catch(() => { });
+        } else {
+            // Fan: look up creator name from user rooms
+            chatService.getUserRooms()
+                .then(({ data }) => {
+                    const room = findRoom(data?.data ?? []);
+                    if (room?.creatorProfile?.displayName) setOtherName(room.creatorProfile.displayName);
+                    else if (room?.userId?.name) setOtherName(room.userId.name);
+                })
+                .catch(() => { });
+        }
+    }, [chatId, isCreator]);
 
     useEffect(() => { loadMessages(1); }, [loadMessages]);
 
