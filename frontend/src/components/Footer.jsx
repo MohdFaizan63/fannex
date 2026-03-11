@@ -6,13 +6,10 @@ const FOOTER_LINKS = {
     Platform: [
         { label: 'Explore Creators', to: '/explore' },
         { label: 'Become a Creator', to: '/register' },
-        { label: 'Subscriptions', to: '/subscriptions' },
-        { label: 'Wallet', to: '/wallet' },
     ],
     Company: [
         { label: 'About Us', to: '/about' },
         { label: 'Contact', to: '/contact' },
-        { label: 'Careers', href: 'mailto:support@fannex.in?subject=Careers at Fanvew' },
         { label: 'Creator Support', href: 'mailto:support@fannex.in?subject=Creator Support' },
     ],
     Legal: [
