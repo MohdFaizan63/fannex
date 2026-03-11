@@ -60,7 +60,13 @@ const registerUserService = async ({ name, email, password, role, profileLink, s
     const existing = await User.findOne({ email });
 
     if (existing) {
-        const err = new Error('User already exists with this email');
+        // Give a specific, actionable error based on how the account was created
+        if (existing.googleId || existing.signupSource === 'google') {
+            const err = new Error('This email is already linked to a Google account. Please use "Continue with Google" to sign in.');
+            err.statusCode = 400;
+            throw err;
+        }
+        const err = new Error('An account with this email already exists. Please sign in or reset your password.');
         err.statusCode = 400;
         throw err;
     }
