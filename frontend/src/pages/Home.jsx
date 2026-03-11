@@ -71,13 +71,110 @@ const CATEGORIES = [
 // ─── Feature flag: set to true once Paytm gateway is live ───────────────────
 const SHOW_IMAGE_GALLERIES = true;
 
+// SVG icon components for features
+const IconSubscribe = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+    </svg>
+);
+const IconLock = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0110 0v4" />
+    </svg>
+);
+const IconChat = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    </svg>
+);
+const IconGift = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <polyline points="20 12 20 22 4 22 4 12" />
+        <rect x="2" y="7" width="20" height="5" />
+        <line x1="12" y1="22" x2="12" y2="7" />
+        <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z" />
+        <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
+    </svg>
+);
+const IconWallet = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M21 12V7H5a2 2 0 010-4h14v4" />
+        <path d="M3 5v14a2 2 0 002 2h16v-5" />
+        <path d="M18 12a2 2 0 000 4h4v-4z" />
+    </svg>
+);
+const IconChart = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <line x1="18" y1="20" x2="18" y2="10" />
+        <line x1="12" y1="20" x2="12" y2="4" />
+        <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+);
+const IconShield = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <polyline points="9 12 11 14 15 10" />
+    </svg>
+);
+const IconPayout = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+    </svg>
+);
+
 const FEATURES = [
-    { icon: '💬', tag: 'New', title: 'AI Voice Messages', desc: 'Send personalised messages to every fan at scale, automatically.' },
-    { icon: '🎙️', tag: 'New', title: 'AI Voice Notes', desc: 'Build deeper fan intimacy without spending hours in your inbox.' },
-    { icon: '🔌', tag: 'Coming soon', title: 'Open API', desc: 'An open platform for innovation, built for ambitious creators.' },
-    { icon: '⚡', tag: null, title: 'Instant Payouts', desc: 'Monetise your content. Get paid faster than ever before.' },
-    { icon: '📊', tag: null, title: 'Real-time Analytics', desc: 'Know exactly who your fans are and what content they love.' },
-    { icon: '🔒', tag: null, title: 'Exclusive Content', desc: 'Gate your best work behind subscriptions that pay you well.' },
+    {
+        Icon: IconLock,
+        color: '#a855f7',
+        tag: null,
+        title: 'Exclusive Subscriber Content',
+        desc: 'Gate your best photos, videos, and posts behind a subscription. Your fans unlock premium content the moment they subscribe.',
+        hero: true,
+    },
+    {
+        Icon: IconChat,
+        color: '#ec4899',
+        tag: null,
+        title: 'Direct Fan Messaging',
+        desc: 'Chat with your subscribers in real time. Build genuine relationships that keep fans coming back.',
+    },
+    {
+        Icon: IconGift,
+        color: '#f59e0b',
+        tag: null,
+        title: 'Fan Gifting',
+        desc: 'Let fans send you gifts as a token of appreciation — a frictionless way to earn beyond subscriptions.',
+    },
+    {
+        Icon: IconPayout,
+        color: '#10b981',
+        tag: null,
+        title: 'Fast & Secure Payouts',
+        desc: 'Withdraw your earnings directly to your bank account. Get paid without the wait.',
+    },
+    {
+        Icon: IconChart,
+        color: '#38bdf8',
+        tag: null,
+        title: 'Creator Dashboard',
+        desc: 'Track your subscribers, revenue, and top-performing content — all from one clean dashboard.',
+    },
+    {
+        Icon: IconWallet,
+        color: '#c084fc',
+        tag: null,
+        title: 'Wallet & Easy Payments',
+        desc: 'Fans top up their Fanvew wallet and subscribe seamlessly. No friction, more conversions for you.',
+    },
+    {
+        Icon: IconShield,
+        color: '#fb7185',
+        tag: null,
+        title: 'Verified Creator Accounts',
+        desc: 'Every creator on Fanvew goes through a verification process — so fans know they are supporting the real deal.',
+    },
 ];
 
 const TESTIMONIALS = [
@@ -788,40 +885,103 @@ export default function Home() {
             <CategoryParallax />
 
             {/* ── FEATURE BENTO GRID ───────────────────────────────────────────── */}
-            <section className="py-20 relative overflow-hidden">
-                <div className="absolute inset-0"
-                    style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 100%, rgba(168,85,247,0.1) 0%, transparent 60%)' }} />
-                <div className="max-w-6xl mx-auto px-6">
-                    <Reveal className="text-center mb-16">
-                        <p className="text-brand-400 text-xs uppercase tracking-widest font-semibold mb-4">Platform features</p>
-                        <h2 className="font-black text-white"
+            <section className="py-24 relative overflow-hidden">
+                {/* Ambient background */}
+                <div className="absolute inset-0 pointer-events-none">
+                    <div style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 110%, rgba(168,85,247,0.12) 0%, transparent 60%)', position: 'absolute', inset: 0 }} />
+                    <div style={{ background: 'radial-gradient(ellipse 40% 40% at 20% 30%, rgba(236,72,153,0.06) 0%, transparent 70%)', position: 'absolute', inset: 0 }} />
+                </div>
+
+                <div className="max-w-6xl mx-auto px-6 relative z-10">
+                    {/* Heading */}
+                    <Reveal className="text-center mb-20">
+                        <p className="text-xs uppercase tracking-[0.3em] font-semibold mb-5" style={{ color: '#a855f7' }}>What we offer</p>
+                        <h2 className="font-black text-white leading-tight"
                             style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.5rem, 5vw, 4rem)' }}>
-                            Everything you need<br />to <em className="not-italic" style={{ background: 'linear-gradient(135deg, #e879f9, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>thrive</em>
+                            Everything you need<br />to{' '}
+                            <em className="not-italic" style={{ background: 'linear-gradient(135deg, #e879f9, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                thrive
+                            </em>
                         </h2>
+                        <p className="mt-6 text-white/40 text-base max-w-xl mx-auto leading-relaxed" style={{ fontWeight: 300 }}>
+                            Fanvew is built for creators who are serious about monetising their audience — with tools that actually work.
+                        </p>
                     </Reveal>
 
+                    {/* Hero feature card */}
+                    <Reveal delay={0.05} className="mb-4">
+                        {(() => { const f = FEATURES[0]; return (
+                        <motion.div
+                            className="relative rounded-3xl overflow-hidden border border-white/[0.06] cursor-pointer group"
+                            style={{
+                                background: `linear-gradient(135deg, rgba(${f.color === '#a855f7' ? '168,85,247' : '168,85,247'},0.1) 0%, rgba(10,0,30,0.95) 60%)`,
+                                backdropFilter: 'blur(20px)',
+                                padding: '0',
+                            }}
+                            whileHover={{ y: -5, borderColor: `${f.color}55` }}
+                            transition={{ duration: 0.35 }}
+                        >
+                            {/* Glow on hover */}
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
+                                style={{ background: `radial-gradient(circle at 30% 50%, ${f.color}18, transparent 55%)` }} />
+                            {/* Border glow line */}
+                            <div className="absolute top-0 left-10 right-10 h-px opacity-50 group-hover:opacity-100 transition-opacity duration-500"
+                                style={{ background: `linear-gradient(90deg, transparent, ${f.color}80, transparent)` }} />
+
+                            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-8 p-10 md:p-12">
+                                {/* Icon */}
+                                <div className="flex-shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-400"
+                                    style={{ background: `${f.color}18`, color: f.color, boxShadow: `0 0 40px ${f.color}20` }}>
+                                    <f.Icon />
+                                </div>
+                                {/* Text */}
+                                <div className="flex-1">
+                                    <h3 className="text-white font-bold text-2xl md:text-3xl mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
+                                        {f.title}
+                                    </h3>
+                                    <p className="text-white/50 text-base leading-relaxed max-w-xl">{f.desc}</p>
+                                </div>
+                                {/* Arrow */}
+                                <div className="hidden md:flex flex-shrink-0 w-12 h-12 rounded-full items-center justify-center border border-white/10 group-hover:border-purple-500/50 group-hover:bg-purple-500/10 transition-all duration-300 ml-auto">
+                                    <svg className="w-5 h-5 text-white/30 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </motion.div>
+                        ); })()}
+                    </Reveal>
+
+                    {/* 3-column grid for remaining features */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {FEATURES.map((f, i) => (
-                            <Reveal key={f.title} delay={i * 0.08} className="h-full">
-                                <motion.div className="h-full p-7 rounded-2xl border border-white/[0.06] cursor-pointer group relative overflow-hidden"
-                                    style={{ background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(20px)' }}
-                                    whileHover={{ y: -6, borderColor: 'rgba(168,85,247,0.35)' }}
-                                    transition={{ duration: 0.3 }}>
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                                        style={{ background: 'radial-gradient(circle at 50% 0%, rgba(168,85,247,0.1), transparent 60%)' }} />
-                                    <div className="relative z-10">
-                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-5 border border-white/10"
-                                            style={{ background: 'rgba(168,85,247,0.12)' }}>
-                                            {f.icon}
+                        {FEATURES.slice(1).map((f, i) => (
+                            <Reveal key={f.title} delay={0.1 + i * 0.07} className="h-full">
+                                <motion.div
+                                    className="h-full p-7 rounded-2xl border border-white/[0.06] cursor-pointer group relative overflow-hidden flex flex-col"
+                                    style={{ background: 'rgba(255,255,255,0.025)', backdropFilter: 'blur(20px)' }}
+                                    whileHover={{ y: -6, borderColor: `${f.color}40` }}
+                                    transition={{ duration: 0.3 }}
+                                >
+                                    {/* Gradient glow on hover */}
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                                        style={{ background: `radial-gradient(circle at 20% 0%, ${f.color}12, transparent 55%)` }} />
+                                    {/* Top edge highlight */}
+                                    <div className="absolute top-0 left-8 right-8 h-px opacity-0 group-hover:opacity-60 transition-opacity duration-500"
+                                        style={{ background: `linear-gradient(90deg, transparent, ${f.color}90, transparent)` }} />
+
+                                    <div className="relative z-10 flex flex-col h-full">
+                                        {/* Icon */}
+                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 border border-white/8 group-hover:scale-110 transition-transform duration-300 flex-shrink-0"
+                                            style={{ background: `${f.color}14`, color: f.color }}>
+                                            <f.Icon />
                                         </div>
-                                        {f.tag && (
-                                            <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-3"
-                                                style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.3)' }}>
-                                                {f.tag}
-                                            </span>
-                                        )}
-                                        <h3 className="text-white font-bold text-base mb-2">{f.title}</h3>
-                                        <p className="text-white/40 text-sm leading-relaxed">{f.desc}</p>
+                                        {/* Title */}
+                                        <h3 className="text-white font-bold text-[15px] mb-2 leading-snug">{f.title}</h3>
+                                        {/* Description */}
+                                        <p className="text-white/40 text-sm leading-relaxed flex-1">{f.desc}</p>
+                                        {/* Bottom accent line */}
+                                        <div className="mt-6 h-px w-0 group-hover:w-full transition-all duration-500 opacity-30"
+                                            style={{ background: `linear-gradient(90deg, ${f.color}, transparent)` }} />
                                     </div>
                                 </motion.div>
                             </Reveal>
