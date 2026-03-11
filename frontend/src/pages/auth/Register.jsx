@@ -49,8 +49,9 @@ export default function Register() {
         return () => clearTimeout(t);
     }, [resendCooldown]);
 
-    // ── Google Sign-In ───────────────────────────────────────────────────────
+    // ── Google Sign-In (OAuth popup — avoids FedCM browser restrictions) ───────
     const googleCallbackRef = useRef(null);
+    const googlePromptActiveRef = useRef(false); // guard against concurrent calls
 
     // Keep the callback ref always up-to-date (avoids stale closure)
     googleCallbackRef.current = async (response) => {
@@ -65,28 +66,64 @@ export default function Register() {
             setServerError(getErrorMessage(err));
         } finally {
             setGoogleLoading(false);
+            googlePromptActiveRef.current = false;
         }
     };
 
+    // Launch Google OAuth in a popup window — no FedCM, works everywhere
     const handleGoogleBtnClick = useCallback(() => {
         const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-        if (!clientId) return;
-        const callbackWrapper = (response) => googleCallbackRef.current?.(response);
+        if (!clientId || googlePromptActiveRef.current || googleLoading) return;
+        googlePromptActiveRef.current = true;
 
-        const doPrompt = () => {
-            window.google?.accounts.id.initialize({ client_id: clientId, callback: callbackWrapper });
-            window.google?.accounts.id.prompt();
+        const callbackWrapper = (response) => {
+            if (response.credential) {
+                googleCallbackRef.current?.(response);
+            } else {
+                googlePromptActiveRef.current = false;
+            }
         };
 
-        if (window.google?.accounts) { doPrompt(); return; }
+        const doInit = () => {
+            try { window.google?.accounts.id.cancel(); } catch (_) { /* ignore */ }
 
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = doPrompt;
-        document.head.appendChild(script);
-    }, []);
+            window.google.accounts.id.initialize({
+                client_id: clientId,
+                callback: callbackWrapper,
+                use_fedcm_for_prompt: false,  // ← disables FedCM; uses legacy popup
+                cancel_on_tap_outside: false,
+                ux_mode: 'popup',
+            });
+            window.google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                    googlePromptActiveRef.current = false;
+                    window.google.accounts.id.renderButton(
+                        document.getElementById('g-signin-hidden-btn-reg'),
+                        { type: 'standard', size: 'large', theme: 'filled_black' }
+                    );
+                    document.getElementById('g-signin-hidden-btn-reg')?.querySelector('div[role=button]')?.click();
+                }
+            });
+        };
+
+        if (window.google?.accounts?.id) { doInit(); return; }
+
+        if (!document.getElementById('google-gsi-script')) {
+            const script = document.createElement('script');
+            script.id = 'google-gsi-script';
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            script.onload = doInit;
+            script.onerror = () => { googlePromptActiveRef.current = false; };
+            document.head.appendChild(script);
+        } else {
+            const wait = setInterval(() => {
+                if (window.google?.accounts?.id) { clearInterval(wait); doInit(); }
+            }, 100);
+            setTimeout(() => { clearInterval(wait); googlePromptActiveRef.current = false; }, 5000);
+        }
+    }, [googleLoading]);
 
     // ── Submit registration ──────────────────────────────────────────────────
     const onSubmit = async (data) => {
@@ -308,6 +345,8 @@ export default function Register() {
                 <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>or</span>
                 <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
             </div>
+            {/* Hidden GSI renderButton fallback — used when One-Tap prompt is suppressed */}
+            <div id="g-signin-hidden-btn-reg" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }} />
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
                 <div>
