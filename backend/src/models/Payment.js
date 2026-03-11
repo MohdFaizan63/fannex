@@ -57,4 +57,9 @@ const paymentSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+// Compound index for wallet history query (userId + type + status + sorted by date)
+paymentSchema.index({ userId: 1, type: 1, status: 1, createdAt: -1 });
+// Idempotency: fast lookup by Cashfree order ID
+paymentSchema.index({ cfOrderId: 1 }, { unique: false, sparse: true });
+
 module.exports = mongoose.model('Payment', paymentSchema);

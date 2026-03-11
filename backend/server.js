@@ -57,9 +57,8 @@ const onlineUsers = new Map(); // userId → socketId
 io.on('connection', (socket) => {
     console.log(`🟢 Socket connected: ${socket.userId}`);
     onlineUsers.set(socket.userId, socket.id);
-
-    // Broadcast online status to rooms this user belongs to
-    socket.broadcast.emit('user_online', { userId: socket.userId, online: true });
+    // NOTE: Removed global broadcast — it was firing for EVERY connected user
+    // which causes O(n) fan-out. Presence is now tracked per-room only.
 
     // ── Join a chat room ──────────────────────────────────────────────────────
     socket.on('join_room', async ({ chatId }) => {
@@ -93,10 +92,7 @@ io.on('connection', (socket) => {
             // ── Wallet deduction for fan messages ─────────────────────────────
             let newWalletBalance = null;
             if (!isCreator) {
-                const CreatorProfile = require('./src/models/CreatorProfile.js');
-                const User = require('./src/models/User.js');
-                const Earnings = require('./src/models/Earnings.js');
-
+                // Use top-level imports (no require inside event handler)
                 const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
                 const msgCost = profile?.messagePrice ?? 0;
 
@@ -185,11 +181,18 @@ io.on('connection', (socket) => {
                 { chatId, senderId: { $ne: socket.userId }, seen: false },
                 { seen: true, seenAt: new Date() }
             );
-            const room = await ChatRoom.findById(chatId);
-            const isCreator = room?.creatorId.toString() === socket.userId;
-            await ChatRoom.findByIdAndUpdate(chatId, {
-                [isCreator ? 'unreadByCreator' : 'unreadByUser']: 0,
-            });
+            // Single DB call: update + learn isCreator at once
+            const room = await ChatRoom.findByIdAndUpdate(
+                chatId,
+                {},
+                { new: false }
+            );
+            if (room) {
+                const isCreator = room.creatorId.toString() === socket.userId;
+                await ChatRoom.findByIdAndUpdate(chatId, {
+                    [isCreator ? 'unreadByCreator' : 'unreadByUser']: 0,
+                });
+            }
             // Notify the sender that messages were seen
             socket.to(chatId).emit('messages_seen', { chatId, seenBy: socket.userId });
         } catch (err) {
@@ -200,7 +203,7 @@ io.on('connection', (socket) => {
     // ── Disconnect ────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
         onlineUsers.delete(socket.userId);
-        socket.broadcast.emit('user_online', { userId: socket.userId, online: false });
+        // NOTE: No global broadcast — removed to prevent O(n) fan-out on disconnect
         console.log(`🔴 Socket disconnected: ${socket.userId}`);
     });
 });

@@ -183,7 +183,8 @@ const googleAuth = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getMe = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user._id)
+            .select('name email role isVerified isBanned avatar creatorApplicationStatus creatorRejectionReason signupSource creatorReferred createdAt walletBalance');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });

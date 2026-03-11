@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -20,6 +21,9 @@ const xssSanitize = require('./middleware/xssSanitize');
 const hppProtect = require('./middleware/hppProtect');
 
 const app = express();
+
+// ─── 0. Compression (must be FIRST for all responses) ────────────────────────
+app.use(compression());
 
 // ─── 1. Security Headers ─────────────────────────────────────────────────────
 app.use(

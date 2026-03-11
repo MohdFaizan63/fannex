@@ -33,5 +33,7 @@ const subscriptionSchema = new mongoose.Schema(
 // Compound indexes for common lookup patterns
 subscriptionSchema.index({ userId: 1, status: 1 });
 subscriptionSchema.index({ creatorId: 1, status: 1 });
+// Full compound for checkSubscriptionStatus (exact query: userId+creatorId+status+expiresAt)
+subscriptionSchema.index({ userId: 1, creatorId: 1, status: 1, expiresAt: 1 });
 
 module.exports = mongoose.model('Subscription', subscriptionSchema);

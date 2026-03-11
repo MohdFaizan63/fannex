@@ -96,16 +96,20 @@ const listCreators = async (req, res, next) => {
             filter.genre = req.query.category.toLowerCase();
         }
 
+        const hasSearch = !!(req.query.search && req.query.search.trim());
+
         const data = await paginate(CreatorProfile, filter, {
             page: req.query.page,
             limit: req.query.limit,
-            sort: req.query.sort || '-totalSubscribers',
-            // Wire the search param to search by displayName
-            ...(req.query.search ? {
-                searchField: 'displayName',
+            sort: hasSearch ? undefined : (req.query.sort || '-totalSubscribers'),
+            // Use $text index search when query present (much faster than $regex)
+            ...(hasSearch ? {
+                useTextSearch: true,
                 searchQuery: req.query.search,
             } : {}),
             populate: { path: 'userId', select: 'name email' },
+            // Only select fields the Explore card UI actually needs
+            select: 'displayName username profileImage coverImage totalSubscribers subscriptionPrice genre userId',
         });
 
         // Optimise Cloudinary CDN URLs

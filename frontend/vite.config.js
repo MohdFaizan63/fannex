@@ -16,4 +16,22 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // Warn when any chunk exceeds 500 KB (uncompressed)
+    chunkSizeWarningLimit: 500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks — cached by browser between deployments
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-router': ['react-router-dom'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-swiper': ['swiper'],
+          'vendor-stripe': ['@stripe/react-stripe-js', '@stripe/stripe-js'],
+          'vendor-socket': ['socket.io-client'],
+        },
+      },
+    },
+  },
 })
+

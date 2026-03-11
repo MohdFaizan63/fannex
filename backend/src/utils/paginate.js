@@ -5,6 +5,7 @@
  *   const result = await paginate(Post, { creatorId }, {
  *       page: 1, limit: 10, sort: '-createdAt',
  *       searchField: 'caption', searchQuery: 'hello',
+ *       useTextSearch: true,   // Use $text index instead of $regex (much faster)
  *       populate: 'creatorId',
  *   });
  *
@@ -22,8 +23,9 @@
  * @param {number} [options.page=1]
  * @param {number} [options.limit=20]
  * @param {string} [options.sort='-createdAt']  - Comma-separated sort fields, e.g. '-createdAt,name'
- * @param {string} [options.searchField]        - Model field to run regex search on
+ * @param {string} [options.searchField]        - Model field to run regex search on (non-text-index)
  * @param {string} [options.searchQuery]        - Search term
+ * @param {boolean} [options.useTextSearch]     - Use $text index search (must have text index on model)
  * @param {string|object|Array} [options.populate] - Passed directly to .populate()
  * @param {string} [options.select]             - Fields to select
  * @returns {Promise<{results, page, totalPages, totalResults}>}
@@ -48,16 +50,34 @@ const paginate = async (Model, filter = {}, options = {}) => {
 
     // ── Search ──────────────────────────────────────────────────────────────────
     const combinedFilter = { ...filter };
-    if (options.searchField && options.searchQuery && options.searchQuery.trim()) {
-        combinedFilter[options.searchField] = {
-            $regex: options.searchQuery.trim(),
-            $options: 'i',   // case-insensitive
-        };
+    const searchQuery = options.searchQuery?.trim();
+
+    if (searchQuery) {
+        if (options.useTextSearch) {
+            // Fast: uses MongoDB text index (must be defined on the model)
+            combinedFilter.$text = { $search: searchQuery };
+        } else if (options.searchField) {
+            // Fallback: regex (slower, but works without text index)
+            combinedFilter[options.searchField] = {
+                $regex: searchQuery,
+                $options: 'i',   // case-insensitive
+            };
+        }
     }
 
+    // When using text search, add textScore projection for relevance sorting
+    const projection = (options.useTextSearch && searchQuery)
+        ? { score: { $meta: 'textScore' } }
+        : {};
+
+    // Override sort to textScore when searching, unless caller explicitly set sort
+    const effectiveSortObj = (options.useTextSearch && searchQuery && !options.sort)
+        ? { score: { $meta: 'textScore' } }
+        : sortObj;
+
     // ── Query ───────────────────────────────────────────────────────────────────
-    let query = Model.find(combinedFilter)
-        .sort(sortObj)
+    let query = Model.find(combinedFilter, projection)
+        .sort(effectiveSortObj)
         .skip(skip)
         .limit(limit);
 

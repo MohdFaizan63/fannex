@@ -54,4 +54,12 @@ const creatorProfileSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+// ── Performance indexes ────────────────────────────────────────────────────────
+// Explore default sort: verificationStatus:'approved', sort by -totalSubscribers
+creatorProfileSchema.index({ verificationStatus: 1, totalSubscribers: -1 });
+// Explore category-filtered sort
+creatorProfileSchema.index({ verificationStatus: 1, genre: 1, totalSubscribers: -1 });
+// Full-text search on displayName and bio (replaces slow $regex scan)
+creatorProfileSchema.index({ displayName: 'text', bio: 'text' }, { weights: { displayName: 10, bio: 1 } });
+
 module.exports = mongoose.model('CreatorProfile', creatorProfileSchema);

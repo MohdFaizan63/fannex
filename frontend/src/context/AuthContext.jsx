@@ -22,13 +22,24 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         if (!user || user.creatorApplicationStatus !== 'pending') return;
 
-        const interval = setInterval(() => {
+        const poll = () => {
+            // Skip polling when the tab is hidden (saves network + battery)
+            if (document.visibilityState === 'hidden') return;
             authService.getMe()
                 .then(({ data }) => setUser(data.data))
                 .catch(() => { }); // silent
-        }, 20_000);
+        };
 
-        return () => clearInterval(interval);
+        // Poll every 60s (was 20s — 3× fewer background requests)
+        const interval = setInterval(poll, 60_000);
+
+        // Also re-poll immediately when the tab becomes visible again
+        document.addEventListener('visibilitychange', poll);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', poll);
+        };
     }, [user?.creatorApplicationStatus]);
 
     // ── Auth actions ──────────────────────────────────────────────────────────
