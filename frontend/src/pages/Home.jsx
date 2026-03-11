@@ -1102,54 +1102,81 @@ function CategoryParallax() {
                     {CATEGORIES.map((cat, i) => (
                         <motion.div
                             key={cat.name}
-                            className="group cursor-pointer relative py-4 sm:py-8 md:py-10 border-b border-white/[0.04] flex items-center justify-center"
-                            whileHover={{ x: 8 }}
+                            className="group cursor-pointer relative py-5 sm:py-8 md:py-10 border-b border-white/[0.06] flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-0"
+                            whileHover={{ x: 4 }}
                             transition={{ duration: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
                         >
-                            {/* Background glow on hover */}
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
-                                style={{ background: `radial-gradient(ellipse 60% 100% at 50% 50%, ${NICHE_COLORS[i].glow}, transparent 80%)` }} />
+                            {/* Background glow — always slightly visible on mobile */}
+                            <div className="absolute inset-0 pointer-events-none transition-opacity duration-700"
+                                style={{
+                                    background: `radial-gradient(ellipse 80% 100% at 50% 50%, ${NICHE_COLORS[i].glow}, transparent 80%)`,
+                                    opacity: 0.35,
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                                onMouseLeave={e => e.currentTarget.style.opacity = 0.35}
+                            />
 
-                            {/* Number */}
-                            <span className="absolute left-0 text-xs font-mono tracking-widest text-white/10 group-hover:text-white/30 transition-colors duration-500 hidden md:block"
+                            {/* Number — desktop only */}
+                            <span className="absolute left-0 text-xs font-mono tracking-widest text-white/15 group-hover:text-white/40 transition-colors duration-500 hidden md:block"
                                 style={{ top: '50%', transform: 'translateY(-50%)' }}>
                                 0{i + 1}
                             </span>
 
-                            {/* Category name */}
-                            <h3 className="font-black text-center select-none transition-all duration-700 relative"
+                            {/* Category name — always gradient on mobile */}
+                            <h3
+                                className="font-black text-center select-none relative leading-none"
                                 style={{
                                     fontFamily: "'Playfair Display', serif",
-                                    fontSize: 'clamp(2.2rem, 8vw, 7rem)',
-                                    color: 'rgba(255,255,255,0.1)',
+                                    fontSize: 'clamp(2.4rem, 9vw, 7rem)',
                                     letterSpacing: '-0.02em',
+                                    background: NICHE_COLORS[i].gradient,
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    filter: 'brightness(0.55)',
+                                    transition: 'filter 0.4s ease',
                                 }}
-                                onMouseEnter={e => {
-                                    e.target.style.background = NICHE_COLORS[i].gradient;
-                                    e.target.style.WebkitBackgroundClip = 'text';
-                                    e.target.style.WebkitTextFillColor = 'transparent';
-                                    e.target.style.textShadow = 'none';
-                                }}
-                                onMouseLeave={e => {
-                                    e.target.style.background = 'none';
-                                    e.target.style.WebkitBackgroundClip = 'unset';
-                                    e.target.style.WebkitTextFillColor = 'rgba(255,255,255,0.1)';
-                                }}>
+                                onMouseEnter={e => { e.target.style.filter = 'brightness(1)'; }}
+                                onMouseLeave={e => { e.target.style.filter = 'brightness(0.55)'; }}
+                            >
                                 {cat.name}
                             </h3>
 
-                            {/* Animated underline */}
-                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[1px] w-0 group-hover:w-[60%] transition-all duration-700 ease-out"
-                                style={{ background: NICHE_COLORS[i].gradient }} />
+                            {/* Explore pill — visible on mobile, enhanced on desktop hover */}
+                            <span
+                                className="sm:hidden inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                                style={{
+                                    background: `${NICHE_COLORS[i].glow.replace('0.25', '0.15')}`,
+                                    border: `1px solid ${NICHE_COLORS[i].glow.replace('0.25', '0.4')}`,
+                                    color: 'rgba(255,255,255,0.55)',
+                                }}
+                            >
+                                Explore
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                </svg>
+                            </span>
 
-                            {/* Arrow on hover — desktop only */}
+                            {/* Coloured underline — always subtle, full on hover */}
+                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[1px] transition-all duration-700 ease-out"
+                                style={{
+                                    width: '30%',
+                                    background: NICHE_COLORS[i].gradient,
+                                    opacity: 0.25,
+                                }}
+                            />
+
+                            {/* Desktop arrow on hover */}
                             <motion.div
                                 className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-500 hidden md:flex items-center gap-2"
                                 initial={{ x: -10 }}
                                 whileHover={{ x: 0 }}
                             >
-                                <span className="text-xs font-medium uppercase tracking-widest" style={{ background: NICHE_COLORS[i].gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Explore</span>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: NICHE_COLORS[i].glow.replace('0.25', '1') }}>
+                                <span className="text-xs font-medium uppercase tracking-widest"
+                                    style={{ background: NICHE_COLORS[i].gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                    Explore
+                                </span>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                    style={{ color: 'rgba(255,255,255,0.4)' }}>
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                                 </svg>
                             </motion.div>
