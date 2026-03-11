@@ -152,10 +152,12 @@ const getCreatorByUsername = async (req, res, next) => {
 
         // Record profile view (fire-and-forget — don't block response)
         const creatorUserId = profile.userId?._id || profile.userId;
+        const dateKey = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
         ProfileView.create({
             creatorId: creatorUserId,
             visitorId: req.user?._id || null,
-        }).catch(() => { });
+            dateKey,
+        }).catch(() => { }); // duplicate key = same user already viewed today → silently ignore
 
         res.json({
             success: true,
@@ -218,9 +220,10 @@ const getSuggestedCreators = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const mySubscriptions = async (req, res, next) => {
     try {
+        // BUG-9 FIX: Filter by status:'active' so expired/canceled subs don't show
         const data = await paginate(
             Subscription,
-            { userId: req.user._id },
+            { userId: req.user._id, status: 'active', expiresAt: { $gt: new Date() } },
             {
                 page: req.query.page,
                 limit: req.query.limit,
@@ -338,7 +341,8 @@ const applyForCreator = async (req, res, next) => {
                 countryOfResidency,
                 creatorType,
                 verificationStatus: 'pending',
-                verificationData: { fullName, panNumber, aadhaarNumber, bankAccountNumber, ifscCode },
+                // NOTE: PAN/Aadhaar/bank details are stored ONLY in CreatorVerification (encrypted)
+                // and NOT in CreatorProfile.verificationData (removed — was plain text).
             },
             { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         );

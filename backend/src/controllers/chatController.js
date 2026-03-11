@@ -5,6 +5,7 @@ const Payment = require('../models/Payment');
 const User = require('../models/User');
 const Earnings = require('../models/Earnings');
 const paymentService = require('../services/paymentService');
+const Subscription = require('../models/Subscription');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHAT SETTINGS (Creator only)
@@ -34,10 +35,11 @@ const updateChatSettings = async (req, res, next) => {
         if (!profile) return res.status(404).json({ success: false, message: 'Creator profile not found' });
 
         if (chatEnabled !== undefined) profile.chatEnabled = chatEnabled;
-        if (chatPrice !== undefined) profile.chatPrice = Number(chatPrice);
-        if (messagePrice !== undefined) profile.messagePrice = Number(messagePrice);
-        if (minGift !== undefined) profile.minGift = Number(minGift);
-        if (maxGift !== undefined) profile.maxGift = Number(maxGift);
+        // BUG-8 FIX: Guard against negative / invalid values with Math.max(0, ...)
+        if (chatPrice !== undefined) profile.chatPrice = Math.max(0, Number(chatPrice) || 0);
+        if (messagePrice !== undefined) profile.messagePrice = Math.max(0, Number(messagePrice) || 0);
+        if (minGift !== undefined) profile.minGift = Math.max(1, Number(minGift) || 1);
+        if (maxGift !== undefined) profile.maxGift = Math.max(profile.minGift, Number(maxGift) || 10000);
 
         await profile.save({ validateModifiedOnly: true });
 
@@ -350,8 +352,9 @@ const sendMessage = async (req, res, next) => {
 
         // ── Wallet deduction for fan messages ─────────────────────────────────
         if (!isCreator) {
-            const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('chatPrice');
-            const msgCost = profile?.chatPrice ?? 0;
+            // BUG-7 FIX: Use messagePrice (per-message cost), not chatPrice (unlock cost)
+            const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
+            const msgCost = profile?.messagePrice ?? 0;
 
             if (msgCost > 0) {
                 const fan = await User.findById(senderId).select('walletBalance');
@@ -505,12 +508,18 @@ const verifyGift = async (req, res, next) => {
             $inc: { unreadByCreator: 1 },
         });
 
-        // Credit creator earnings (only if not already credited by webhook)
-        const alreadyCaptured = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
-        if (!alreadyCaptured) {
+        // BUG-5 FIX: Atomically credit creator earnings — only credit if payment wasn't already
+        // captured before this call. Use findOneAndUpdate with a status guard to prevent double-credit.
+        const earnResult = await Payment.findOneAndUpdate(
+            { cfOrderId: orderId, status: 'captured', _earningsCredited: { $ne: true } },
+            { $set: { _earningsCredited: true } },
+            { returnDocument: 'before' }
+        );
+        if (earnResult) {
+            const creatorCut = Math.floor(amount * 0.9);
             await Earnings.findOneAndUpdate(
                 { creatorId: room.creatorId },
-                { $inc: { totalEarned: amount, pendingAmount: amount } },
+                { $inc: { totalEarned: creatorCut, pendingAmount: creatorCut } },
                 { upsert: true }
             );
         }
@@ -537,8 +546,6 @@ const getChatStatus = async (req, res, next) => {
     try {
         const { creatorId } = req.params;
         const userId = req.user._id;
-
-        const Subscription = require('../models/Subscription');
 
         // Check if user has an active subscription to this creator
         const activeSubscription = await Subscription.findOne({

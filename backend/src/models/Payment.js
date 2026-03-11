@@ -43,7 +43,12 @@ const paymentSchema = new mongoose.Schema(
         cfOrderId: { type: String, index: true },
         cfPaymentId: { type: String },
 
-        // ── Legacy Razorpay fields (kept for historical records) ───────────────
+        // ── Idempotency flag (BUG-5 fix) ──────────────────────────────────────
+        // Set to true once creator earnings have been credited for this payment.
+        // Prevents double-credit on concurrent gift verify calls.
+        _earningsCredited: { type: Boolean, default: false },
+
+        // ── Legacy Razorpay fields (kept for historical records — do NOT use) ──
         razorpayOrderId: { type: String },
         razorpayPaymentId: { type: String },
         razorpaySignature: { type: String },

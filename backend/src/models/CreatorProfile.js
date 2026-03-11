@@ -26,15 +26,15 @@ const creatorProfileSchema = new mongoose.Schema(
         coverImage: { type: String, default: '' },
         coverImagePosition: { type: Number, default: 50, min: 0, max: 100 },
 
-        // Monetisation
-        subscriptionPrice: { type: Number, default: 1 },
+        // Monetisation — min: 0 guards prevent negative prices at schema level (see also BUG-8 fix in controller)
+        subscriptionPrice: { type: Number, default: 1, min: 0 },
 
         // Chat monetisation
         chatEnabled: { type: Boolean, default: true },
-        chatPrice: { type: Number, default: 1 },    // ₹ per conversation unlock
-        messagePrice: { type: Number, default: 1 },   // ₹ per message deducted from fan wallet
-        minGift: { type: Number, default: 1 },       // minimum gift amount
-        maxGift: { type: Number, default: 10000 },    // maximum gift amount
+        chatPrice: { type: Number, default: 1, min: 0 },    // ₹ per conversation unlock
+        messagePrice: { type: Number, default: 1, min: 0 },   // ₹ per message deducted from fan wallet
+        minGift: { type: Number, default: 1, min: 0 },       // minimum gift amount
+        maxGift: { type: Number, default: 10000, min: 0 },    // maximum gift amount
 
 
         // Stats (denormalised)
@@ -47,13 +47,9 @@ const creatorProfileSchema = new mongoose.Schema(
             enum: ['pending', 'approved', 'rejected'],
             default: 'pending',
         },
-        verificationData: {
-            fullName: { type: String, default: '' },
-            panNumber: { type: String, default: '' },
-            aadhaarNumber: { type: String, default: '' },
-            bankAccountNumber: { type: String, default: '' },
-            ifscCode: { type: String, default: '' },
-        },
+        // NOTE: Sensitive KYC data (PAN, Aadhaar, bank account) is stored ONLY in the
+        // CreatorVerification model where it is encrypted at rest with AES-256-GCM.
+        // The verificationData sub-document has been removed as it stored PII as plain text.
     },
     { timestamps: true }
 );

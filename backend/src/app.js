@@ -49,7 +49,7 @@ app.use(cors({
 // ─── 3. Rate Limiter ─────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500, // TODO: lower to 200 after testing
+  max: 200, // 200 requests per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -64,7 +64,7 @@ app.use(globalLimiter);
 // ─── 4. Auth Rate Limit ──────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200, // TODO: lower to 20 after testing
+  max: 15, // 15 login attempts per 15 minutes (brute-force protection)
   message: {
     success: false,
     message: 'Too many login attempts. Please try again later.'
@@ -72,7 +72,7 @@ const authLimiter = rateLimit({
 });
 
 
-// ─── 5. Body Parser (with Razorpay webhook support) ──────────────────────────
+// ─── 5. Body Parser (with Cashfree webhook support) ──────────────────────────
 app.use((req, res, next) => {
 
   if (req.originalUrl === '/api/v1/payment/webhook') {

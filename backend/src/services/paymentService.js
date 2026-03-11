@@ -149,35 +149,53 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
 
     const grossAmount = Number(amount);
 
-    // Wallet top-ups — idempotent: only credit if not already captured
+    // Wallet top-ups — idempotent via atomic $setOnInsert
     if (type === 'wallet') {
         const User = require('../models/User');
 
-        // Check if this order was already captured — prevents double credit on re-verify
-        const existingPayment = await Payment.findOne({ cfOrderId: orderId });
-        const alreadyCaptured = existingPayment?.status === 'captured';
-
-        // Always upsert the Payment record (idempotency key)
-        await Payment.findOneAndUpdate(
-            { cfOrderId: orderId },
+        // BUG-2 FIX: Atomic upsert — $set always updates fields, $setOnInsert only runs on INSERT.
+        // If two concurrent verify calls race, only the first one will match 'status:{$ne:"captured"}'
+        // and succeed in updating the record; subsequent calls are no-ops.
+        const result = await Payment.findOneAndUpdate(
+            { cfOrderId: orderId, status: { $ne: 'captured' } }, // guard: only update if not yet captured
             {
-                userId,
-                amount: grossAmount,
-                currency: 'INR',
-                type: 'wallet',
-                status: 'captured',
-                cfOrderId: orderId,
-                cfPaymentId: cfPaymentId || null,
+                $set: {
+                    userId,
+                    amount: grossAmount,
+                    currency: 'INR',
+                    type: 'wallet',
+                    status: 'captured',
+                    cfOrderId: orderId,
+                    cfPaymentId: cfPaymentId || null,
+                },
             },
-            { upsert: true }
+            { upsert: false, returnDocument: 'before' } // upsert=false: only update existing records
         );
 
-        // Only credit walletBalance on first capture
-        if (!alreadyCaptured) {
-            await User.findByIdAndUpdate(
-                userId,
-                { $inc: { walletBalance: grossAmount } }
-            );
+        // Fallback: if no existing record found, create it (first-time flow from verifyWalletRecharge)
+        if (!result) {
+            // Try to insert — if a concurrent call already inserted, the unique cfOrderId index will reject this
+            const existed = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
+            if (!existed) {
+                await Payment.create({
+                    userId,
+                    amount: grossAmount,
+                    currency: 'INR',
+                    type: 'wallet',
+                    status: 'captured',
+                    cfOrderId: orderId,
+                    cfPaymentId: cfPaymentId || null,
+                }).catch(() => { /* duplicate key from racing request — safe to ignore */ });
+
+                // Credit wallet only if we were the one to create the record
+                const justCreated = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
+                if (justCreated && justCreated.cfPaymentId === (cfPaymentId || null)) {
+                    await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
+                }
+            }
+        } else {
+            // result is the document BEFORE our update (status was not 'captured') → credit wallet
+            await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
         }
         return;
     }

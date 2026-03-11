@@ -4,6 +4,10 @@
  */
 const paymentService = require('../services/paymentService');
 const CreatorProfile = require('../models/CreatorProfile');
+const User = require('../models/User');
+const PaymentModel = require('../models/Payment');
+const ChatRoom = require('../models/ChatRoom');
+const Subscription = require('../models/Subscription');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBSCRIPTION
@@ -79,18 +83,17 @@ const verifyPayment = async (req, res, next) => {
         // ── Handle wallet top-up early — no creatorId needed ─────────────────
         if (type === 'wallet') {
             const walletUserId = tags.userId || userId.toString();
+            let cfPaymentId = null;
+            try {
+                const p = await paymentService.getOrderPayments(orderId);
+                cfPaymentId = p?.[0]?.cf_payment_id?.toString() || null;
+            } catch { /* optional */ }
             await paymentService.handlePaymentCaptured({
                 orderId,
-                cfPaymentId: (await (async () => {
-                    try {
-                        const p = await paymentService.getOrderPayments(orderId);
-                        return p?.[0]?.cf_payment_id?.toString() || null;
-                    } catch { return null; }
-                })()),
+                cfPaymentId,
                 amount: orderData.order_amount,
                 meta: { userId: walletUserId, type: 'wallet', creatorId: null },
             });
-            const User = require('../models/User');
             const freshUser = await User.findById(walletUserId).select('walletBalance');
             return res.status(200).json({
                 success: true,
@@ -131,7 +134,6 @@ const verifyPayment = async (req, res, next) => {
 
         // For chat_unlock orders, return the chatId so the frontend can redirect to the chat window
         if (type === 'chat_unlock') {
-            const ChatRoom = require('../models/ChatRoom');
             const room = await ChatRoom.findOne({ creatorId, userId });
             return res.status(200).json({
                 success: true,
@@ -143,7 +145,6 @@ const verifyPayment = async (req, res, next) => {
 
         // For subscription orders, return creator info + chatId so success page can display creator profile
         if (type === 'subscription') {
-            const ChatRoom = require('../models/ChatRoom');
             const [room, creatorProfile] = await Promise.all([
                 ChatRoom.findOne({ creatorId, userId }),
                 CreatorProfile.findOne({ userId: creatorId }).select('displayName username profileImage coverImage bio subscriptionPrice chatEnabled chatPrice'),
@@ -255,7 +256,6 @@ const checkSubscriptionStatus = async (req, res, next) => {
     try {
         const { creatorId } = req.params;
         const userId = req.user._id;
-        const Subscription = require('../models/Subscription');
 
         const subscription = await Subscription.findOne({
             userId,
@@ -418,7 +418,7 @@ async function createWalletOrder(req, res, next) {
 // @access Private (user)
 async function verifyWalletRecharge(req, res, next) {
     try {
-        const { orderId, amount } = req.body;
+        const { orderId } = req.body;
         const userId = req.user._id;
 
         const orderData = await paymentService.getOrderStatus(orderId);
@@ -426,14 +426,23 @@ async function verifyWalletRecharge(req, res, next) {
             return res.status(400).json({ success: false, message: 'Wallet recharge not completed' });
         }
 
+        // BUG-1 FIX: Use Cashfree-verified amount — never trust client-supplied amount
+        const verifiedAmount = orderData.order_amount;
+
+        // Fetch cfPaymentId for idempotency
+        let cfPaymentId = null;
+        try {
+            const payments = await paymentService.getOrderPayments(orderId);
+            cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
+        } catch { /* optional */ }
+
         await paymentService.handlePaymentCaptured({
             orderId,
-            cfPaymentId: null,
-            amount,
+            cfPaymentId,
+            amount: verifiedAmount,
             meta: { userId: userId.toString(), type: 'wallet', creatorId: null },
         });
 
-        const User = require('../models/User');
         const user = await User.findById(userId).select('walletBalance');
         res.status(200).json({ success: true, data: { walletBalance: Math.round(user?.walletBalance ?? 0) } });
     } catch (err) {
@@ -444,19 +453,27 @@ async function verifyWalletRecharge(req, res, next) {
 // @desc  Get user's wallet transaction history
 // @route GET /api/payment/wallet-transactions
 // @access Private (user)
+// BUG-14 FIX: Support pagination via page/limit query params
 async function getWalletTransactions(req, res, next) {
     try {
-        const PaymentModel = require('../models/Payment');
-        const transactions = await PaymentModel.find({
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const skip = (page - 1) * limit;
 
-            userId: req.user._id,
-            type: 'wallet',
-            status: 'captured',
-        })
-            .sort({ createdAt: -1 })
-            .limit(20)
-            .select('amount cfOrderId createdAt status');
-        res.status(200).json({ success: true, data: transactions });
+        const [transactions, total] = await Promise.all([
+            PaymentModel.find({ userId: req.user._id, type: 'wallet', status: 'captured' })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .select('amount cfOrderId createdAt status'),
+            PaymentModel.countDocuments({ userId: req.user._id, type: 'wallet', status: 'captured' }),
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data: transactions,
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        });
     } catch (err) {
         next(err);
     }
@@ -468,7 +485,6 @@ async function getWalletTransactions(req, res, next) {
 
 async function getWalletBalance(req, res, next) {
     try {
-        const User = require('../models/User');
         const user = await User.findById(req.user._id).select('walletBalance');
         res.status(200).json({ success: true, data: { walletBalance: Math.round(user?.walletBalance ?? 0) } });
     } catch (err) {

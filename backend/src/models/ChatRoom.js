@@ -15,7 +15,7 @@ const chatRoomSchema = new mongoose.Schema(
             index: true,
         },
         isPaid: { type: Boolean, default: false },
-        chatPaymentId: { type: String, default: '' }, // Razorpay paymentId that unlocked this room
+        chatPaymentId: { type: String, default: '' }, // Cashfree cf_payment_id that unlocked this room
         unlockedAt: { type: Date },
 
         // Denormalised for inbox performance

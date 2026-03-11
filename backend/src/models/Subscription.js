@@ -23,9 +23,9 @@ const subscriptionSchema = new mongoose.Schema(
             type: Date,
             required: true
         },
-        stripeSubscriptionId: {
-            type: String
-        }
+        // Legacy Razorpay/Stripe fields kept as sparse index for old records
+        // (no longer created for new subscriptions)
+        cfOrderId: { type: String, default: null },
     },
     { timestamps: true }
 );

@@ -6,6 +6,9 @@ const app = require('./src/app.js');
 const jwt = require('jsonwebtoken');
 const ChatRoom = require('./src/models/ChatRoom.js');
 const ChatMessage = require('./src/models/ChatMessage.js');
+const CreatorProfile = require('./src/models/CreatorProfile.js');
+const User = require('./src/models/User.js');
+const Earnings = require('./src/models/Earnings.js');
 const { createNotification } = require('./src/services/notificationService.js');
 
 const PORT = process.env.PORT || 8080;
@@ -14,9 +17,22 @@ const PORT = process.env.PORT || 8080;
 const httpServer = http.createServer(app);
 
 // ── 2. Socket.io setup ────────────────────────────────────────────────────────
+// BUG-13 / SEC-2 FIX: Restrict Socket.IO CORS to same allowlist as Express
+const ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'https://fannex.vercel.app',
+    'https://fannex.in',
+    'https://www.fannex.in',
+    'https://fannex.onrender.com',
+];
+
 const io = new Server(httpServer, {
     cors: {
-        origin: (origin, cb) => cb(null, true),
+        origin: (origin, cb) => {
+            // Allow requests with no origin (e.g. server-to-server, mobile apps)
+            if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+            return cb(new Error(`Socket.IO CORS: origin '${origin}' not allowed`));
+        },
         credentials: true,
     },
 });
@@ -138,15 +154,8 @@ io.on('connection', (socket) => {
             });
 
             // Inform sender of deduction + updated balance
-            if (!isCreator && newWalletBalance !== null) {
-                const CreatorProfile = require('./src/models/CreatorProfile.js');
-                const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
-                socket.emit('wallet_deducted', {
-                    chatId,
-                    deducted: profile?.messagePrice ?? 0,
-                    newBalance: newWalletBalance,
-                });
-            }
+            // (BUG-6 FIX: wallet_deducted is now emitted inside the deduction block using the same
+            //  profile fetch — no duplicate query here)
 
             // Notify the other participant (fire-and-forget)
             const recipientId = isCreator ? room.userId : room.creatorId;

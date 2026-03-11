@@ -20,7 +20,7 @@ const chatMessageSchema = new mongoose.Schema(
         },
         content: { type: String, default: '' },   // text body or media URL
         giftAmount: { type: Number, default: 0 }, // only for type=gift
-        giftPaymentId: { type: String, default: '' }, // Razorpay paymentId for the gift
+        giftPaymentId: { type: String, default: '' }, // Cashfree cf_payment_id for the gift
 
         seen: { type: Boolean, default: false },
         seenAt: { type: Date },
