@@ -885,25 +885,25 @@ export default function Home() {
             <CategoryParallax />
 
             {/* ── FEATURE BENTO GRID ───────────────────────────────────────────── */}
-            <section className="py-24 relative overflow-hidden">
+            <section className="py-16 sm:py-24 relative overflow-hidden">
                 {/* Ambient background */}
                 <div className="absolute inset-0 pointer-events-none">
                     <div style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 110%, rgba(168,85,247,0.12) 0%, transparent 60%)', position: 'absolute', inset: 0 }} />
                     <div style={{ background: 'radial-gradient(ellipse 40% 40% at 20% 30%, rgba(236,72,153,0.06) 0%, transparent 70%)', position: 'absolute', inset: 0 }} />
                 </div>
 
-                <div className="max-w-6xl mx-auto px-6 relative z-10">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
                     {/* Heading */}
-                    <Reveal className="text-center mb-20">
-                        <p className="text-xs uppercase tracking-[0.3em] font-semibold mb-5" style={{ color: '#a855f7' }}>What we offer</p>
+                    <Reveal className="text-center mb-10 sm:mb-20">
+                        <p className="text-xs uppercase tracking-[0.3em] font-semibold mb-4" style={{ color: '#a855f7' }}>What we offer</p>
                         <h2 className="font-black text-white leading-tight"
-                            style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.5rem, 5vw, 4rem)' }}>
+                            style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2rem, 5vw, 4rem)' }}>
                             Everything you need<br />to{' '}
                             <em className="not-italic" style={{ background: 'linear-gradient(135deg, #e879f9, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                                 thrive
                             </em>
                         </h2>
-                        <p className="mt-6 text-white/40 text-base max-w-xl mx-auto leading-relaxed" style={{ fontWeight: 300 }}>
+                        <p className="mt-4 sm:mt-6 text-white/40 text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style={{ fontWeight: 300 }}>
                             Fanvew is built for creators who are serious about monetising their audience — with tools that actually work.
                         </p>
                     </Reveal>
@@ -928,21 +928,21 @@ export default function Home() {
                             <div className="absolute top-0 left-10 right-10 h-px opacity-50 group-hover:opacity-100 transition-opacity duration-500"
                                 style={{ background: `linear-gradient(90deg, transparent, ${f.color}80, transparent)` }} />
 
-                            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-8 p-10 md:p-12">
+                            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-8 p-6 sm:p-10 md:p-12">
                                 {/* Icon */}
-                                <div className="flex-shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-400"
+                                <div className="flex-shrink-0 w-14 h-14 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-400"
                                     style={{ background: `${f.color}18`, color: f.color, boxShadow: `0 0 40px ${f.color}20` }}>
                                     <f.Icon />
                                 </div>
                                 {/* Text */}
                                 <div className="flex-1">
-                                    <h3 className="text-white font-bold text-2xl md:text-3xl mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
+                                    <h3 className="text-white font-bold text-xl sm:text-2xl md:text-3xl mb-2 sm:mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
                                         {f.title}
                                     </h3>
-                                    <p className="text-white/50 text-base leading-relaxed max-w-xl">{f.desc}</p>
+                                    <p className="text-white/50 text-sm sm:text-base leading-relaxed max-w-xl">{f.desc}</p>
                                 </div>
-                                {/* Arrow */}
-                                <div className="hidden md:flex flex-shrink-0 w-12 h-12 rounded-full items-center justify-center border border-white/10 group-hover:border-purple-500/50 group-hover:bg-purple-500/10 transition-all duration-300 ml-auto">
+                                {/* Arrow — hidden on mobile, visible md+ */}
+                                <div className="hidden sm:flex flex-shrink-0 w-12 h-12 rounded-full items-center justify-center border border-white/10 group-hover:border-purple-500/50 group-hover:bg-purple-500/10 transition-all duration-300 ml-auto">
                                     <svg className="w-5 h-5 text-white/30 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                                     </svg>
@@ -952,12 +952,12 @@ export default function Home() {
                         ); })()}
                     </Reveal>
 
-                    {/* 3-column grid for remaining features */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* 2-col on mobile → 3-col on lg */}
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {FEATURES.slice(1).map((f, i) => (
                             <Reveal key={f.title} delay={0.1 + i * 0.07} className="h-full">
                                 <motion.div
-                                    className="h-full p-7 rounded-2xl border border-white/[0.06] cursor-pointer group relative overflow-hidden flex flex-col"
+                                    className="h-full p-4 sm:p-7 rounded-2xl border border-white/[0.06] cursor-pointer group relative overflow-hidden flex flex-col"
                                     style={{ background: 'rgba(255,255,255,0.025)', backdropFilter: 'blur(20px)' }}
                                     whileHover={{ y: -6, borderColor: `${f.color}40` }}
                                     transition={{ duration: 0.3 }}
@@ -971,14 +971,14 @@ export default function Home() {
 
                                     <div className="relative z-10 flex flex-col h-full">
                                         {/* Icon */}
-                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 border border-white/8 group-hover:scale-110 transition-transform duration-300 flex-shrink-0"
+                                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-3 sm:mb-5 border border-white/8 group-hover:scale-110 transition-transform duration-300 flex-shrink-0"
                                             style={{ background: `${f.color}14`, color: f.color }}>
                                             <f.Icon />
                                         </div>
                                         {/* Title */}
-                                        <h3 className="text-white font-bold text-[15px] mb-2 leading-snug">{f.title}</h3>
+                                        <h3 className="text-white font-bold text-[13px] sm:text-[15px] mb-1.5 sm:mb-2 leading-snug">{f.title}</h3>
                                         {/* Description */}
-                                        <p className="text-white/40 text-sm leading-relaxed flex-1">{f.desc}</p>
+                                        <p className="text-white/40 text-xs sm:text-sm leading-relaxed flex-1 hidden sm:block">{f.desc}</p>
                                         {/* Bottom accent line */}
                                         <div className="mt-6 h-px w-0 group-hover:w-full transition-all duration-500 opacity-30"
                                             style={{ background: `linear-gradient(90deg, ${f.color}, transparent)` }} />
