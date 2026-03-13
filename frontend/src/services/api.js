@@ -3,9 +3,8 @@ import axios from 'axios';
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/api/v1',
     withCredentials: true,
-    // 15s for normal requests — Render free tier wakes up in <15s after first request
-    // (was 60s which caused silent blank screen for a full minute)
-    timeout: 15000,
+    // 30s timeout — DigitalOcean Droplet is always-on (no cold starts)
+    timeout: 30000,
     headers: { 'Content-Type': 'application/json' },
 });
 

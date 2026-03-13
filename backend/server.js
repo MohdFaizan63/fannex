@@ -23,7 +23,6 @@ const ALLOWED_ORIGINS = [
     'https://fannex.vercel.app',
     'https://fannex.in',
     'https://www.fannex.in',
-    'https://fannex.onrender.com',
 ];
 
 const io = new Server(httpServer, {
