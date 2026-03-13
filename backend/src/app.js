@@ -44,6 +44,7 @@ app.use(cors({
     "https://fannex.vercel.app",
     "https://fannex.in",
     "https://www.fannex.in",
+    "https://api.fannex.in",
   ],
   credentials: true
 }));
