@@ -881,8 +881,368 @@ export default function Home() {
                 </div>
             </section>)}
 
-            {/* ── CATEGORY SECTION ─────────────────────────────────────────────── */}
-            <CategoryParallax />
+            {/* ── EARNINGS TRANSPARENCY SECTION ─────────────────────────────────── */}
+            <section className="py-20 sm:py-32 relative overflow-hidden" style={{ background: '#040110' }}>
+                {/* Background layers */}
+                <div className="absolute inset-0 pointer-events-none">
+                    <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'radial-gradient(ellipse 90% 60% at 50% 0%, rgba(124,58,237,0.14) 0%, transparent 65%)',
+                    }} />
+                    <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'radial-gradient(ellipse 50% 50% at 80% 80%, rgba(16,185,129,0.06) 0%, transparent 60%)',
+                    }} />
+                    {/* Dot grid */}
+                    <div className="absolute inset-0 opacity-[0.02]"
+                        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '36px 36px' }} />
+                </div>
+
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+
+                    {/* ── Section heading ── */}
+                    <Reveal className="text-center mb-14 sm:mb-20">
+                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6"
+                            style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#34d399' }}>
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Transparent Earnings
+                        </span>
+                        <h2 className="font-black text-white leading-tight"
+                            style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.2rem, 5vw, 4.5rem)' }}>
+                            You earn more.{' '}
+                            <em className="not-italic" style={{
+                                background: 'linear-gradient(135deg, #34d399 0%, #10b981 50%, #6ee7b7 100%)',
+                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                            }}>Period.</em>
+                        </h2>
+                        <p className="mt-5 text-white/40 text-base sm:text-lg max-w-xl mx-auto leading-relaxed" style={{ fontWeight: 300 }}>
+                            We keep it simple and honest — the lowest platform cut in the industry, paid out every single week.
+                        </p>
+                    </Reveal>
+
+                    {/* ── Main split card ── */}
+                    <Reveal delay={0.1}>
+                        <div className="relative rounded-3xl overflow-hidden mb-6"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(10,3,30,0.95) 0%, rgba(5,1,15,0.98) 100%)',
+                                border: '1px solid rgba(255,255,255,0.07)',
+                                backdropFilter: 'blur(24px)',
+                                boxShadow: '0 40px 120px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)',
+                            }}>
+
+                            {/* Top shimmer line */}
+                            <div className="absolute top-0 left-1/4 right-1/4 h-px"
+                                style={{ background: 'linear-gradient(90deg, transparent, rgba(52,211,153,0.6), transparent)' }} />
+
+                            {/* Mobile: stacked | Desktop: side-by-side */}
+                            <div className="flex flex-col lg:flex-row">
+
+                                {/* LEFT: 80% Creator slice */}
+                                <div className="relative flex-1 p-8 sm:p-10 lg:p-14 flex flex-col items-center lg:items-start text-center lg:text-left"
+                                    style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                    {/* Glow */}
+                                    <div className="absolute inset-0 pointer-events-none"
+                                        style={{ background: 'radial-gradient(circle at 30% 40%, rgba(16,185,129,0.08), transparent 60%)' }} />
+
+                                    {/* 80% badge */}
+                                    <motion.div
+                                        className="relative z-10 mb-5 sm:mb-6"
+                                        initial={{ scale: 0.8, opacity: 0 }}
+                                        whileInView={{ scale: 1, opacity: 1 }}
+                                        viewport={{ once: true }}
+                                        transition={{ duration: 0.7, ease: [0.25, 0.4, 0.25, 1] }}>
+                                        <span className="text-[5rem] sm:text-[7rem] lg:text-[8rem] font-black leading-none block"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #34d399 0%, #10b981 60%, #6ee7b7 100%)',
+                                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                                                fontFamily: "'Inter', sans-serif",
+                                                letterSpacing: '-0.04em',
+                                                filter: 'drop-shadow(0 0 40px rgba(16,185,129,0.35))',
+                                            }}>80%</span>
+                                    </motion.div>
+
+                                    <h3 className="relative z-10 text-white font-bold text-xl sm:text-2xl mb-3"
+                                        style={{ fontFamily: "'Playfair Display', serif" }}>
+                                        Goes to you, the creator
+                                    </h3>
+                                    <p className="relative z-10 text-white/45 text-sm sm:text-base leading-relaxed max-w-sm">
+                                        Every subscription, every gift, every paid message — you keep 80% of everything your fans spend on you.
+                                    </p>
+
+                                    {/* Revenue bar */}
+                                    <div className="relative z-10 mt-8 w-full max-w-sm">
+                                        <div className="flex justify-between text-xs text-white/30 mb-2 font-medium">
+                                            <span>Your share</span>
+                                            <span>100%</span>
+                                        </div>
+                                        <div className="h-3 rounded-full overflow-hidden"
+                                            style={{ background: 'rgba(255,255,255,0.06)' }}>
+                                            <motion.div className="h-full rounded-full"
+                                                style={{ background: 'linear-gradient(90deg, #10b981, #34d399, #6ee7b7)' }}
+                                                initial={{ width: 0 }}
+                                                whileInView={{ width: '80%' }}
+                                                viewport={{ once: true }}
+                                                transition={{ duration: 1.2, delay: 0.3, ease: [0.25, 0.4, 0.25, 1] }} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Divider label — shows on lg between the two halves */}
+                                <div className="hidden lg:flex flex-col items-center justify-center w-20 flex-shrink-0 relative">
+                                    <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-px"
+                                        style={{ background: 'rgba(255,255,255,0.05)' }} />
+                                    <div className="relative z-10 w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold text-white/30"
+                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                        vs
+                                    </div>
+                                </div>
+
+                                {/* RIGHT: 20% Platform slice */}
+                                <div className="relative flex-1 p-8 sm:p-10 lg:p-14 flex flex-col items-center lg:items-start text-center lg:text-left border-t border-white/5 lg:border-t-0">
+                                    {/* Glow */}
+                                    <div className="absolute inset-0 pointer-events-none"
+                                        style={{ background: 'radial-gradient(circle at 70% 40%, rgba(124,58,237,0.06), transparent 60%)' }} />
+
+                                    {/* 20% badge */}
+                                    <motion.div
+                                        className="relative z-10 mb-5 sm:mb-6"
+                                        initial={{ scale: 0.8, opacity: 0 }}
+                                        whileInView={{ scale: 1, opacity: 1 }}
+                                        viewport={{ once: true }}
+                                        transition={{ duration: 0.7, delay: 0.15, ease: [0.25, 0.4, 0.25, 1] }}>
+                                        <span className="text-[5rem] sm:text-[7rem] lg:text-[8rem] font-black leading-none block"
+                                            style={{
+                                                background: 'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.15) 100%)',
+                                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                                                fontFamily: "'Inter', sans-serif",
+                                                letterSpacing: '-0.04em',
+                                            }}>20%</span>
+                                    </motion.div>
+
+                                    <h3 className="relative z-10 text-white/60 font-bold text-xl sm:text-2xl mb-3"
+                                        style={{ fontFamily: "'Playfair Display', serif" }}>
+                                        Platform fee — that&apos;s it
+                                    </h3>
+                                    <p className="relative z-10 text-white/30 text-sm sm:text-base leading-relaxed max-w-sm">
+                                        One flat fee. No payment gateway surcharge, no withdrawal fees, no surprises. Ever.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </Reveal>
+
+                    {/* ── Bottom 3-card row ── */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+
+                        {/* Card 1: Weekly Payouts */}
+                        <Reveal>
+                            <motion.div
+                                className="relative p-6 sm:p-8 rounded-2xl overflow-hidden group cursor-default h-full flex flex-col"
+                                style={{
+                                    background: 'rgba(255,255,255,0.025)',
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    backdropFilter: 'blur(20px)',
+                                }}
+                                whileHover={{ y: -4, borderColor: 'rgba(52,211,153,0.35)' }}
+                                transition={{ duration: 0.3 }}>
+                                {/* Hover glow */}
+                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                                    style={{ background: 'radial-gradient(circle at 30% 0%, rgba(16,185,129,0.1), transparent 60%)' }} />
+                                {/* Top accent line */}
+                                <div className="absolute top-0 left-8 right-8 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                                    style={{ background: 'linear-gradient(90deg, transparent, rgba(52,211,153,0.7), transparent)' }} />
+
+                                <div className="relative z-10 flex flex-col h-full">
+                                    {/* Icon */}
+                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 flex-shrink-0"
+                                        style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)', color: '#34d399' }}>
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                            <line x1="16" y1="2" x2="16" y2="6" />
+                                            <line x1="8" y1="2" x2="8" y2="6" />
+                                            <line x1="3" y1="10" x2="21" y2="10" />
+                                        </svg>
+                                    </div>
+
+                                    {/* Weekly badge */}
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <h3 className="text-white font-bold text-lg">Weekly Payouts</h3>
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+                                            style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' }}>
+                                            Every 7 days
+                                        </span>
+                                    </div>
+                                    <p className="text-white/40 text-sm leading-relaxed flex-1">
+                                        Your earnings are processed and transferred to your bank account every week — no waiting, no delays.
+                                    </p>
+
+                                    {/* Calendar visual */}
+                                    <div className="mt-6 grid grid-cols-7 gap-1">
+                                        {['M','T','W','T','F','S','S'].map((d, i) => (
+                                            <div key={i} className="flex flex-col items-center gap-1">
+                                                <span className="text-[9px] text-white/20 font-medium">{d}</span>
+                                                <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold"
+                                                    style={{
+                                                        background: i === 4 ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.04)',
+                                                        color: i === 4 ? '#34d399' : 'rgba(255,255,255,0.2)',
+                                                        border: i === 4 ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(255,255,255,0.05)',
+                                                    }}>
+                                                    {i === 4 ? '₹' : ''}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </Reveal>
+
+                        {/* Card 2: No Hidden Fees */}
+                        <Reveal delay={0.1}>
+                            <motion.div
+                                className="relative p-6 sm:p-8 rounded-2xl overflow-hidden group cursor-default h-full flex flex-col"
+                                style={{
+                                    background: 'rgba(255,255,255,0.025)',
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    backdropFilter: 'blur(20px)',
+                                }}
+                                whileHover={{ y: -4, borderColor: 'rgba(168,85,247,0.35)' }}
+                                transition={{ duration: 0.3 }}>
+                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                                    style={{ background: 'radial-gradient(circle at 30% 0%, rgba(168,85,247,0.1), transparent 60%)' }} />
+                                <div className="absolute top-0 left-8 right-8 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                                    style={{ background: 'linear-gradient(90deg, transparent, rgba(168,85,247,0.7), transparent)' }} />
+
+                                <div className="relative z-10 flex flex-col h-full">
+                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 flex-shrink-0"
+                                        style={{ background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.2)', color: '#a855f7' }}>
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                            <polyline points="9 12 11 14 15 10" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-white font-bold text-lg mb-3">Zero Hidden Fees</h3>
+                                    <p className="text-white/40 text-sm leading-relaxed flex-1">
+                                        No setup fees. No withdrawal charges. No monthly minimums. The 20% is all we ever take — nothing else.
+                                    </p>
+
+                                    {/* Fee breakdown */}
+                                    <div className="mt-6 space-y-2">
+                                        {[
+                                            { label: 'Platform fee', val: '20%', positive: false },
+                                            { label: 'Withdrawal fee', val: 'Free', positive: true },
+                                            { label: 'Setup fee', val: '₹0', positive: true },
+                                            { label: 'Monthly minimum', val: 'None', positive: true },
+                                        ].map(({ label, val, positive }) => (
+                                            <div key={label} className="flex items-center justify-between text-xs">
+                                                <span className="text-white/40">{label}</span>
+                                                <span className="font-semibold" style={{ color: positive ? '#34d399' : 'rgba(255,255,255,0.5)' }}>{val}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </Reveal>
+
+                        {/* Card 3: Earnings Calculator */}
+                        <Reveal delay={0.15}>
+                            <motion.div
+                                className="relative p-6 sm:p-8 rounded-2xl overflow-hidden group cursor-default h-full flex flex-col"
+                                style={{
+                                    background: 'rgba(255,255,255,0.025)',
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    backdropFilter: 'blur(20px)',
+                                }}
+                                whileHover={{ y: -4, borderColor: 'rgba(251,191,36,0.35)' }}
+                                transition={{ duration: 0.3 }}>
+                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                                    style={{ background: 'radial-gradient(circle at 30% 0%, rgba(251,191,36,0.08), transparent 60%)' }} />
+                                <div className="absolute top-0 left-8 right-8 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                                    style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
+
+                                <div className="relative z-10 flex flex-col h-full">
+                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 flex-shrink-0"
+                                        style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="12" y1="1" x2="12" y2="23" />
+                                            <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-white font-bold text-lg mb-3">See Your Earnings</h3>
+                                    <p className="text-white/40 text-sm leading-relaxed mb-6">
+                                        With just 100 subscribers at ₹199/mo, here&apos;s what you&apos;d make:
+                                    </p>
+
+                                    {/* Earnings example */}
+                                    <div className="space-y-3 flex-1">
+                                        {[
+                                            { fans: '100 fans', gross: '₹19,900/mo', net: '₹15,920', color: '#fbbf24' },
+                                            { fans: '500 fans', gross: '₹99,500/mo', net: '₹79,600', color: '#f59e0b' },
+                                            { fans: '1,000 fans', gross: '₹1,99,000/mo', net: '₹1,59,200', color: '#d97706' },
+                                        ].map(({ fans, gross, net, color }) => (
+                                            <div key={fans} className="p-3 rounded-xl flex items-center justify-between"
+                                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <div>
+                                                    <p className="text-white/60 text-xs">{fans} @ ₹199</p>
+                                                    <p className="text-white/30 text-[10px]">Gross: {gross}</p>
+                                                </div>
+                                                <span className="font-bold text-sm" style={{ color }}>{net}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-white/20 text-[10px] mt-3 text-center">After 20% platform fee</p>
+                                </div>
+                            </motion.div>
+                        </Reveal>
+                    </div>
+
+                    {/* ── Competitor comparison bar ── */}
+                    <Reveal delay={0.2}>
+                        <div className="relative rounded-2xl overflow-hidden p-6 sm:p-8 mt-4"
+                            style={{
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.06)',
+                                backdropFilter: 'blur(20px)',
+                            }}>
+                            <p className="text-center text-white/30 text-xs uppercase tracking-widest font-semibold mb-8">How we compare</p>
+                            <div className="space-y-5 max-w-2xl mx-auto">
+                                {[
+                                    { name: 'Fanvew', cut: 20, color: '#10b981', highlight: true },
+                                    { name: 'OnlyFans', cut: 20, color: 'rgba(255,255,255,0.2)', highlight: false },
+                                    { name: 'Patreon', cut: 33, color: 'rgba(255,255,255,0.12)', highlight: false },
+                                    { name: 'Substack', cut: 10, color: 'rgba(255,255,255,0.12)', highlight: false, note: '(+ payment fees)' },
+                                ].map(({ name, cut, color, highlight, note }) => (
+                                    <div key={name} className="flex items-center gap-4">
+                                        <div className="w-24 sm:w-28 flex-shrink-0">
+                                            <span className="text-sm font-semibold" style={{ color: highlight ? '#34d399' : 'rgba(255,255,255,0.4)' }}>
+                                                {name}
+                                                {highlight && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full uppercase tracking-wide"
+                                                    style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>us</span>}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 h-2.5 rounded-full overflow-hidden"
+                                            style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                            <motion.div className="h-full rounded-full"
+                                                style={{ background: color }}
+                                                initial={{ width: 0 }}
+                                                whileInView={{ width: `${cut * 2.5}%` }}
+                                                viewport={{ once: true }}
+                                                transition={{ duration: 1, delay: 0.2, ease: [0.25, 0.4, 0.25, 1] }} />
+                                        </div>
+                                        <div className="w-20 text-right flex-shrink-0">
+                                            <span className="text-sm font-bold" style={{ color: highlight ? '#34d399' : 'rgba(255,255,255,0.35)' }}>
+                                                {cut}% {note || ''}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-center text-white/18 text-xs mt-8">Platform fees shown. Lower is better for creators.</p>
+                        </div>
+                    </Reveal>
+                </div>
+            </section>
 
             {/* ── FEATURE BENTO GRID ───────────────────────────────────────────── */}
             <section className="py-16 sm:py-24 relative overflow-hidden">
@@ -1020,8 +1380,7 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ── EARNINGS TRANSPARENCY SECTION ─────────────────────────────────── */}
-            <section className="py-20 sm:py-32 relative overflow-hidden" style={{ background: '#040110' }}>
+
                 {/* Background layers */}
                 <div className="absolute inset-0 pointer-events-none">
                     <div style={{
@@ -1447,123 +1806,3 @@ export default function Home() {
     );
 }
 
-// ─── Category parallax section ────────────────────────────────────────────────
-function CategoryParallax() {
-    const NICHE_COLORS = [
-        { gradient: 'linear-gradient(135deg, #a855f7, #ec4899)', glow: 'rgba(168,85,247,0.25)' },
-        { gradient: 'linear-gradient(135deg, #f97316, #ef4444)', glow: 'rgba(249,115,22,0.25)' },
-        { gradient: 'linear-gradient(135deg, #38bdf8, #818cf8)', glow: 'rgba(56,189,248,0.25)' },
-        { gradient: 'linear-gradient(135deg, #fbbf24, #f59e0b)', glow: 'rgba(251,191,36,0.25)' },
-        { gradient: 'linear-gradient(135deg, #10b981, #34d399)', glow: 'rgba(16,185,129,0.25)' },
-    ];
-
-    return (
-        <section className="relative py-12 sm:py-24 overflow-hidden" style={{ background: '#050208' }}>
-            {/* Dot grid background */}
-            <div className="absolute inset-0 opacity-[0.025]"
-                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} />
-            {/* Ambient glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full pointer-events-none"
-                style={{ background: 'radial-gradient(circle, rgba(147,51,234,0.06), transparent 70%)' }} />
-
-            <div className="max-w-5xl mx-auto px-4 sm:px-6">
-                <div className="text-center mb-8 sm:mb-16">
-                    <p className="text-brand-400 text-xs uppercase tracking-[0.3em] font-semibold mb-4">Every niche, every passion</p>
-                    <h2 className="font-black text-white"
-                        style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2rem, 5vw, 4.5rem)' }}>
-                        Built for every{' '}
-                        <em className="not-italic" style={{ background: 'linear-gradient(135deg, #e879f9, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                            niche.
-                        </em>
-                    </h2>
-                </div>
-
-                <div className="space-y-0">
-                    {CATEGORIES.map((cat, i) => (
-                        <motion.div
-                            key={cat.name}
-                            className="group cursor-pointer relative py-5 sm:py-8 md:py-10 border-b border-white/[0.06] flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-0"
-                            whileHover={{ x: 4 }}
-                            transition={{ duration: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
-                        >
-                            {/* Background glow — always slightly visible on mobile */}
-                            <div className="absolute inset-0 pointer-events-none transition-opacity duration-700"
-                                style={{
-                                    background: `radial-gradient(ellipse 80% 100% at 50% 50%, ${NICHE_COLORS[i].glow}, transparent 80%)`,
-                                    opacity: 0.35,
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                                onMouseLeave={e => e.currentTarget.style.opacity = 0.35}
-                            />
-
-                            {/* Number — desktop only */}
-                            <span className="absolute left-0 text-xs font-mono tracking-widest text-white/15 group-hover:text-white/40 transition-colors duration-500 hidden md:block"
-                                style={{ top: '50%', transform: 'translateY(-50%)' }}>
-                                0{i + 1}
-                            </span>
-
-                            {/* Category name — always gradient on mobile */}
-                            <h3
-                                className="font-black text-center select-none relative leading-none"
-                                style={{
-                                    fontFamily: "'Playfair Display', serif",
-                                    fontSize: 'clamp(2.4rem, 9vw, 7rem)',
-                                    letterSpacing: '-0.02em',
-                                    background: NICHE_COLORS[i].gradient,
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    filter: 'brightness(0.55)',
-                                    transition: 'filter 0.4s ease',
-                                }}
-                                onMouseEnter={e => { e.target.style.filter = 'brightness(1)'; }}
-                                onMouseLeave={e => { e.target.style.filter = 'brightness(0.55)'; }}
-                            >
-                                {cat.name}
-                            </h3>
-
-                            {/* Explore pill — visible on mobile, enhanced on desktop hover */}
-                            <span
-                                className="sm:hidden inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-                                style={{
-                                    background: `${NICHE_COLORS[i].glow.replace('0.25', '0.15')}`,
-                                    border: `1px solid ${NICHE_COLORS[i].glow.replace('0.25', '0.4')}`,
-                                    color: 'rgba(255,255,255,0.55)',
-                                }}
-                            >
-                                Explore
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                </svg>
-                            </span>
-
-                            {/* Coloured underline — always subtle, full on hover */}
-                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[1px] transition-all duration-700 ease-out"
-                                style={{
-                                    width: '30%',
-                                    background: NICHE_COLORS[i].gradient,
-                                    opacity: 0.25,
-                                }}
-                            />
-
-                            {/* Desktop arrow on hover */}
-                            <motion.div
-                                className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-500 hidden md:flex items-center gap-2"
-                                initial={{ x: -10 }}
-                                whileHover={{ x: 0 }}
-                            >
-                                <span className="text-xs font-medium uppercase tracking-widest"
-                                    style={{ background: NICHE_COLORS[i].gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                                    Explore
-                                </span>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                    style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                </svg>
-                            </motion.div>
-                        </motion.div>
-                    ))}
-                </div>
-            </div>
-        </section>
-    );
-}
