@@ -208,7 +208,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
-    padding: 6px 0 8px;
+    padding: 4px 0 6px;
     will-change: scroll-position;
     -webkit-overflow-scrolling: touch;
     /* Do NOT use scroll-behavior:smooth here — causes jumpiness on mobile */
@@ -438,7 +438,7 @@
 .chat-image-bubble {
     border-radius: 16px;
     overflow: hidden;
-    max-width: min(240px, 72vw);
+    max-width: min(260px, 80vw);
     min-width: 140px;
     min-height: 100px;
     box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
