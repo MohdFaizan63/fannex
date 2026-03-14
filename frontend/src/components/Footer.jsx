@@ -87,7 +87,7 @@ export default function Footer() {
                             </span>
                         </Link>
                         <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)', fontWeight: 300 }}>
-                            The creator subscription platform. Subscribe to your favourite creators, unlock exclusive content, and help them earn what they deserve.
+                            Turn your passion into income. Start your journey today — it's free.
                         </p>
 
                         {/* Socials */}

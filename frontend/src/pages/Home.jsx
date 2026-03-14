@@ -445,12 +445,7 @@ export default function Home() {
                             transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
                     </div>
                     <div className="relative z-10 text-center max-w-4xl px-6">
-                        <motion.div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full mb-10 border border-pink-500/20 text-xs font-medium tracking-widest uppercase"
-                            style={{ background: 'rgba(236,72,153,0.08)', backdropFilter: 'blur(20px)', color: '#f9a8d4' }}
-                            initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse" />
-                            Turn your passion into income
-                        </motion.div>
+
                         <motion.h1 className="font-black tracking-tight leading-[0.92] mb-8 text-white"
                             style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(3rem, 7vw, 6rem)' }}
                             initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
