@@ -438,14 +438,53 @@
 .chat-image-bubble {
     border-radius: 16px;
     overflow: hidden;
-    max-width: 240px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    max-width: min(240px, 72vw);
+    min-width: 140px;
+    min-height: 100px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+    background: rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+}
+
+.chat-image-bubble:active {
+    transform: scale(0.97);
 }
 
 .chat-image-bubble img {
     width: 100%;
     display: block;
     object-fit: cover;
+    min-height: 100px;
+    animation: imgFadeIn 0.3s ease;
+}
+
+@keyframes imgFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Uploading shimmer overlay on optimistic image */
+.chat-image-bubble--uploading {
+    position: relative;
+}
+
+.chat-image-bubble--uploading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: inherit;
+    animation: uploadPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes uploadPulse {
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 0.7; }
 }
 
 /* ── Typing Indicator ──────────────────────────────────────────────────────── */

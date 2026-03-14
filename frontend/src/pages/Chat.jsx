@@ -141,12 +141,22 @@ export default function Chat() {
         socket.on('new_message', (msg) => {
             setMessages(prev => {
                 const msgId = msg._id?.toString();
-                // Skip if already in list (text message dedup)
+                // 1. Skip exact _id duplicate (text dedup)
                 if (msgId && prev.some(m => m._id?.toString() === msgId)) return prev;
-                // Skip if this is an image we just uploaded (prevents duplicate from socket broadcast)
+                // 2. Skip if we registered this ID from upload response
                 if (msgId && uploadedImageIdsRef.current.has(msgId)) {
-                    uploadedImageIdsRef.current.delete(msgId); // clean up
+                    uploadedImageIdsRef.current.delete(msgId);
                     return prev;
+                }
+                // 3. Image race-condition fix: if an optimistic image bubble exists,
+                //    replace it in-place so we never get two image bubbles.
+                if (msg.type === 'image') {
+                    const optIdx = prev.findIndex(m => String(m._id).startsWith('opt-img-') && m.type === 'image');
+                    if (optIdx !== -1) {
+                        const updated = [...prev];
+                        updated[optIdx] = { ...msg };
+                        return updated;
+                    }
                 }
                 return [...prev, msg];
             });

@@ -200,8 +200,8 @@ const MessageBubble = memo(function MessageBubble({ msg, isMine, otherName, show
         );
     }
 
-    // Image message
     if (msg.type === 'image') {
+        const isUploading = String(msg._id).startsWith('opt-img-');
         return (
             <div className={`chat-msg-row ${isMine ? 'chat-msg-row--sent' : ''} ${!isFirst ? '' : 'chat-msg-row--gap'}`}>
                 <div className="chat-msg-avatar-slot">
@@ -211,7 +211,7 @@ const MessageBubble = memo(function MessageBubble({ msg, isMine, otherName, show
                         </div>
                     )}
                 </div>
-                <div className="chat-image-bubble">
+                <div className={`chat-image-bubble${isUploading ? ' chat-image-bubble--uploading' : ''}`}>
                     <img src={msg.content} alt="shared" loading="lazy" />
                 </div>
             </div>
