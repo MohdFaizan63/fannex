@@ -104,18 +104,17 @@ export default function Navbar() {
             <header
                 style={{
                     transform: headerVis ? 'translateY(0)' : 'translateY(-100%)',
-                    transition: 'transform 0.3s cubic-bezier(0.25, 0.4, 0.25, 1)',
+                    transition: 'transform 0.3s cubic-bezier(0.25,0.4,0.25,1), background 0.3s ease, backdrop-filter 0.3s ease, box-shadow 0.3s ease',
                     willChange: 'transform',
-                    ...(isAuthenticated ? {
-                        background: scrolled ? 'rgba(5, 2, 12, 0.75)' : 'transparent',
-                        backdropFilter: scrolled ? 'blur(20px)' : 'none',
-                        WebkitBackdropFilter: scrolled ? 'blur(20px)' : 'none',
-                    } : {})
+                    background: isAuthenticated
+                        ? (scrolled ? 'rgba(5, 2, 12, 0.8)' : 'transparent')
+                        : (scrolled ? 'rgba(5, 2, 12, 0.8)' : 'transparent'),
+                    backdropFilter: scrolled ? 'blur(20px)' : 'none',
+                    WebkitBackdropFilter: scrolled ? 'blur(20px)' : 'none',
+                    borderBottom: scrolled ? '1px solid rgba(255,255,255,0.05)' : '1px solid transparent',
+                    boxShadow: scrolled ? '0 4px 20px rgba(0,0,0,0.3)' : 'none',
                 }}
-                className={`fixed top-0 inset-x-0 z-50 ${isAuthenticated
-                    ? scrolled ? 'border-b border-white/5 shadow-lg' : ''
-                    : scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'
-                    }`}
+                className="fixed top-0 inset-x-0 z-50"
             >
                 <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
                     <div className="flex items-center h-16 gap-4">

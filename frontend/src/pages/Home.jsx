@@ -431,7 +431,7 @@ export default function Home() {
     if (isAuthenticated && userType === 'normal') {
         return (
             <div className="bg-[#030208] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
-                <section className="relative flex flex-col items-center justify-center overflow-hidden" style={{ minHeight: '100dvh', paddingTop: '80px', paddingBottom: '48px' }}>
+                <section className="relative flex flex-col items-center justify-center overflow-hidden" style={{ minHeight: 'calc(100dvh - 64px)', paddingTop: '16px', paddingBottom: '32px' }}>
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute inset-0"
                             style={{ background: 'radial-gradient(ellipse 120% 80% at 50% -10%, #4a0520 0%, #0f021a 50%, transparent 75%)' }} />
