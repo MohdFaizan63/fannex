@@ -28,15 +28,13 @@ export default function Navbar() {
             const current = window.scrollY;
             setScrolled(current > 50);
 
-            // Auto-hide only for guests (authenticated nav stays fixed/stable)
-            if (!isAuthenticated) {
-                if (current < 60 || mobileOpen) {
-                    setHeaderVis(true);
-                } else if (current > lastScrollY.current + 12) {
-                    setHeaderVis(false);
-                } else if (current < lastScrollY.current - 12) {
-                    setHeaderVis(true);
-                }
+            // Auto-hide on scroll down, reveal on scroll up — for all users
+            if (current < 60 || mobileOpen) {
+                setHeaderVis(true);
+            } else if (current > lastScrollY.current + 12) {
+                setHeaderVis(false);
+            } else if (current < lastScrollY.current - 12) {
+                setHeaderVis(true);
             }
             lastScrollY.current = current;
         };
