@@ -297,7 +297,7 @@ export default function Home() {
     if (isAuthenticated && userType === 'fan') {
         return (
             <div className="bg-[#030208] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
-                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-14 sm:pt-16">
+                <section className="relative flex flex-col items-center justify-center overflow-hidden" style={{ minHeight: 'calc(100dvh - 64px)', paddingTop: '16px', paddingBottom: '32px' }}>
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute inset-0"
                             style={{ background: 'radial-gradient(ellipse 120% 80% at 50% -10%, #1e0552 0%, #0a001a 50%, transparent 75%)' }} />
@@ -364,7 +364,7 @@ export default function Home() {
     if (isAuthenticated && userType === 'creator') {
         return (
             <div className="bg-[#030208] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
-                <section className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-14 sm:pt-16">
+                <section className="relative flex flex-col items-center justify-center overflow-hidden" style={{ minHeight: 'calc(100dvh - 64px)', paddingTop: '16px', paddingBottom: '32px' }}>
                     <div className="absolute inset-0 pointer-events-none">
                         <div className="absolute inset-0"
                             style={{ background: 'radial-gradient(ellipse 120% 80% at 50% -10%, #052e1c 0%, #030f08 50%, transparent 75%)' }} />
