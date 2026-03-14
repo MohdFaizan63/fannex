@@ -1,5 +1,5 @@
 import { lazy, Suspense, Component } from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, ScrollRestoration } from 'react-router-dom';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import MainLayout from '../layouts/MainLayout';
 import AuthLayout from '../layouts/AuthLayout';

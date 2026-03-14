@@ -83,7 +83,7 @@ export default function Footer() {
                                     WebkitTextFillColor: 'transparent',
                                 }}
                             >
-                                Fanvew
+                                Fannex
                             </span>
                         </Link>
                         <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.38)', fontWeight: 300 }}>
@@ -185,7 +185,7 @@ export default function Footer() {
                     style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
                 >
                     <p className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                        © {new Date().getFullYear()} Fanvew. All rights reserved.
+                        © {new Date().getFullYear()} Fannex. All rights reserved.
                     </p>
                     <div className="flex items-center gap-5">
                         <Link to="/privacy" className="text-xs transition-colors duration-200" style={{ color: 'rgba(255,255,255,0.2)' }}

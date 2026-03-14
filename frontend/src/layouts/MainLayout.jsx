@@ -1,7 +1,8 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, ScrollRestoration } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
+
 
 /**
  * MainLayout — wraps all public and authenticated pages.
@@ -18,6 +19,7 @@ export default function MainLayout() {
 
     return (
         <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--color-surface-900)' }}>
+            <ScrollRestoration />
             {!isCreatorProfile && <Navbar />}
             <main className={`flex-1 ${isCreatorProfile ? '' : 'pt-16'}`}>
                 <Outlet />
