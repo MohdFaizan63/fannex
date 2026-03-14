@@ -1380,6 +1380,8 @@ export default function Home() {
                 </div>
             </section>
 
+            {/* ── YOU EARN MORE. PERIOD. ────────────────────────────────────── */}
+            <section className="py-16 sm:py-24 relative overflow-hidden">
 
                 {/* Background layers */}
                 <div className="absolute inset-0 pointer-events-none">
