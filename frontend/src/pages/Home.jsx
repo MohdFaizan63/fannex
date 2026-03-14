@@ -794,7 +794,7 @@ export default function Home() {
             </section>)}
 
             {/* ── SPOTLIGHT GALLERY (Images 2) ──────────────────────────────────── */}
-            {SHOW_IMAGE_GALLERIES && (<section className="py-20 relative overflow-hidden" style={{ background: '#050210' }}>
+            {false && (<section className="py-20 relative overflow-hidden" style={{ background: '#050210' }}>
                 {/* Section heading */}
                 <Reveal className="text-center mb-16 px-6">
                     <p className="text-brand-400 text-xs uppercase tracking-widest font-semibold mb-4">Our creators</p>
@@ -1085,11 +1085,11 @@ export default function Home() {
                                                 <span className="text-[9px] text-white/20 font-medium">{d}</span>
                                                 <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold"
                                                     style={{
-                                                        background: i === 4 ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.04)',
-                                                        color: i === 4 ? '#34d399' : 'rgba(255,255,255,0.2)',
-                                                        border: i === 4 ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(255,255,255,0.05)',
+                                                        background: i === 6 ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.04)',
+                                                        color: i === 6 ? '#34d399' : 'rgba(255,255,255,0.2)',
+                                                        border: i === 6 ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(255,255,255,0.05)',
                                                     }}>
-                                                    {i === 4 ? '₹' : ''}
+                                                    {i === 6 ? '₹' : ''}
                                                 </div>
                                             </div>
                                         ))}
@@ -1208,10 +1208,10 @@ export default function Home() {
                             <p className="text-center text-white/30 text-xs uppercase tracking-widest font-semibold mb-8">How we compare</p>
                             <div className="space-y-5 max-w-2xl mx-auto">
                                 {[
-                                    { name: 'Fanvew', cut: 20, color: '#10b981', highlight: true },
+                                    { name: 'Fannex', cut: 20, color: '#10b981', highlight: true },
                                     { name: 'OnlyFans', cut: 20, color: 'rgba(255,255,255,0.2)', highlight: false },
                                     { name: 'Patreon', cut: 33, color: 'rgba(255,255,255,0.12)', highlight: false },
-                                    { name: 'Substack', cut: 10, color: 'rgba(255,255,255,0.12)', highlight: false, note: '(+ payment fees)' },
+
                                 ].map(({ name, cut, color, highlight, note }) => (
                                     <div key={name} className="flex items-center gap-4">
                                         <div className="w-24 sm:w-28 flex-shrink-0">
