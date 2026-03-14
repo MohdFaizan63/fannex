@@ -20,9 +20,32 @@ export default function Navbar() {
     const dropdownRef = useRef(null);
     const mobileRef = useRef(null);
 
-    // ── Track scroll for glass effect ────────────────────────────────────────
+    const NAV_H = 64; // px — matches h-16
+    const offsetRef = useRef(0);    // accumulated hide offset
+    const lastYRef  = useRef(0);    // previous scrollY
+    const headerRef = useRef(null); // direct DOM ref for perf
+
+    // ── Scroll-linked navbar — moves with scroll, no CSS transition delay ──────
     useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 50);
+        const onScroll = () => {
+            const y    = window.scrollY;
+            const diff = y - lastYRef.current;   // +ve = scrolled down, -ve = up
+            lastYRef.current = y;
+
+            setScrolled(y > 50);
+
+            // Accumulate offset clamped to [0, NAV_H]
+            offsetRef.current = Math.min(NAV_H, Math.max(0, offsetRef.current + diff));
+
+            // At very top, always fully show
+            if (y <= 0) offsetRef.current = 0;
+
+            // Apply directly to DOM — no React re-render, zero latency
+            if (headerRef.current) {
+                headerRef.current.style.transform = `translateY(-${offsetRef.current}px)`;
+            }
+        };
+
         window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
@@ -85,6 +108,7 @@ export default function Navbar() {
         <>
             {/* ── Header ───────────────────────────────────────────────────────── */}
             <header
+                ref={headerRef}
                 className={`fixed top-0 inset-x-0 z-50 nav-bar${scrolled ? ' nav-bar--scrolled' : ''}`}
             >
                 <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
