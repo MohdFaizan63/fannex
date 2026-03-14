@@ -107,13 +107,13 @@ export default function Navbar() {
                     transition: 'transform 0.3s cubic-bezier(0.25, 0.4, 0.25, 1)',
                     willChange: 'transform',
                     ...(isAuthenticated ? {
-                        background: 'rgba(10, 10, 18, 0.95)',
-                        backdropFilter: 'blur(20px)',
-                        WebkitBackdropFilter: 'blur(20px)',
+                        background: scrolled ? 'rgba(5, 2, 12, 0.75)' : 'transparent',
+                        backdropFilter: scrolled ? 'blur(20px)' : 'none',
+                        WebkitBackdropFilter: scrolled ? 'blur(20px)' : 'none',
                     } : {})
                 }}
                 className={`fixed top-0 inset-x-0 z-50 ${isAuthenticated
-                    ? 'border-b border-white/5 shadow-lg'
+                    ? scrolled ? 'border-b border-white/5 shadow-lg' : ''
                     : scrolled ? 'glass border-b border-white/5 shadow-lg' : 'bg-transparent'
                     }`}
             >
