@@ -74,6 +74,8 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
             className="chat-messages"
             onScroll={handleScroll}
         >
+            {/* Spacer — pushes messages to bottom when few messages */}
+            <div style={{ flexGrow: 1 }} />
             {messages.map((msg, i) => {
                 // Robust sender ID — handles ObjectId, populated object, or plain string
                 const getSenderId = (m) => {
