@@ -9,7 +9,6 @@ export default function Navbar() {
     const navigate = useNavigate();
 
     const [scrolled, setScrolled] = useState(false);
-    const [headerVis, setHeaderVis] = useState(true); // auto-hide
     const [mobileOpen, setMobileOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -20,27 +19,13 @@ export default function Navbar() {
     const searchContainerRef = useRef(null);
     const dropdownRef = useRef(null);
     const mobileRef = useRef(null);
-    const lastScrollY = useRef(0);
 
-    // ── Auto-hide header on scroll direction ─────────────────────────────────
+    // ── Track scroll for glass effect ────────────────────────────────────────
     useEffect(() => {
-        const onScroll = () => {
-            const current = window.scrollY;
-            setScrolled(current > 50);
-
-            // Auto-hide on scroll down, reveal on scroll up — for all users
-            if (current < 60 || mobileOpen) {
-                setHeaderVis(true);
-            } else if (current > lastScrollY.current + 12) {
-                setHeaderVis(false);
-            } else if (current < lastScrollY.current - 12) {
-                setHeaderVis(true);
-            }
-            lastScrollY.current = current;
-        };
+        const onScroll = () => setScrolled(window.scrollY > 50);
         window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
-    }, [mobileOpen, isAuthenticated]);
+    }, []);
 
     // ── Close desktop dropdown on outside click ───────────────────────────────
     useEffect(() => {
@@ -101,11 +86,6 @@ export default function Navbar() {
             {/* ── Header ───────────────────────────────────────────────────────── */}
             <header
                 className={`fixed top-0 inset-x-0 z-50 nav-bar${scrolled ? ' nav-bar--scrolled' : ''}`}
-                style={{
-                    transform: headerVis ? 'translateY(0)' : 'translateY(-100%)',
-                    transition: 'transform 0.3s cubic-bezier(0.25,0.4,0.25,1)',
-                    willChange: 'transform',
-                }}
             >
                 <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
                     <div className="flex items-center h-16 gap-4">
