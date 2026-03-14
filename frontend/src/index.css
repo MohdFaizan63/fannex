@@ -82,6 +82,29 @@ body {
   will-change: transform;
 }
 
+/* ── Navbar transparent → glass transition ────────────────────────────────── */
+.nav-bar {
+  background-color: transparent !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid transparent;
+  box-shadow: none;
+  transition:
+    background-color 0.35s ease,
+    backdrop-filter 0.35s ease,
+    -webkit-backdrop-filter 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.nav-bar--scrolled {
+  background-color: rgba(3, 2, 8, 0.85) !important;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
 /* ── Utility: gradient text ───────────────────────────────────────────────── */
 .gradient-text {
   background: linear-gradient(135deg, #cc52b8 0%, #7c3aed 100%);
