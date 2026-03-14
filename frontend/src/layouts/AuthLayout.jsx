@@ -1,4 +1,4 @@
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, ScrollRestoration } from 'react-router-dom';
 
 /**
  * AuthLayout — minimal centered card for login/register/forgot-password pages.
@@ -10,6 +10,7 @@ export default function AuthLayout() {
             className="min-h-screen flex flex-col items-center justify-center px-4 py-12"
             style={{ backgroundColor: 'var(--color-surface-900)' }}
         >
+            <ScrollRestoration />
             {/* Decorative background orbs */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-20"

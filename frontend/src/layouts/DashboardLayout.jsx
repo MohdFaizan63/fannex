@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate, ScrollRestoration } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 // ── Sidebar navigation items by role ──────────────────────────────────────────
@@ -36,7 +36,7 @@ export default function DashboardLayout() {
 
     return (
         <div className="min-h-screen flex" style={{ backgroundColor: 'var(--color-surface-900)' }}>
-
+            <ScrollRestoration />
             {/* ── Mobile overlay ──────────────────────────────────────────────────── */}
             {open && (
                 <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setOpen(false)} />
