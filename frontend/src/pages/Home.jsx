@@ -456,10 +456,14 @@ export default function Home() {
                                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                             }}>become icons</em>
                         </motion.h1>
-                        <motion.p className="text-lg text-white/40 mb-12 max-w-lg mx-auto leading-relaxed" style={{ fontWeight: 300 }}
+                        <motion.div className="flex justify-center mb-12"
                             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.3 }}>
-                            Join 50,000+ creators building a sustainable income from their content. Start your journey today — it&apos;s free.
-                        </motion.p>
+                            <span className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-pink-500/20 text-xs font-medium tracking-widest uppercase"
+                                style={{ background: 'rgba(236,72,153,0.08)', backdropFilter: 'blur(20px)', color: '#f9a8d4' }}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse" />
+                                Turn your passion into income
+                            </span>
+                        </motion.div>
                         <motion.div className="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap"
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.45 }}>
                             {/* Explore Creators — always shown */}
