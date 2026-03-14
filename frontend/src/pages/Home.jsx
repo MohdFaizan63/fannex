@@ -643,8 +643,8 @@ export default function Home() {
                 </motion.div>
             </section>
 
-            {/* ── STATS ────────────────────────────────────────────────────────── */}
-            <section className="py-14 border-y border-white/5 relative overflow-hidden">
+            {/* ── STATS (hidden) ───────────────────────────────────────────── */}
+            {false && (<section className="py-14 border-y border-white/5 relative overflow-hidden">
                 <div className="absolute inset-0"
                     style={{ background: 'radial-gradient(ellipse 60% 100% at 50% 50%, rgba(147,51,234,0.07) 0%, transparent 70%)' }} />
                 <div className="max-w-5xl mx-auto px-6">
@@ -665,12 +665,30 @@ export default function Home() {
                         ))}
                     </div>
                 </div>
-            </section>
+            </section>)}
 
             {/* ── CREATOR TICKER + IMAGE SHOWCASE ────────────────────────────── */}
             {SHOW_IMAGE_GALLERIES && (<section className="py-12 overflow-hidden">
                 <Reveal className="text-center mb-10 px-6">
-                    <p className="text-white/25 text-xs uppercase tracking-[0.3em]">Chosen by creators redefining what&apos;s possible</p>
+                    <div className="inline-flex flex-col items-center gap-3">
+                        {/* Top rule */}
+                        <div className="flex items-center gap-4 w-full">
+                            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(168,85,247,0.4))' }} />
+                            <span className="text-[10px] font-bold uppercase tracking-[0.4em] px-4 py-1.5 rounded-full"
+                                style={{
+                                    color: 'rgba(255,255,255,0.35)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    letterSpacing: '0.35em',
+                                }}>
+                                Featured Creators
+                            </span>
+                            <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(168,85,247,0.4), transparent)' }} />
+                        </div>
+                        <p className="text-white/20 text-[11px] uppercase tracking-[0.25em] font-medium">
+                            Handpicked. Verified. Extraordinary.
+                        </p>
+                    </div>
                 </Reveal>
 
 
