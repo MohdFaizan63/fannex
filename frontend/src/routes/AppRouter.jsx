@@ -84,56 +84,75 @@ const wrap = (Component) => (
     </Suspense>
 );
 
+// ── Lazy with auto-retry on chunk failure ────────────────────────────────────
+// After a new Vercel deployment, old cached HTML references chunk hashes that
+// no longer exist. This wrapper catches the import error, forces ONE hard
+// reload to pick up the new HTML, and prevents infinite loops via sessionStorage.
+function lazyRetry(importFn) {
+    return lazy(() =>
+        importFn().catch(() => {
+            const key = 'fannex_chunk_reload';
+            if (!sessionStorage.getItem(key)) {
+                sessionStorage.setItem(key, '1');
+                window.location.reload();
+                return { default: () => null }; // placeholder while reloading
+            }
+            sessionStorage.removeItem(key);
+            return importFn(); // second attempt after reload — if still fails, error boundary catches it
+        })
+    );
+}
+
 // ── Public ────────────────────────────────────────────────────────────────────
-const Home = lazy(() => import('../pages/Home'));
-const Explore = lazy(() => import('../pages/Explore'));
-const CreatorProfile = lazy(() => import('../pages/CreatorProfile'));
-const NotFound = lazy(() => import('../pages/NotFound'));
-const Unauthorized = lazy(() => import('../pages/Unauthorized'));
-const UserProfile = lazy(() => import('../pages/UserProfile'));
+const Home = lazyRetry(() => import('../pages/Home'));
+const Explore = lazyRetry(() => import('../pages/Explore'));
+const CreatorProfile = lazyRetry(() => import('../pages/CreatorProfile'));
+const NotFound = lazyRetry(() => import('../pages/NotFound'));
+const Unauthorized = lazyRetry(() => import('../pages/Unauthorized'));
+const UserProfile = lazyRetry(() => import('../pages/UserProfile'));
 
 // ── Legal & Company ─────────────────────────────────────────────────────
-const Privacy = lazy(() => import('../pages/legal/Privacy'));
-const Terms = lazy(() => import('../pages/legal/Terms'));
-const CookiePolicy = lazy(() => import('../pages/legal/CookiePolicy'));
-const Contact = lazy(() => import('../pages/company/Contact'));
-const HelpCenter = lazy(() => import('../pages/company/HelpCenter'));
-const About = lazy(() => import('../pages/company/About'));
-const Pricing = lazy(() => import('../pages/company/Pricing'));
+const Privacy = lazyRetry(() => import('../pages/legal/Privacy'));
+const Terms = lazyRetry(() => import('../pages/legal/Terms'));
+const CookiePolicy = lazyRetry(() => import('../pages/legal/CookiePolicy'));
+const Contact = lazyRetry(() => import('../pages/company/Contact'));
+const HelpCenter = lazyRetry(() => import('../pages/company/HelpCenter'));
+const About = lazyRetry(() => import('../pages/company/About'));
+const Pricing = lazyRetry(() => import('../pages/company/Pricing'));
 
 // ── Subscription ─────────────────────────────────────────────────────────────
-const SubscriptionSuccess = lazy(() => import('../pages/subscription/SubscriptionSuccess'));
-const SubscriptionCancel = lazy(() => import('../pages/subscription/SubscriptionCancel'));
-const SubscribePage = lazy(() => import('../pages/subscription/SubscribePage'));
-const Subscriptions = lazy(() => import('../pages/Subscriptions'));
+const SubscriptionSuccess = lazyRetry(() => import('../pages/subscription/SubscriptionSuccess'));
+const SubscriptionCancel = lazyRetry(() => import('../pages/subscription/SubscriptionCancel'));
+const SubscribePage = lazyRetry(() => import('../pages/subscription/SubscribePage'));
+const Subscriptions = lazyRetry(() => import('../pages/Subscriptions'));
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
-const Login = lazy(() => import('../pages/auth/Login'));
-const Register = lazy(() => import('../pages/auth/Register'));
-const ForgotPassword = lazy(() => import('../pages/auth/ForgotPassword'));
-const ResetPassword = lazy(() => import('../pages/auth/ResetPassword'));
-const VerifyEmail = lazy(() => import('../pages/auth/VerifyEmail'));
+const Login = lazyRetry(() => import('../pages/auth/Login'));
+const Register = lazyRetry(() => import('../pages/auth/Register'));
+const ForgotPassword = lazyRetry(() => import('../pages/auth/ForgotPassword'));
+const ResetPassword = lazyRetry(() => import('../pages/auth/ResetPassword'));
+const VerifyEmail = lazyRetry(() => import('../pages/auth/VerifyEmail'));
 
 // ── Creator ───────────────────────────────────────────────────────────────────
-const Dashboard = lazy(() => import('../pages/creator/Dashboard'));
-const UploadPost = lazy(() => import('../pages/creator/UploadPost'));
-const Verification = lazy(() => import('../pages/creator/Verification'));
-const Earnings = lazy(() => import('../pages/creator/Earnings'));
-const PayoutSettings = lazy(() => import('../pages/creator/PayoutSettings'));
-const VerificationStatus = lazy(() => import('../pages/VerificationStatus'));
-const Chat = lazy(() => import('../pages/Chat'));
-const Wallet = lazy(() => import('../pages/Wallet'));
-const CreatorChatDashboard = lazy(() => import('../pages/creator/CreatorChatDashboard'));
-const ProfileInsights = lazy(() => import('../pages/creator/ProfileInsights'));
-const Subscribers = lazy(() => import('../pages/creator/Subscribers'));
-const AllPosts = lazy(() => import('../pages/creator/AllPosts'));
+const Dashboard = lazyRetry(() => import('../pages/creator/Dashboard'));
+const UploadPost = lazyRetry(() => import('../pages/creator/UploadPost'));
+const Verification = lazyRetry(() => import('../pages/creator/Verification'));
+const Earnings = lazyRetry(() => import('../pages/creator/Earnings'));
+const PayoutSettings = lazyRetry(() => import('../pages/creator/PayoutSettings'));
+const VerificationStatus = lazyRetry(() => import('../pages/VerificationStatus'));
+const Chat = lazyRetry(() => import('../pages/Chat'));
+const Wallet = lazyRetry(() => import('../pages/Wallet'));
+const CreatorChatDashboard = lazyRetry(() => import('../pages/creator/CreatorChatDashboard'));
+const ProfileInsights = lazyRetry(() => import('../pages/creator/ProfileInsights'));
+const Subscribers = lazyRetry(() => import('../pages/creator/Subscribers'));
+const AllPosts = lazyRetry(() => import('../pages/creator/AllPosts'));
 
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
-const AdminUsers = lazy(() => import('../pages/admin/AdminUsers'));
-const AdminPayouts = lazy(() => import('../pages/admin/AdminPayouts'));
-const AdminVerifications = lazy(() => import('../pages/admin/AdminVerifications'));
+const AdminDashboard = lazyRetry(() => import('../pages/admin/AdminDashboard'));
+const AdminUsers = lazyRetry(() => import('../pages/admin/AdminUsers'));
+const AdminPayouts = lazyRetry(() => import('../pages/admin/AdminPayouts'));
+const AdminVerifications = lazyRetry(() => import('../pages/admin/AdminVerifications'));
 const AdminGate = lazy(() => import('../pages/admin/AdminGate'));
 
 // ── Route tree ────────────────────────────────────────────────────────────────
