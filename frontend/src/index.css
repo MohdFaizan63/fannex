@@ -49,7 +49,7 @@ html {
 
 body {
   margin: 0;
-  background-color: var(--color-surface-900);
+  background-color: #030208;
   color: #e8e8f0;
   font-family: var(--font-sans);
   min-height: 100vh;

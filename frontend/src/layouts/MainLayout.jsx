@@ -18,7 +18,7 @@ export default function MainLayout() {
     const isCreatorProfile = /^\/creator\/[^/]+$/.test(pathname);
 
     return (
-        <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--color-surface-900)' }}>
+        <div className="flex flex-col min-h-screen" style={{ backgroundColor: '#030208' }}>
             <ScrollRestoration />
             {!isCreatorProfile && <Navbar />}
             <main className={`flex-1 ${isCreatorProfile ? '' : 'pt-16'}`}>

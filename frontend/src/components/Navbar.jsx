@@ -26,7 +26,7 @@ export default function Navbar() {
     useEffect(() => {
         const onScroll = () => {
             const current = window.scrollY;
-            setScrolled(current > 20);
+            setScrolled(current > 50);
 
             // Auto-hide only for guests (authenticated nav stays fixed/stable)
             if (!isAuthenticated) {
