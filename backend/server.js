@@ -23,7 +23,9 @@ const ChatMessage = require('./src/models/ChatMessage.js');
 const CreatorProfile = require('./src/models/CreatorProfile.js');
 const User = require('./src/models/User.js');
 const Earnings = require('./src/models/Earnings.js');
+const Payment = require('./src/models/Payment.js');
 const { createNotification } = require('./src/services/notificationService.js');
+
 
 const PORT = process.env.PORT || 8080;
 
@@ -105,7 +107,6 @@ io.on('connection', (socket) => {
             // ── Wallet deduction for fan messages ─────────────────────────────
             let newWalletBalance = null;
             if (!isCreator) {
-                // Use top-level imports (no require inside event handler)
                 const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
                 const msgCost = profile?.messagePrice ?? 0;
 
@@ -131,15 +132,40 @@ io.on('connection', (socket) => {
 
                     newWalletBalance = updatedFan.walletBalance;
 
+                    // ✅ FIX 1: Emit wallet_deducted so the chat header refreshes instantly
+                    socket.emit('wallet_deducted', {
+                        deducted: msgCost,
+                        newBalance: newWalletBalance,
+                    });
+
                     // Credit creator earnings
                     await Earnings.findOneAndUpdate(
                         { creatorId: room.creatorId },
                         { $inc: { totalEarned: msgCost, pendingAmount: msgCost } },
                         { upsert: true }
                     );
+
+                    // ✅ FIX 2: Create a Payment doc per message so it shows in Earning History
+                    // Use fire-and-forget so it doesn't block the message delivery path
+                    const base = Math.round(msgCost / 1.18 * 100) / 100;
+                    const creatorEarning = msgCost; // wallet deductions pass through fully — no extra GST
+                    Payment.create({
+                        userId: room.userId,
+                        creatorId: room.creatorId,
+                        chatId: room._id,
+                        amount: msgCost,
+                        baseAmount: base,
+                        gstAmount: 0,
+                        platformFee: 0,
+                        creatorEarning,
+                        type: 'chat_unlock',         // reuse chat_unlock so it appears in Chat tab
+                        status: 'captured',
+                        cfOrderId: `msg_${String(socket.userId).slice(-6)}_${Date.now()}`,
+                        sideEffectsDone: true,
+                    }).catch((err) => console.warn('[payment/msg] create failed:', err.message));
                 }
             }
-            // ──────────────────────────────────────────────────────────────────
+            // ─────────────────────────────────────────────────────────────────
 
             const message = await ChatMessage.create({
                 chatId,
@@ -162,10 +188,6 @@ io.on('connection', (socket) => {
                 chatId,
             });
 
-            // Inform sender of deduction + updated balance
-            // (BUG-6 FIX: wallet_deducted is now emitted inside the deduction block using the same
-            //  profile fetch — no duplicate query here)
-
             // Notify the other participant (fire-and-forget)
             const recipientId = isCreator ? room.userId : room.creatorId;
             createNotification({
@@ -181,6 +203,8 @@ io.on('connection', (socket) => {
             console.error('send_message error:', err.message);
         }
     });
+
+
 
     // ── Typing indicator ──────────────────────────────────────────────────────
     socket.on('typing', ({ chatId, isTyping }) => {

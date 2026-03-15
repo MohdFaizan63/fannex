@@ -294,9 +294,14 @@ export default function Chat() {
             );
             if (json.success) {
                 const realId = json.data._id?.toString();
-                // Register the real ID so the socket new_message event doesn't duplicate it
                 if (realId) uploadedImageIdsRef.current.add(realId);
                 setMessages(prev => prev.map(m => m._id === optimisticId ? { ...json.data } : m));
+                // Refresh wallet balance — image messages also deduct messagePrice
+                if (!isCreator) {
+                    api.get('/payment/wallet-balance')
+                        .then(r => setWalletBalance(r.data.data.walletBalance ?? r.data.data))
+                        .catch(() => {});
+                }
             } else {
                 setMessages(prev => prev.filter(m => m._id !== optimisticId));
             }
@@ -523,7 +528,13 @@ export default function Chat() {
                 <WalletRechargeModal
                     currentBalance={walletBalance ?? 0}
                     onClose={() => setShowWallet(false)}
-                    onRecharged={(newBal) => setWalletBalance(newBal)}
+                    onRecharged={(newBal) => {
+                        setWalletBalance(newBal);
+                        // Also do a server-side confirmation to get the canonical balance
+                        api.get('/payment/wallet-balance')
+                            .then(r => setWalletBalance(r.data.data.walletBalance ?? r.data.data))
+                            .catch(() => {});
+                    }}
                     sourceChatId={chatId}
                 />
             )}
