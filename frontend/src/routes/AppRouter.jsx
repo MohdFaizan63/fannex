@@ -125,6 +125,7 @@ const SubscriptionSuccess = lazyRetry(() => import('../pages/subscription/Subscr
 const SubscriptionCancel = lazyRetry(() => import('../pages/subscription/SubscriptionCancel'));
 const SubscribePage = lazyRetry(() => import('../pages/subscription/SubscribePage'));
 const Subscriptions = lazyRetry(() => import('../pages/Subscriptions'));
+const PaymentFailed = lazyRetry(() => import('../pages/subscription/PaymentFailed'));
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 const Login = lazyRetry(() => import('../pages/auth/Login'));
@@ -177,9 +178,10 @@ const router = createBrowserRouter([
             { path: '/about', element: wrap(About) },
             { path: '/pricing', element: wrap(Pricing) },
 
-            // Subscription result pages (public, after Stripe redirect)
+            // Subscription / payment result pages (public — Cashfree redirects here)
             { path: '/subscription-success', element: wrap(SubscriptionSuccess) },
             { path: '/subscription-cancel', element: wrap(SubscriptionCancel) },
+            { path: '/payment-failed', element: wrap(PaymentFailed) },
 
             // Any logged-in user
             {

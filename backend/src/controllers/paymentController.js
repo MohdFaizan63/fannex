@@ -534,6 +534,63 @@ async function getWalletBalance(req, res, next) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /payment/status/:orderId
+// Returns payment status + smart redirect destination for the frontend.
+// Used when user refreshes /subscription-success, or to confirm payment state.
+// ─────────────────────────────────────────────────────────────────────────────
+async function getPaymentStatus(req, res, next) {
+    try {
+        const { orderId } = req.params;
+        if (!orderId) return res.status(400).json({ success: false, message: 'orderId is required' });
+
+        // 1. Check our DB first (fastest, authoritative after verify has run)
+        const payment = await PaymentModel.findOne({ cfOrderId: orderId })
+            .select('status type userId creatorId chatId amount')
+            .populate('creatorId', 'username')
+            .lean();
+
+        if (payment) {
+            // Only return data for the requesting user's own payments
+            if (payment.userId.toString() !== req.user._id.toString()) {
+                return res.status(403).json({ success: false, message: 'Forbidden' });
+            }
+
+            const redirectTo = buildRedirect(payment);
+            return res.json({ success: true, status: payment.status, type: payment.type, redirectTo });
+        }
+
+        // 2. Payment not found in DB yet — check Cashfree directly
+        const cfOrder = await paymentService.getOrderStatus(orderId);
+        const cfStatus = cfOrder.order_status; // PAID | ACTIVE | EXPIRED | CANCELLED
+
+        if (cfStatus === 'PAID') {
+            // Not verified yet — tell frontend to call /verify which will persist it
+            return res.json({ success: true, status: 'pending_verify', type: 'unknown', redirectTo: null });
+        }
+
+        // Expired or cancelled
+        return res.json({ success: true, status: 'failed', type: 'unknown', redirectTo: '/payment-failed' });
+
+    } catch (err) {
+        next(err);
+    }
+}
+
+/** Build the correct redirect URL from a stored Payment document */
+function buildRedirect(payment) {
+    const type = payment.type;
+    if (type === 'subscription') {
+        const username = payment.creatorId?.username;
+        return username ? `/creator/${username}` : '/';
+    }
+    if (type === 'wallet') return '/wallet';
+    if (type === 'gift' || type === 'chat_unlock') {
+        return payment.chatId ? `/chat/${payment.chatId}` : '/';
+    }
+    return '/';
+}
+
 module.exports = {
     createOrder,
     verifyPayment,
@@ -546,4 +603,5 @@ module.exports = {
     verifyWalletRecharge,
     getWalletBalance,
     getWalletTransactions,
+    getPaymentStatus,
 };

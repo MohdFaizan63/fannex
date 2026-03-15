@@ -134,7 +134,8 @@ export default function SubscriptionSuccess() {
                 }
 
             } catch (err) {
-                setError(err?.response?.data?.message || 'Verification failed. Please contact support@fannex.in');
+                // Redirect to the dedicated failure page — better UX than an error on the success page
+                navigate('/payment-failed', { replace: true });
             } finally {
                 setVerifying(false);
                 refreshUser().catch(() => { });

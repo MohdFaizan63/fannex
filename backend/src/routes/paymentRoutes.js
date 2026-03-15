@@ -12,6 +12,7 @@ const {
     verifyWalletRecharge,
     getWalletBalance,
     getWalletTransactions,
+    getPaymentStatus,
 } = require('../controllers/paymentController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -33,6 +34,9 @@ router.post('/wallet-order', protect, createWalletOrder);
 router.post('/wallet-verify', protect, verifyWalletRecharge);
 router.get('/wallet-balance', protect, getWalletBalance);
 router.get('/wallet-transactions', protect, getWalletTransactions);
+
+// Payment status (refresh resilience + redirect destination)
+router.get('/status/:orderId', protect, getPaymentStatus);
 
 module.exports = router;
 

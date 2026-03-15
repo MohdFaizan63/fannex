@@ -86,6 +86,7 @@ const createOrder = async ({
         },
         order_meta: {
             return_url: returnUrl || `${clientUrl}/subscription-success?order_id={order_id}`,
+            cancel_url: `${clientUrl}/payment-failed`,
             ...(apiUrl ? { notify_url: `${apiUrl}/api/v1/payment/webhook` } : {}),
         },
         order_tags: meta,
