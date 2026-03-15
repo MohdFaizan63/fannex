@@ -242,29 +242,51 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
     const base = metaBase ? Number(metaBase) : Math.round(grossAmount / 1.18 * 100) / 100;
     const gst = calcGST(base);
 
-    // 1. Upsert Payment record with full GST breakdown
-    await Payment.findOneAndUpdate(
-        { cfOrderId: orderId },
-        {
-            $set: {
-                userId,
-                creatorId,
-                amount: grossAmount,          // total fan paid
-                baseAmount:     gst.baseAmount,
-                gstAmount:      gst.gstAmount,
-                platformFee:    gst.platformFee,
-                creatorEarning: gst.creatorEarning,
-                currency: 'INR',
-                type,
-                status: 'captured',
-                cfOrderId: orderId,
-                cfPaymentId,
-            },
-        },
-        { upsert: true }
-    );
 
     if (type === 'subscription') {
+        // ── Only run side-effects if this is the FIRST time we see this orderId ──
+        // Both the webhook (PAYMENT_SUCCESS_WEBHOOK) AND the frontend /verify endpoint
+        // call handlePaymentCaptured. Without this guard, subscriber count and earnings
+        // would be incremented twice (or more) per payment.
+        //
+        // Strategy: use findOneAndUpdate with rawResult:true and check
+        // lastErrorObject.updatedExisting — false means it was a new upsert (first call),
+        // true means the document already existed (duplicate call → skip side-effects).
+
+        const paymentResult = await Payment.findOneAndUpdate(
+            { cfOrderId: orderId },
+            {
+                $setOnInsert: {        // only written on INSERT, not on UPDATE
+                    userId,
+                    creatorId,
+                    amount: grossAmount,
+                    baseAmount:     gst.baseAmount,
+                    gstAmount:      gst.gstAmount,
+                    platformFee:    gst.platformFee,
+                    creatorEarning: gst.creatorEarning,
+                    currency: 'INR',
+                    type,
+                    status: 'captured',
+                    cfOrderId: orderId,
+                    cfPaymentId,
+                },
+                $set: { status: 'captured' }, // always mark captured (safe on update too)
+            },
+            { upsert: true, rawResult: true }  // rawResult gives us lastErrorObject
+        );
+
+        // updatedExisting === false   → new document was created (first call)
+        // updatedExisting === true    → document already existed (duplicate call)
+        const isFirstCall = !paymentResult.lastErrorObject?.updatedExisting;
+
+        if (!isFirstCall) {
+            // Already processed — skip all DB side-effects to prevent double-counts
+            console.log(`[handlePaymentCaptured] Skipping duplicate side-effects for orderId=${orderId}`);
+            return;
+        }
+
+        // ──── First call only — run all side-effects exactly once ────────────
+
         // 2. Activate subscription (1 month)
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 1);
@@ -275,7 +297,7 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true, returnDocument: 'after' }
         );
 
-        // 3. Increment creator subscriber count
+        // 3. Increment creator subscriber count by exactly +1
         await CreatorProfile.findOneAndUpdate(
             { userId: creatorId },
             { $inc: { totalSubscribers: 1 } }
@@ -289,11 +311,36 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true }
         );
 
-        // 5. Credit creator earnings — 80% of BASE only (no GST)
+        // 5. Credit creator earnings — 80% of BASE only (no GST), runs exactly once
         await creditEarningsOnPayment(creatorId, gst.baseAmount, null);
 
-    } else if (type === 'gift') {
-        // Gift: creator earns 80% of base (GST excluded)
+    } else {
+        // ── Non-subscription types: upsert payment record first ──────────────
+        //    (subscription type already did its upsert above with rawResult)
+        await Payment.findOneAndUpdate(
+            { cfOrderId: orderId },
+            {
+                $set: {
+                    userId,
+                    creatorId,
+                    amount: grossAmount,
+                    baseAmount:     gst.baseAmount,
+                    gstAmount:      gst.gstAmount,
+                    platformFee:    gst.platformFee,
+                    creatorEarning: gst.creatorEarning,
+                    currency: 'INR',
+                    type,
+                    status: 'captured',
+                    cfOrderId: orderId,
+                    cfPaymentId,
+                },
+            },
+            { upsert: true }
+        );
+    }
+
+    if (type === 'gift') {
+        // Gift: idempotent $inc guarded by the Payment idempotency flag
         const Earnings = require('../models/Earnings');
         await Earnings.findOneAndUpdate(
             { creatorId },
