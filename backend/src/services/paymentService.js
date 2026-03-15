@@ -204,12 +204,12 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
     // ── Wallet top-ups: NO GST, no creator involved ──────────────────────────
     if (type === 'wallet') {
         const User = require('../models/User');
-
-        // Atomic: only update if not yet captured (prevents double wallet credit)
-        const result = await Payment.findOneAndUpdate(
-            { cfOrderId: orderId, status: { $ne: 'captured' } },
+        // STEP 1: Ensure Payment doc exists (idempotent upsert, no rawResult)
+        // If doc already exists, $setOnInsert is a no-op. sideEffectsDone is NOT changed here.
+        await Payment.findOneAndUpdate(
+            { cfOrderId: orderId },
             {
-                $set: {
+                $setOnInsert: {
                     userId,
                     amount: grossAmount,
                     baseAmount: grossAmount,
@@ -218,44 +218,35 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
                     creatorEarning: 0,
                     currency: 'INR',
                     type: 'wallet',
-                    status: 'captured',
+                    status: 'created',
                     cfOrderId: orderId,
-                    cfPaymentId: cfPaymentId || null,
+                    sideEffectsDone: false,
                 },
             },
-            { new: false }  // returns the BEFORE doc; null = doc didn't exist or was already captured
+            { upsert: true }
         );
 
-        if (result) {
-            // result is the old doc — it was NOT captured before → first time → credit wallet
-            await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
-            console.log(`[handlePaymentCaptured] Wallet credited userId=${userId} amount=${grossAmount}`);
-        } else {
-            // Either already captured, or doc doesn't exist yet → try insert
-            const existing = await Payment.findOne({ cfOrderId: orderId });
-            if (!existing) {
-                const inserted = await Payment.create({
-                    userId,
-                    amount: grossAmount,
-                    baseAmount: grossAmount,
-                    gstAmount: 0,
-                    platformFee: 0,
-                    creatorEarning: 0,
-                    currency: 'INR',
-                    type: 'wallet',
+        // STEP 2: Atomically claim the "credit" slot — only ONE caller wins this.
+        // The winner gets back the old doc (sideEffectsDone: false).
+        // Loser (or retrier) finds sideEffectsDone: true → skip.
+        const claimed = await Payment.findOneAndUpdate(
+            { cfOrderId: orderId, sideEffectsDone: false },
+            {
+                $set: {
                     status: 'captured',
-                    cfOrderId: orderId,
                     cfPaymentId: cfPaymentId || null,
                     sideEffectsDone: true,
-                }).catch(() => null);
+                },
+            },
+            { new: false }
+        );
 
-                if (inserted) {
-                    await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
-                    console.log(`[handlePaymentCaptured] Wallet created+credited userId=${userId} amount=${grossAmount}`);
-                }
-            } else {
-                console.log(`[handlePaymentCaptured] Wallet duplicate skipped orderId=${orderId}`);
-            }
+        if (claimed) {
+            // We are the first and only caller — credit the wallet once
+            await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
+            console.log(`[handlePaymentCaptured] ✅ Wallet credited userId=${userId} amount=₹${grossAmount}`);
+        } else {
+            console.log(`[handlePaymentCaptured] ℹ️ Wallet already credited, skipping orderId=${orderId}`);
         }
         return;
     }

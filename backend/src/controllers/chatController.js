@@ -167,15 +167,13 @@ const verifyChatUnlock = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Payment not completed' });
         }
 
-        // Extract creatorId from order_tags (stored when order was created)
+        // Extract creatorId from order_tags
         const tags = orderData.order_tags || {};
         const creatorId = req.body.creatorId || tags.creatorId;
-
         if (!creatorId) {
             return res.status(400).json({ success: false, message: 'Could not determine creator from order' });
         }
 
-        // Fetch payment ID
         let cfPaymentId = null;
         try {
             const payments = await paymentService.getOrderPayments(orderId);
@@ -184,38 +182,67 @@ const verifyChatUnlock = async (req, res, next) => {
             console.warn('[verifyChatUnlock] Could not fetch payment details:', e.message);
         }
 
-        // Update payment record
-        const payment = await Payment.findOneAndUpdate(
+        // ── BULLETPROOF IDEMPOTENCY: claim side effects exactly once ────────────
+        // Step 1: ensure doc exists with sideEffectsDone: false
+        await Payment.findOneAndUpdate(
             { cfOrderId: orderId },
-            { cfPaymentId, status: 'captured' },
-            { returnDocument: 'after' }
+            { $setOnInsert: { sideEffectsDone: false, status: 'created' } },
+            { upsert: true }
         );
 
-        // Create or unlock chat room
+        // Step 2: atomically claim the lock
+        const claimed = await Payment.findOneAndUpdate(
+            { cfOrderId: orderId, sideEffectsDone: false },
+            { $set: { status: 'captured', cfPaymentId: cfPaymentId || null, sideEffectsDone: true } },
+            { new: false }
+        );
+
+        // Create or unlock chat room (always idempotent — upsert)
         const room = await ChatRoom.findOneAndUpdate(
             { creatorId, userId },
             { isPaid: true, chatPaymentId: cfPaymentId, unlockedAt: new Date() },
             { upsert: true, returnDocument: 'after' }
         );
 
-        if (payment) { payment.chatId = room._id; await payment.save({ validateBeforeSave: false }); }
-
-        // Credit creator earnings
-        await Earnings.findOneAndUpdate(
-            { creatorId },
-            { $inc: { totalEarned: payment?.amount || 0, pendingAmount: payment?.amount || 0 } },
-            { upsert: true }
+        // Link chatId back to Payment doc
+        await Payment.findOneAndUpdate(
+            { cfOrderId: orderId },
+            { $set: { chatId: room._id } },
+            { upsert: false }
         );
+
+        if (claimed) {
+            // Only the FIRST caller credits earnings — 80/20 GST split
+            const grossAmount = Number(claimed.amount || orderData.order_amount || 0);
+            const base = Math.round(grossAmount / 1.18 * 100) / 100;
+            const creatorEarning = Math.round(base * 0.8 * 100) / 100;
+            const platformFee = Math.round(base * 0.2 * 100) / 100;
+            const gstAmount = Math.round((grossAmount - base) * 100) / 100;
+
+            // Write correct amounts back to Payment doc
+            await Payment.findOneAndUpdate(
+                { cfOrderId: orderId },
+                { $set: { baseAmount: base, gstAmount, platformFee, creatorEarning } },
+                { upsert: false }
+            );
+
+            await Earnings.findOneAndUpdate(
+                { creatorId },
+                { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
+                { upsert: true }
+            );
+            console.log(`[verifyChatUnlock] ✅ Earnings credited creatorId=${creatorId} amount=₹${creatorEarning}`);
+        } else {
+            console.log(`[verifyChatUnlock] ℹ️ Already processed, skipping orderId=${orderId}`);
+        }
 
         res.json({ success: true, chatId: room._id });
     } catch (err) {
         console.error('[verifyChatUnlock] Error:', err.message);
-        if (err.response?.data) {
-            console.error('[verifyChatUnlock] API response:', JSON.stringify(err.response.data, null, 2));
-        }
         next(err);
     }
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHAT ROOMS & MESSAGES
@@ -466,37 +493,73 @@ const verifyGift = async (req, res, next) => {
             cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
         } catch { /* cfPaymentId is optional */ }
 
-        // ── Idempotency: always check if the ChatMessage already exists first ────
-        // (webhook may have already created it via handlePaymentCaptured)
+        // ── Idempotency: check if ChatMessage already exists ─────────────────────
         const existingMsg = await ChatMessage.findOne({ chatId, content: { $regex: orderId } })
-            || await ChatMessage.findOne({ chatId, type: 'gift', giftPaymentId: cfPaymentId })
-            || (cfPaymentId
-                ? null
-                : await ChatMessage.findOne({ chatId, type: 'gift', giftAmount: amount, senderId: userId })
-            );
+            || (cfPaymentId ? await ChatMessage.findOne({ chatId, type: 'gift', giftPaymentId: cfPaymentId }) : null)
+            || await ChatMessage.findOne({ chatId, type: 'gift', giftAmount: amount, senderId: userId });
 
         if (existingMsg) {
             return res.json({ success: true, data: existingMsg });
         }
 
-        // ── Ensure payment record is captured ────────────────────────────────────
-        await Payment.findOneAndUpdate(
-            { cfOrderId: orderId },
-            { $set: { cfPaymentId: cfPaymentId || undefined, status: 'captured' } },
-            { upsert: false }
+        // ── BULLETPROOF IDEMPOTENCY: claim earnings exactly once ─────────────────
+        // Step 1: mark payment captured with correct amounts
+        const base = Math.round(amount / 1.18 * 100) / 100;
+        const creatorEarning = Math.round(base * 0.8 * 100) / 100;
+        const platformFee    = Math.round(base * 0.2 * 100) / 100;
+        const gstAmount      = Math.round((amount - base) * 100) / 100;
+
+        // Step 2: atomically claim — only first caller sets sideEffectsDone false→true
+        const claimed = await Payment.findOneAndUpdate(
+            { cfOrderId: orderId, sideEffectsDone: false },
+            {
+                $set: {
+                    status: 'captured',
+                    cfPaymentId: cfPaymentId || null,
+                    sideEffectsDone: true,
+                    giftAmount: amount,
+                    baseAmount: base,
+                    gstAmount,
+                    platformFee,
+                    creatorEarning,         // ← THIS is what shows in Earning History
+                    _earningsCredited: true,
+                },
+            },
+            { new: false }  // no returnDocument — safe in Mongoose 9
         );
 
-        const room = await ChatRoom.findById(chatId);
-        if (!room) {
-            return res.status(404).json({ success: false, message: 'Chat room not found' });
+        // If doc doesn't exist yet, create it captured+done (idempotent insert)
+        if (!claimed) {
+            await Payment.findOneAndUpdate(
+                { cfOrderId: orderId },
+                {
+                    $setOnInsert: {
+                        userId,
+                        amount,
+                        giftAmount: amount,
+                        type: 'gift',
+                        chatId,
+                        cfOrderId: orderId,
+                        status: 'captured',
+                        cfPaymentId: cfPaymentId || null,
+                        baseAmount: base, gstAmount, platformFee, creatorEarning,
+                        sideEffectsDone: true,
+                        _earningsCredited: true,
+                    },
+                },
+                { upsert: true }
+            );
         }
+
+        const room = await ChatRoom.findById(chatId);
+        if (!room) return res.status(404).json({ success: false, message: 'Chat room not found' });
 
         // Save gift message
         const message = await ChatMessage.create({
             chatId,
             senderId: userId,
             type: 'gift',
-            content: `Sent a gift of ₹${amount} [${orderId}]`,  // embed orderId for idempotency lookup
+            content: `Sent a gift of ₹${amount} [${orderId}]`,
             giftAmount: amount,
             giftPaymentId: cfPaymentId,
         });
@@ -508,27 +571,21 @@ const verifyGift = async (req, res, next) => {
             $inc: { unreadByCreator: 1 },
         });
 
-        // BUG-5 FIX: Atomically credit creator earnings — only credit if payment wasn't already
-        // captured before this call. Use findOneAndUpdate with a status guard to prevent double-credit.
-        const earnResult = await Payment.findOneAndUpdate(
-            { cfOrderId: orderId, status: 'captured', _earningsCredited: { $ne: true } },
-            { $set: { _earningsCredited: true } },
-            { returnDocument: 'before' }
-        );
-        if (earnResult) {
-            const creatorCut = Math.floor(amount * 0.9);
+        if (claimed) {
+            // Only first caller credits creator earnings
             await Earnings.findOneAndUpdate(
                 { creatorId: room.creatorId },
-                { $inc: { totalEarned: creatorCut, pendingAmount: creatorCut } },
+                { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
                 { upsert: true }
             );
+            console.log(`[verifyGift] ✅ Gift earnings credited creatorId=${room.creatorId} amount=₹${creatorEarning}`);
+        } else {
+            console.log(`[verifyGift] ℹ️ Gift already processed, skipping earning credit orderId=${orderId}`);
         }
 
-        // Broadcast gift message so chat updates in real-time if user is in the room
+        // Broadcast gift message
         const io = req.app.get('io');
-        if (io) {
-            io.to(String(chatId)).emit('new_message', message.toObject ? message.toObject() : message);
-        }
+        if (io) io.to(String(chatId)).emit('new_message', message.toObject ? message.toObject() : message);
 
         res.json({ success: true, data: message });
     } catch (err) {
@@ -536,6 +593,7 @@ const verifyGift = async (req, res, next) => {
         next(err);
     }
 };
+
 
 
 // @desc  Check if user has paid for a chat with a creator
@@ -613,7 +671,30 @@ const sendImageMessage = async (req, res, next) => {
 
         const isCreator = room.creatorId.toString() === senderId.toString();
 
-        // Determine image URL (Cloudinary or local fallback)
+        // ── Wallet deduction for fan image messages (same as text messages) ─────
+        if (!isCreator) {
+            const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
+            const msgCost = profile?.messagePrice ?? 0;
+            if (msgCost > 0) {
+                const fan = await User.findById(senderId).select('walletBalance');
+                if (!fan || (fan.walletBalance ?? 0) < msgCost) {
+                    return res.status(402).json({
+                        success: false,
+                        message: 'Insufficient wallet balance. Please top up to continue chatting.',
+                        required: msgCost,
+                        walletBalance: fan?.walletBalance ?? 0,
+                    });
+                }
+                await User.findByIdAndUpdate(senderId, { $inc: { walletBalance: -msgCost } });
+                await Earnings.findOneAndUpdate(
+                    { creatorId: room.creatorId },
+                    { $inc: { totalEarned: msgCost, pendingAmount: msgCost } },
+                    { upsert: true }
+                );
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
         const imageUrl = req.file.path || req.file.secure_url || req.file.location || '';
 
         const message = await ChatMessage.create({
@@ -630,7 +711,6 @@ const sendImageMessage = async (req, res, next) => {
             $inc: { [isCreator ? 'unreadByUser' : 'unreadByCreator']: 1 },
         });
 
-        // Broadcast via socket so the other participant sees it in real time
         const io = req.app.get('io');
         if (io) {
             io.to(String(chatId)).emit('new_message', message.toObject ? message.toObject() : message);
@@ -639,6 +719,7 @@ const sendImageMessage = async (req, res, next) => {
         res.status(201).json({ success: true, data: message });
     } catch (err) { next(err); }
 };
+
 
 module.exports = {
     getChatSettings,
