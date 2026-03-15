@@ -1,4 +1,18 @@
-require('dotenv').config();
+const path = require('path');
+// Always load .env relative to THIS file so it works regardless of CWD
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+// ── Startup diagnostic (masked) — remove after confirming creds work ───────
+console.log('[✔] ENV check:');
+console.log('  CASHFREE_APP_ID   :', process.env.CASHFREE_APP_ID
+    ? process.env.CASHFREE_APP_ID.slice(0, 6) + '****' + process.env.CASHFREE_APP_ID.slice(-4)
+    : '❌ NOT SET');
+console.log('  CASHFREE_SECRET_KEY:', process.env.CASHFREE_SECRET_KEY
+    ? process.env.CASHFREE_SECRET_KEY.slice(0, 8) + '****'
+    : '❌ NOT SET');
+console.log('  CASHFREE_ENV      :', process.env.CASHFREE_ENV || 'production (default)');
+// ─────────────────────────────────────────────────────────────────────
+
 const http = require('http');
 const { Server } = require('socket.io');
 const { connectDB } = require('./src/config/db.js');
