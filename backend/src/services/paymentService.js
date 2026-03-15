@@ -20,6 +20,16 @@ const CF_ENV = CF_ENV_NAME === 'production'
     ? 'https://api.cashfree.com'
     : 'https://sandbox.cashfree.com';
 
+// BUG 3 FIX: Warn loudly at startup if CASHFREE_ENV is not explicitly set.
+// A missing env var silently defaults to 'production', which makes sandbox
+// paymentSessionIds get rejected by the production SDK (and vice versa).
+if (!process.env.CASHFREE_ENV) {
+    console.warn('[paymentService] WARNING: CASHFREE_ENV is not set in .env — defaulting to "production". Set CASHFREE_ENV=sandbox for testing.');
+}
+if (!CF_APP_ID || !CF_SECRET) {
+    console.warn('[paymentService] WARNING: CASHFREE_APP_ID or CASHFREE_SECRET_KEY is missing. Payments will fail.');
+}
+
 // Shared request headers required by every Cashfree API call
 const cfHeaders = () => ({
     'x-client-id': CF_APP_ID,

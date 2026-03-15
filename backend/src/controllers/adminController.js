@@ -448,6 +448,74 @@ const markPaid = async (req, res, next) => {
     }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ONE-TIME DATA REPAIR
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @desc    Recalculate totalPosts + totalSubscribers for ALL creator profiles
+ *          from actual Post and Subscription documents (idempotent).
+ * @route   POST /api/admin/repair-stats
+ * @access  Admin
+ */
+const repairStats = async (req, res, next) => {
+    try {
+        console.log('[repairStats] Starting stat repair...');
+
+        // Aggregate actual post counts per creator
+        const postCounts = await Post.aggregate([
+            { $group: { _id: '$creatorId', count: { $sum: 1 } } },
+        ]);
+
+        // Aggregate active subscriber counts per creator
+        const subCounts = await Subscription.aggregate([
+            { $match: { status: 'active' } },
+            { $group: { _id: '$creatorId', count: { $sum: 1 } } },
+        ]);
+
+        const postMap = {};
+        postCounts.forEach((p) => { postMap[p._id.toString()] = p.count; });
+
+        const subMap = {};
+        subCounts.forEach((s) => { subMap[s._id.toString()] = s.count; });
+
+        // Get all creator profiles
+        const profiles = await CreatorProfile.find({}).select('_id userId');
+
+        let updated = 0;
+        const bulkOps = profiles.map((profile) => {
+            const cid = profile.userId.toString();
+            return {
+                updateOne: {
+                    filter: { _id: profile._id },
+                    update: {
+                        $set: {
+                            totalPosts: postMap[cid] ?? 0,
+                            totalSubscribers: subMap[cid] ?? 0,
+                        },
+                    },
+                },
+            };
+        });
+
+        if (bulkOps.length > 0) {
+            const result = await CreatorProfile.bulkWrite(bulkOps);
+            updated = result.modifiedCount;
+        }
+
+        console.log(`[repairStats] Done. Profiles checked: ${profiles.length}, updated: ${updated}`);
+
+        res.status(200).json({
+            success: true,
+            message: `Stat repair complete. ${profiles.length} profiles checked, ${updated} updated.`,
+            data: { profilesChecked: profiles.length, profilesUpdated: updated },
+        });
+    } catch (error) {
+        console.error('[repairStats] Error:', error.message);
+        next(error);
+    }
+};
+
 
 module.exports = {
     getAllUsers,
@@ -466,4 +534,6 @@ module.exports = {
     approvePayout,
     rejectPayout,
     markPaid,
+    // One-time repair
+    repairStats,
 };

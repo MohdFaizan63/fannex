@@ -6,6 +6,7 @@ const {
     getAnalytics,
     getVerifications, approveVerification, rejectVerification,
     listAllPayouts, approvePayout, rejectPayout, markPaid,
+    repairStats,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -37,5 +38,11 @@ router.get('/payouts', listAllPayouts);
 router.patch('/payouts/:id/approve', approvePayout);
 router.patch('/payouts/:id/reject', rejectPayout);
 router.patch('/payouts/:id/mark-paid', markPaid);
+
+// ── One-time data repair ─────────────────────────────────────────────────────
+// POST /api/admin/repair-stats — recalculates totalPosts and totalSubscribers
+// for all CreatorProfiles from actual Post and Subscription collections.
+// Safe to run multiple times (idempotent). Remove this route after first run.
+router.post('/repair-stats', repairStats);
 
 module.exports = router;

@@ -87,19 +87,28 @@ const verifyPayment = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'orderId is required' });
         }
 
+        console.log(`[verifyPayment] START orderId=${orderId} userId=${userId}`);
+
         // Fetch order status from Cashfree
         const orderData = await paymentService.getOrderStatus(orderId);
+        console.log(`[verifyPayment] Cashfree status=${orderData.order_status} amount=${orderData.order_amount} orderId=${orderId}`);
 
         if (orderData.order_status !== 'PAID') {
+            console.warn(`[verifyPayment] Order not PAID — status=${orderData.order_status} orderId=${orderId}`);
             return res.status(400).json({
                 success: false,
                 message: `Payment not completed. Status: ${orderData.order_status}`,
             });
         }
 
-        // Extract metadata from order_tags (stored when we created the order)
-        const tags = orderData.order_tags || {};
+        // BUG 4 FIX: Cashfree occasionally returns order_tags as null (documented edge case).
+        // Always fall back to {} so tag destructuring never throws.
+        const tags = (orderData.order_tags && typeof orderData.order_tags === 'object')
+            ? orderData.order_tags
+            : {};
+
         const type = tags.type || 'subscription';
+        console.log(`[verifyPayment] type=${type} tags=${JSON.stringify(tags)}`);
 
         // ── Handle wallet top-up early — no creatorId needed ─────────────────
         if (type === 'wallet') {
@@ -116,6 +125,7 @@ const verifyPayment = async (req, res, next) => {
                 meta: { userId: walletUserId, type: 'wallet', creatorId: null },
             });
             const freshUser = await User.findById(walletUserId).select('walletBalance');
+            console.log(`[verifyPayment] Wallet recharged userId=${walletUserId} newBalance=${freshUser?.walletBalance}`);
             return res.status(200).json({
                 success: true,
                 type: 'wallet',
@@ -125,10 +135,18 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
+        // BUG 5 FIX: creatorId can be null if order_tags were lost (Bug 4 scenario).
+        // Prefer req.body.creatorId sent by frontend, then fall back to tags.
+        // If still missing, return a detailed error so logs are actionable.
         const creatorId = req.body.creatorId || tags.creatorId;
 
         if (!creatorId) {
-            return res.status(400).json({ success: false, message: 'Could not determine creator from order' });
+            console.error(`[verifyPayment] MISSING creatorId — tags=${JSON.stringify(tags)} orderId=${orderId}`);
+            return res.status(400).json({
+                success: false,
+                message: 'Could not determine creator from order. Please contact support@fannex.in with your order ID.',
+                orderId,
+            });
         }
 
         // Fetch payment details to get cf_payment_id
@@ -141,6 +159,7 @@ const verifyPayment = async (req, res, next) => {
         }
 
         const amount = orderData.order_amount;
+        console.log(`[verifyPayment] Calling handlePaymentCaptured orderId=${orderId} type=${type} creatorId=${creatorId} amount=${amount}`);
 
         await paymentService.handlePaymentCaptured({
             orderId,
@@ -153,6 +172,8 @@ const verifyPayment = async (req, res, next) => {
                 baseAmount: tags.baseAmount || null,  // pass through for GST split
             },
         });
+
+        console.log(`[verifyPayment] handlePaymentCaptured done orderId=${orderId} type=${type}`);
 
         // For chat_unlock orders, return the chatId so the frontend can redirect to the chat window
         if (type === 'chat_unlock') {
@@ -171,6 +192,7 @@ const verifyPayment = async (req, res, next) => {
                 ChatRoom.findOne({ creatorId, userId }),
                 CreatorProfile.findOne({ userId: creatorId }).select('displayName username profileImage coverImage bio subscriptionPrice chatEnabled chatPrice'),
             ]);
+            console.log(`[verifyPayment] SUCCESS subscription userId=${userId} creatorId=${creatorId} chatId=${room?._id}`);
             return res.status(200).json({
                 success: true,
                 type: 'subscription',
@@ -194,6 +216,7 @@ const verifyPayment = async (req, res, next) => {
         if (type === 'gift') {
             const creatorProfile = await CreatorProfile.findOne({ userId: creatorId })
                 .select('displayName username profileImage');
+            console.log(`[verifyPayment] SUCCESS gift userId=${userId} creatorId=${creatorId}`);
             return res.status(200).json({
                 success: true,
                 type: 'gift',
@@ -210,14 +233,16 @@ const verifyPayment = async (req, res, next) => {
 
         res.status(200).json({ success: true, type, message: 'Payment verified and subscription activated' });
     } catch (error) {
-        console.error('[verifyPayment] Error:', error.message);
+        console.error('[verifyPayment] UNCAUGHT ERROR:', error.message);
         if (error.response?.data) {
-            console.error('[verifyPayment] API response:', JSON.stringify(error.response.data, null, 2));
+            console.error('[verifyPayment] Cashfree API response:', JSON.stringify(error.response.data, null, 2));
         }
+        console.error('[verifyPayment] Stack:', error.stack);
         const message = error.response?.data?.message || error.message || 'Payment verification failed';
         res.status(safeCfStatus(error.response?.status) || 500).json({ success: false, message });
     }
 };
+
 
 // @desc  Cancel a subscription
 // @route POST /api/payment/cancel
