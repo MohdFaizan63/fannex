@@ -280,7 +280,6 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
                     cfOrderId: orderId,
                     cfPaymentId,
                 },
-                $set: { status: 'captured' }, // always mark captured (safe on update too)
             },
             { upsert: true, rawResult: true }  // rawResult gives us lastErrorObject
         );
@@ -301,17 +300,16 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-        // Use rawResult so we can tell whether the sub doc was newly created or
-        // just updated (renewal). We only increment totalSubscribers for NEW subscribers.
-        const subResult = await Subscription.findOneAndUpdate(
+        // Check if this user was already a subscriber BEFORE the upsert.
+        // This is safer than rawResult+returnDocument in Mongoose 9.x (they conflict).
+        const existingSub = await Subscription.findOne({ userId, creatorId }).select('_id').lean();
+        const isNewSubscriber = !existingSub;
+
+        await Subscription.findOneAndUpdate(
             { userId, creatorId },
             { userId, creatorId, status: 'active', expiresAt, cfOrderId: orderId },
-            { upsert: true, returnDocument: 'after', rawResult: true }
+            { upsert: true }
         );
-
-        // updatedExisting === false → brand-new subscriber (first-time subscription)
-        // updatedExisting === true  → existing subscriber renewing → do NOT increment
-        const isNewSubscriber = !subResult.lastErrorObject?.updatedExisting;
 
         // 3. Increment creator subscriber count ONLY for new subscribers
         if (isNewSubscriber) {
