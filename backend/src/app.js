@@ -90,7 +90,15 @@ app.use((req, res, next) => {
     express.raw({ type: 'application/json' })(req, res, err => {
       if (err) return next(err);
 
-      req.rawBody = req.body;
+      // Store as string — HMAC verification requires string concatenation of
+      // timestamp + rawBody. If left as Buffer it becomes '[object Buffer]'.
+      req.rawBody = req.body instanceof Buffer
+        ? req.body.toString('utf8')
+        : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+
+      // Parse the body so Controllers can read req.body as an object
+      try { req.body = JSON.parse(req.rawBody); } catch { /* keep as-is */ }
+
       next();
     });
 

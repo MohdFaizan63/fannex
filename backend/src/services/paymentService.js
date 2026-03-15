@@ -28,6 +28,19 @@ const cfHeaders = () => ({
     'Content-Type': 'application/json',
 });
 
+/**
+ * Safe upstream status mapper — prevents Cashfree's 401/403 from reaching
+ * the frontend and triggering the global logout interceptor in api.js.
+ * Maps:
+ *   401 → 502  (invalid CF credentials, not a Fannex auth error)
+ *   403 → 502
+ *   everything else → as-is (but min 400)
+ */
+const safeCfStatus = (upstreamStatus) => {
+    if (upstreamStatus === 401 || upstreamStatus === 403) return 502;
+    return upstreamStatus >= 400 ? upstreamStatus : 500;
+};
+
 // ── Create Payment Order ───────────────────────────────────────────────────────
 /**
  * Creates a Cashfree payment order.
@@ -127,15 +140,32 @@ const getOrderPayments = async (orderId) => {
 // ── Verify Webhook Signature ───────────────────────────────────────────────────
 /**
  * Cashfree webhook signature verification.
- * Signature = HMAC-SHA256( timestamp + rawBody, secretKey ) encoded as base64
+ *
+ * Webhook version 2022-09-01 / 2023-08-01 format:
+ *   HMAC-SHA256( timestamp + rawBody, secretKey ) → base64
+ *
+ * Webhook version 2025-01-01 format:
+ *   HMAC-SHA256( timestamp + "." + rawBody, secretKey ) → base64
+ *
+ * We try both so it works regardless of which version is set in the dashboard.
  */
 const verifyWebhookSignature = (rawBody, signature, timestamp) => {
-    const payload = timestamp + rawBody;
-    const expectedSig = crypto
-        .createHmac('sha256', CF_SECRET)
-        .update(payload)
-        .digest('base64');
-    return expectedSig === signature;
+    if (!rawBody || !signature || !timestamp || !CF_SECRET) return false;
+
+    const tryVerify = (payload) => {
+        const expectedSig = crypto
+            .createHmac('sha256', CF_SECRET)
+            .update(payload)
+            .digest('base64');
+        return expectedSig === signature;
+    };
+
+    // Try new format (2025-01-01): timestamp + "." + rawBody
+    if (tryVerify(timestamp + '.' + rawBody)) return true;
+    // Try old format (2023-08-01): timestamp + rawBody
+    if (tryVerify(timestamp + rawBody)) return true;
+
+    return false;
 };
 
 // ── Handle Successful Payment ─────────────────────────────────────────────────
@@ -319,4 +349,5 @@ module.exports = {
     verifyWebhookSignature,
     handlePaymentCaptured,
     cancelSubscription,
+    safeCfStatus,
 };

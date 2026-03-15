@@ -3,6 +3,7 @@
  * All Razorpay references have been replaced.
  */
 const paymentService = require('../services/paymentService');
+const { safeCfStatus } = paymentService;
 const CreatorProfile = require('../models/CreatorProfile');
 const User = require('../models/User');
 const PaymentModel = require('../models/Payment');
@@ -68,7 +69,9 @@ const createOrder = async (req, res, next) => {
             console.error('[createOrder] Cashfree response:', JSON.stringify(error.response.data, null, 2));
         }
         const message = error.response?.data?.message || error.message || 'Payment order creation failed';
-        res.status(error.response?.status || 500).json({ success: false, message });
+        // Use safeCfStatus so Cashfree 401 (bad credentials) never reaches the
+        // frontend as a 401 — that would trigger the global logout interceptor.
+        res.status(safeCfStatus(error.response?.status) || 500).json({ success: false, message });
     }
 };
 
@@ -212,7 +215,7 @@ const verifyPayment = async (req, res, next) => {
             console.error('[verifyPayment] API response:', JSON.stringify(error.response.data, null, 2));
         }
         const message = error.response?.data?.message || error.message || 'Payment verification failed';
-        res.status(error.response?.status || 500).json({ success: false, message });
+        res.status(safeCfStatus(error.response?.status) || 500).json({ success: false, message });
     }
 };
 
@@ -442,11 +445,11 @@ async function createWalletOrder(req, res, next) {
 
         res.status(200).json({ success: true, data: order });
     } catch (err) {
-        // Return Cashfree's error message as a 400 rather than crashing with 500
+        // Use safeCfStatus so Cashfree 401 never triggers the frontend logout interceptor
         const cfMessage = err?.response?.data?.message;
-        const status = err?.response?.status;
+        const upstreamStatus = err?.response?.status;
         if (cfMessage) {
-            return res.status(status || 400).json({ success: false, message: cfMessage });
+            return res.status(safeCfStatus(upstreamStatus) || 400).json({ success: false, message: cfMessage });
         }
         next(err);
     }
