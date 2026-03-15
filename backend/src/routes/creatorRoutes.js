@@ -3,7 +3,7 @@ const router = express.Router();
 const {
     getMyEarnings, requestPayout, listMyPayouts, listCreators, mySubscriptions, myCreatorSubscribers,
     checkUsername, applyForCreator, getCreatorApplicationStatus, reviewCreatorApplication,
-    getCreatorByUsername, getSuggestedCreators, updateCreatorProfile,
+    getCreatorByUsername, getSuggestedCreators, updateCreatorProfile, getEarningsHistory,
 } = require('../controllers/creatorController');
 const { protect, authorize, optionalProtect } = require('../middleware/authMiddleware');
 const { validate } = require('../validators/validate');
@@ -36,6 +36,7 @@ router.get('/insights/earnings', getEarningsInsights);
 router.get('/insights/overview', getOverview);
 
 router.get('/earnings', getMyEarnings);
+router.get('/earnings-history', getEarningsHistory);
 router.get('/my-subscribers', myCreatorSubscribers);
 router.post('/request-payout', validate(requestPayoutSchema), requestPayout);
 router.get('/payouts', listMyPayouts);

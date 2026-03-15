@@ -2,6 +2,7 @@ const paginate = require('../utils/paginate');
 const CreatorProfile = require('../models/CreatorProfile');
 const Subscription = require('../models/Subscription');
 const ProfileView = require('../models/ProfileView');
+const Payment = require('../models/Payment');
 const { optimizeImageUrl } = require('../utils/optimizeMediaUrl');
 const {
     getMyEarningsService,
@@ -505,8 +506,60 @@ const updateCreatorProfile = async (req, res, next) => {
     } catch (err) { next(err); }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// @desc    Get paginated earning history transactions for the logged-in creator
+// @route   GET /api/v1/creator/earnings-history
+// @access  Private (creator)
+// Query params: type (subscription|gift|chat_unlock|all), page, limit
+// ─────────────────────────────────────────────────────────────────────────────
+const getEarningsHistory = async (req, res, next) => {
+    try {
+        const creatorId = req.user._id;
+        const { type = 'all', page = 1, limit = 20 } = req.query;
+
+        const query = { creatorId, status: 'captured' };
+        if (type !== 'all') query.type = type;
+
+        const total = await Payment.countDocuments(query);
+        const payments = await Payment.find(query)
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(Number(limit))
+            .populate('userId', 'name username profileImage')
+            .lean();
+
+        // Per-type totals (for stat cards)
+        const [subTotal, giftTotal, chatTotal] = await Promise.all([
+            Payment.aggregate([{ $match: { creatorId, status: 'captured', type: 'subscription' } }, { $group: { _id: null, total: { $sum: '$creatorEarning' } } }]),
+            Payment.aggregate([{ $match: { creatorId, status: 'captured', type: 'gift' } }, { $group: { _id: null, total: { $sum: '$creatorEarning' } } }]),
+            Payment.aggregate([{ $match: { creatorId, status: 'captured', type: 'chat_unlock' } }, { $group: { _id: null, total: { $sum: '$creatorEarning' } } }]),
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                transactions: payments,
+                pagination: {
+                    total,
+                    page: Number(page),
+                    limit: Number(limit),
+                    pages: Math.ceil(total / limit),
+                },
+                breakdown: {
+                    subscription: subTotal[0]?.total ?? 0,
+                    gift:         giftTotal[0]?.total ?? 0,
+                    chat_unlock:  chatTotal[0]?.total ?? 0,
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getMyEarnings, requestPayout, listMyPayouts, listCreators, mySubscriptions, myCreatorSubscribers,
     checkUsername, applyForCreator, getCreatorApplicationStatus, reviewCreatorApplication,
     getCreatorByUsername, getSuggestedCreators, updateCreatorProfile,
+    getEarningsHistory,
 };
