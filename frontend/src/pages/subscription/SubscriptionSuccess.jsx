@@ -30,6 +30,18 @@ export default function SubscriptionSuccess() {
     // but the effect re-runs because cfOrderId enters the dependency array).
     const verifiedRef = useRef(false);
 
+    // ── Prevent Back → Cashfree payment page ─────────────────────────────────
+    // Push a dummy state so the browser Back button triggers popstate instead of
+    // navigating to the Cashfree redirect URL. We catch popstate and send the
+    // user to Home — a much better UX than ending up on a payment-processing page.
+    useEffect(() => {
+        window.history.pushState(null, '', window.location.href);
+        const handleBack = () => navigate('/', { replace: true });
+        window.addEventListener('popstate', handleBack);
+        return () => window.removeEventListener('popstate', handleBack);
+    }, [navigate]);
+    // ─────────────────────────────────────────────────────────────────────────
+
     useEffect(() => {
         // No order_id in URL.
         // Guard: if we already verified (verifiedRef=true) this means setSearchParams
