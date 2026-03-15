@@ -55,7 +55,6 @@ function ActionCell({ payout, onApprove, onMarkPaid, onReject, actionLoading }) 
     const busy = actionLoading === payout._id;
     const status = payout.status;
 
-    // Close popover on outside click
     useEffect(() => {
         const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setShowReject(false); };
         document.addEventListener('mousedown', h);
@@ -98,6 +97,217 @@ function ActionCell({ payout, onApprove, onMarkPaid, onReject, actionLoading }) 
                 />
             )}
         </div>
+    );
+}
+
+// ── Bank Details Panel ────────────────────────────────────────────────────────
+function BankDetailsPanel({ bank, proofOpen, onToggleProof }) {
+    if (!bank) {
+        return (
+            <div style={{
+                padding: '14px 20px',
+                background: 'rgba(255,255,255,0.015)',
+                borderTop: '1px solid rgba(255,255,255,0.05)',
+            }}>
+                <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12.5, margin: 0, fontStyle: 'italic' }}>
+                    ⚠️ No bank details on file for this creator.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            padding: 'clamp(14px,3vw,20px)',
+            background: 'linear-gradient(135deg, rgba(124,58,237,0.05), rgba(168,85,247,0.03))',
+            borderTop: '1px solid rgba(124,58,237,0.15)',
+        }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 14 }}>🏦</span>
+                <p style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+                    Bank Account Details
+                </p>
+                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+            </div>
+
+            {/* Details grid */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                gap: 10,
+                marginBottom: bank.bankProofImageUrl ? 14 : 0,
+            }}>
+                {[
+                    { label: 'Account Holder', value: bank.accountHolderName || '—' },
+                    { label: 'Bank Name', value: bank.bankName || '—' },
+                    { label: 'Account Number', value: bank.accountNumber ? `••••${bank.last4}` : '—', full: bank.accountNumber },
+                    { label: 'IFSC Code', value: bank.ifscCode || '—' },
+                ].map(({ label, value, full }) => (
+                    <BankDetailCell key={label} label={label} value={value} fullValue={full} />
+                ))}
+            </div>
+
+            {/* Proof image */}
+            {bank.bankProofImageUrl && (
+                <div>
+                    <button
+                        onClick={onToggleProof}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '7px 14px', borderRadius: 9,
+                            background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.28)',
+                            color: '#c4b5fd', fontSize: 12.5, fontWeight: 600,
+                            cursor: 'pointer', marginBottom: proofOpen ? 12 : 0,
+                            transition: 'all 0.15s',
+                        }}
+                    >
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {proofOpen ? 'Hide' : 'View'} Bank Proof
+                    </button>
+                    {proofOpen && (
+                        <a href={bank.bankProofImageUrl} target="_blank" rel="noopener noreferrer">
+                            <img
+                                src={bank.bankProofImageUrl}
+                                alt="Bank proof document"
+                                style={{
+                                    maxWidth: '100%', maxHeight: 280, borderRadius: 12,
+                                    border: '1px solid rgba(124,58,237,0.25)',
+                                    objectFit: 'contain',
+                                }}
+                            />
+                        </a>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function BankDetailCell({ label, value, fullValue }) {
+    const [revealed, setRevealed] = useState(false);
+    const displayVal = revealed && fullValue ? fullValue : value;
+
+    return (
+        <div style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 10,
+            padding: '9px 12px',
+        }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>{label}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.75)', margin: 0, letterSpacing: label === 'IFSC Code' ? '0.04em' : 0 }}>
+                    {displayVal}
+                </p>
+                {fullValue && (
+                    <button
+                        onClick={() => setRevealed(r => !r)}
+                        style={{ background: 'none', border: 'none', color: '#a78bfa', fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: 0, letterSpacing: '0.04em' }}
+                    >
+                        {revealed ? '[ hide ]' : '[ show ]'}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Expandable payout row ─────────────────────────────────────────────────────
+function PayoutRow({ payout, onApprove, onMarkPaid, onReject, actionLoading }) {
+    const [expanded, setExpanded] = useState(false);
+    const [proofOpen, setProofOpen] = useState(false);
+    const creator = payout.creatorId ?? {};
+
+    return (
+        <>
+            <tr
+                className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                onClick={() => setExpanded(v => !v)}
+            >
+                {/* Creator */}
+                <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {creator.name?.charAt(0)?.toUpperCase() ?? 'C'}
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-white font-medium text-sm truncate max-w-[140px]">{creator.name ?? '—'}</p>
+                            <p className="text-surface-500 text-xs truncate max-w-[140px]">{creator.email ?? ''}</p>
+                        </div>
+                    </div>
+                </td>
+
+                {/* Amount */}
+                <td className="px-5 py-4 font-bold text-white text-base">
+                    {formatCurrency(payout.amount)}
+                </td>
+
+                {/* Status */}
+                <td className="px-5 py-4">
+                    <StatusPill status={payout.status} />
+                </td>
+
+                {/* Requested date */}
+                <td className="px-5 py-4 text-surface-400 text-xs">
+                    {formatDate(payout.requestedAt ?? payout.createdAt)}
+                </td>
+
+                {/* Bank indicator */}
+                <td className="px-5 py-4">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {payout.bankDetails ? (
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                padding: '3px 9px', borderRadius: 99,
+                                background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)',
+                                color: '#4ade80', fontSize: 11, fontWeight: 700,
+                            }}>
+                                ✓ ••••{payout.bankDetails.last4}
+                            </span>
+                        ) : (
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                padding: '3px 9px', borderRadius: 99,
+                                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                                color: '#f87171', fontSize: 11, fontWeight: 700,
+                            }}>
+                                ✕ No bank
+                            </span>
+                        )}
+                        <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11 }}>
+                            {expanded ? '▲' : '▼'}
+                        </span>
+                    </div>
+                </td>
+
+                {/* Actions */}
+                <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                    <ActionCell
+                        payout={payout}
+                        onApprove={onApprove}
+                        onMarkPaid={onMarkPaid}
+                        onReject={onReject}
+                        actionLoading={actionLoading}
+                    />
+                </td>
+            </tr>
+
+            {/* ── Expanded bank details row ─────────────────────── */}
+            {expanded && (
+                <tr>
+                    <td colSpan={6} style={{ padding: 0 }}>
+                        <BankDetailsPanel
+                            bank={payout.bankDetails}
+                            proofOpen={proofOpen}
+                            onToggleProof={() => setProofOpen(v => !v)}
+                        />
+                    </td>
+                </tr>
+            )}
+        </>
     );
 }
 
@@ -149,7 +359,6 @@ export default function AdminPayouts() {
         try {
             await fn(id, extra);
             showToast(successMsg);
-            // Optimistically update status in place
             setPayouts((prev) => prev.map((p) => {
                 if (p._id !== id) return p;
                 const nextStatus = successMsg.includes('Approved') ? 'approved'
@@ -170,12 +379,14 @@ export default function AdminPayouts() {
     const onReject = (id, reason) => doAction(adminService.rejectPayout, id, reason, 'Rejected payout ✓');
 
     return (
-        <div className="p-6 max-w-6xl">
+        <div className="p-4 sm:p-6 max-w-6xl">
 
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-3xl font-black text-white">💸 Payouts</h1>
-                <p className="text-surface-400 mt-1">Manage creator payout requests.</p>
+                <h1 className="text-2xl sm:text-3xl font-black text-white">💸 Payouts</h1>
+                <p className="text-surface-400 mt-1 text-sm">
+                    Manage creator payout requests. Click any row to view full bank details.
+                </p>
             </div>
 
             {/* Toast */}
@@ -219,7 +430,7 @@ export default function AdminPayouts() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-white/5">
-                                        {['Creator', 'Amount', 'Status', 'Requested', 'Actions'].map((h) => (
+                                        {['Creator', 'Amount', 'Status', 'Requested', 'Bank Account', 'Actions'].map((h) => (
                                             <th key={h}
                                                 className={`px-5 py-3 text-xs uppercase tracking-widest text-surface-500 font-semibold ${h === 'Actions' ? 'text-right' : 'text-left'}`}>
                                                 {h}
@@ -228,52 +439,16 @@ export default function AdminPayouts() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {payouts.map((p) => {
-                                        const creator = p.creatorId ?? {};
-                                        return (
-                                            <tr key={p._id} className="hover:bg-white/[0.02] transition-colors">
-
-                                                {/* Creator */}
-                                                <td className="px-5 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                                            {creator.name?.charAt(0)?.toUpperCase() ?? 'C'}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="text-white font-medium text-sm truncate max-w-[140px]">{creator.name ?? '—'}</p>
-                                                            <p className="text-surface-500 text-xs truncate max-w-[140px]">{creator.email ?? ''}</p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-
-                                                {/* Amount */}
-                                                <td className="px-5 py-4 font-bold text-white text-base">
-                                                    {formatCurrency(p.amount)}
-                                                </td>
-
-                                                {/* Status */}
-                                                <td className="px-5 py-4">
-                                                    <StatusPill status={p.status} />
-                                                </td>
-
-                                                {/* Requested date */}
-                                                <td className="px-5 py-4 text-surface-400 text-xs">
-                                                    {formatDate(p.requestedAt ?? p.createdAt)}
-                                                </td>
-
-                                                {/* Actions */}
-                                                <td className="px-5 py-4">
-                                                    <ActionCell
-                                                        payout={p}
-                                                        onApprove={onApprove}
-                                                        onMarkPaid={onMarkPaid}
-                                                        onReject={onReject}
-                                                        actionLoading={actionLoading}
-                                                    />
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                    {payouts.map((p) => (
+                                        <PayoutRow
+                                            key={p._id}
+                                            payout={p}
+                                            onApprove={onApprove}
+                                            onMarkPaid={onMarkPaid}
+                                            onReject={onReject}
+                                            actionLoading={actionLoading}
+                                        />
+                                    ))}
                                 </tbody>
                             </table>
                         </div>

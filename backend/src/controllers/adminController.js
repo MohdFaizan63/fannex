@@ -358,6 +358,41 @@ const listAllPayouts = async (req, res, next) => {
             ],
         });
 
+        // Attach bank details from CreatorVerification for each payout
+        if (data.results && data.results.length > 0) {
+            const creatorIds = data.results
+                .map((p) => p.creatorId?._id)
+                .filter(Boolean);
+
+            const verifications = await CreatorVerification
+                .find({ userId: { $in: creatorIds } })
+                .select('userId bankAccountNumber ifscCode bankProofImageUrl');
+            // Note: no .lean() so Mongoose getters (AES decryption) auto-run on bankAccountNumber
+
+            const verMap = {};
+            verifications.forEach((v) => { verMap[v.userId.toString()] = v; });
+
+            data.results = data.results.map((p) => {
+                const pObj = p.toObject ? p.toObject() : { ...p };
+                const cid = pObj.creatorId?._id?.toString();
+                if (cid && verMap[cid]) {
+                    const v = verMap[cid];
+                    pObj.bankDetails = {
+                        accountHolderName: pObj.creatorId?.name || '',
+                        bankName: '',
+                        accountNumber: v.bankAccountNumber || '',
+                        last4: v.bankAccountNumber ? v.bankAccountNumber.slice(-4) : '',
+                        ifscCode: v.ifscCode || '',
+                        bankProofImageUrl: v.bankProofImageUrl || '',
+                    };
+                } else {
+                    pObj.bankDetails = null;
+                }
+                return pObj;
+            });
+        }
+
+
         res.status(200).json({ success: true, ...data });
     } catch (error) {
         next(error);

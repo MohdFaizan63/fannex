@@ -3,10 +3,6 @@ import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import { getErrorMessage } from '../../utils/helpers';
 
-/* ─── tiny helpers ──────────────────────────────────────────────────────────── */
-const mask = (str = '', show = 4) =>
-    str.length <= show ? str : '••••' + str.slice(-show);
-
 /* ─── PAYOUT_STEPS ──────────────────────────────────────────────────────────── */
 const STEPS = [
     { icon: '💰', text: 'Go to Earnings → Request Payout when you have a balance.' },
@@ -30,8 +26,7 @@ const FIELDS = [
 export default function PayoutSettings() {
     const { user } = useAuth();
 
-    /* state */
-    const [bank, setBank] = useState(null);   // { name, last4, ifsc, holder }
+    const [bank, setBank] = useState(null);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
 
@@ -45,6 +40,7 @@ export default function PayoutSettings() {
     const [success, setSuccess] = useState('');
 
     const proofRef = useRef();
+    const formRef = useRef();
 
     /* ── load ─────────────────────────────────────────────────────────────── */
     useEffect(() => {
@@ -58,7 +54,7 @@ export default function PayoutSettings() {
                         holder: v.fullName || user?.name || '',
                         last4: v.bankAccountNumber.slice(-4),
                         ifsc: v.ifscCode || '',
-                        name: '',
+                        name: v.bankName || '',
                     });
                 }
             } catch (_) { }
@@ -73,6 +69,9 @@ export default function PayoutSettings() {
             accountNumber: '', confirmAccountNumber: '', ifscCode: bank?.ifsc || ''
         });
         setProof(null); setError(''); setSuccess(''); setEditing(true);
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
     };
     const closeEdit = () => { setEditing(false); setError(''); };
 
@@ -120,39 +119,70 @@ export default function PayoutSettings() {
        RENDER
     ══════════════════════════════════════════════════════════════════════════ */
     return (
-        <div style={{ maxWidth: 580, padding: '28px 20px', fontFamily: 'inherit' }}>
+        <div className="ps-page">
 
             {/* ── Page header ────────────────────────────────────────────── */}
-            <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 'clamp(22px,5vw,28px)', fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', margin: 0 }}>
-                    💳 Payout Settings
-                </h1>
-                <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 14, marginTop: 6 }}>
-                    Manage where your earnings are sent.
-                </p>
+            <div style={{ marginBottom: 24 }}>
+                <h1 className="ps-title">💳 Payout Settings</h1>
+                <p className="ps-subtitle">Manage where your earnings are sent.</p>
             </div>
 
             {/* ── Info banner ────────────────────────────────────────────── */}
-            <div style={{
-                background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.22)',
-                borderRadius: 16, padding: '14px 16px',
-                display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 28,
-            }}>
+            <div className="ps-info-banner">
                 <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>ℹ️</span>
-                <p style={{ color: 'rgba(253,224,71,0.8)', fontSize: 13.5, lineHeight: 1.55, margin: 0 }}>
+                <p style={{ color: 'rgba(253,224,71,0.8)', fontSize: 'clamp(12px,3vw,13.5px)', lineHeight: 1.55, margin: 0 }}>
                     Payouts are processed manually by the Fannex team every week.
                     Keep your bank details up to date before requesting a payout.
                 </p>
             </div>
 
+            {/* ══════════════════════════════════════════════════════════════
+                UPDATE BANK DETAILS NOTICE
+                Shows only when a bank account exists and user is not editing
+            ══════════════════════════════════════════════════════════════ */}
+            {bank && !editing && !loading && (
+                <div className="ps-update-notice">
+                    {/* Decorative glow */}
+                    <div className="ps-update-glow" />
+
+                    <div className="ps-update-notice-content">
+                        {/* Badge */}
+                        <div className="ps-update-badge">
+                            <span>🔄</span>
+                            <span>Update Your Bank Details</span>
+                        </div>
+
+                        <h3 className="ps-update-notice-title">
+                            Want to change or update your bank details?
+                        </h3>
+
+                        <p className="ps-update-notice-body">
+                            This section is designed specifically for updating your payout destination.
+                            If you have changed your bank account or want to link a different one,
+                            simply click <strong>Update Now</strong> below and fill in the new details.
+                            Your updated bank account will be used for all future payouts.
+                        </p>
+
+                        <div className="ps-update-tip">
+                            <span>💡</span>
+                            <span>Make sure your account details are accurate to avoid payout delays.</span>
+                        </div>
+                    </div>
+
+                    <div className="ps-update-notice-action">
+                        <button className="ps-update-cta-btn" onClick={openEdit}>
+                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Update Now
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* ── Success toast ──────────────────────────────────────────── */}
             {success && (
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.22)',
-                    borderRadius: 14, padding: '12px 16px', marginBottom: 22,
-                    color: '#4ade80', fontSize: 14, fontWeight: 600,
-                }}>
+                <div className="ps-success-toast">
                     <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -168,53 +198,230 @@ export default function PayoutSettings() {
             {loading ? (
                 <SkeletonCard />
             ) : !bank ? (
-                /* ── No account ──────────────────────────────────────── */
-                <EmptyCard onAdd={() => { setEditing(true); setForm({ accountHolderName: '', bankName: '', accountNumber: '', confirmAccountNumber: '', ifscCode: '' }); setProof(null); setError(''); setSuccess(''); }} />
+                <EmptyCard onAdd={() => {
+                    setEditing(true);
+                    setForm({ accountHolderName: '', bankName: '', accountNumber: '', confirmAccountNumber: '', ifscCode: '' });
+                    setProof(null); setError(''); setSuccess('');
+                }} />
             ) : !editing ? (
-                /* ── Existing account card ───────────────────────────── */
                 <BankCard bank={bank} onEdit={openEdit} />
             ) : null}
 
             {/* ── Edit / Add form ──────────────────────────────────────── */}
             {editing && (
-                <PayoutForm
-                    form={form} onChange={handleChange}
-                    proof={proof} proofRef={proofRef} onProof={handleProof} onRemoveProof={() => setProof(null)}
-                    saving={saving} error={error}
-                    isUpdate={!!bank}
-                    onCancel={closeEdit}
-                    onSubmit={handleSubmit}
-                />
+                <div ref={formRef}>
+                    <PayoutForm
+                        form={form} onChange={handleChange}
+                        proof={proof} proofRef={proofRef} onProof={handleProof}
+                        onRemoveProof={() => setProof(null)}
+                        saving={saving} error={error}
+                        isUpdate={!!bank}
+                        onCancel={closeEdit}
+                        onSubmit={handleSubmit}
+                    />
+                </div>
             )}
 
             {/* ════════════════════════════════════════════════════════════
                 SECTION: How Payouts Work
             ════════════════════════════════════════════════════════════ */}
-            <div style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
-                borderRadius: 20, padding: '22px 20px', marginTop: 28,
-            }}>
+            <div className="ps-how-section">
                 <SectionLabel style={{ marginBottom: 16 }}>How Payouts Work</SectionLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     {STEPS.map(({ icon, text }, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                            <div style={{
-                                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                                background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17,
-                            }}>{icon}</div>
+                            <div className="ps-step-icon">{icon}</div>
                             <div>
                                 <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, fontWeight: 700, margin: '0 0 3px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                                     Step {i + 1}
                                 </p>
-                                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13.5, lineHeight: 1.5, margin: 0 }}>{text}</p>
+                                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 'clamp(12px,3vw,13.5px)', lineHeight: 1.5, margin: 0 }}>{text}</p>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
+            {/* ── Scoped styles ────────────────────────────────────────── */}
             <style>{`
+                /* Page */
+                .ps-page {
+                    max-width: 620px;
+                    width: 100%;
+                    padding: clamp(16px,4vw,28px) clamp(14px,4vw,20px);
+                    font-family: inherit;
+                    box-sizing: border-box;
+                }
+
+                /* Header */
+                .ps-title {
+                    font-size: clamp(20px,5vw,28px);
+                    font-weight: 900;
+                    color: #fff;
+                    letter-spacing: -0.03em;
+                    margin: 0;
+                }
+                .ps-subtitle {
+                    color: rgba(255,255,255,0.38);
+                    font-size: clamp(12px,3vw,14px);
+                    margin-top: 6px;
+                    margin-bottom: 0;
+                }
+
+                /* Info banner */
+                .ps-info-banner {
+                    background: rgba(251,191,36,0.07);
+                    border: 1px solid rgba(251,191,36,0.22);
+                    border-radius: 16px;
+                    padding: 14px 16px;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 12px;
+                    margin-bottom: 20px;
+                }
+
+                /* ── UPDATE NOTICE ── */
+                .ps-update-notice {
+                    position: relative;
+                    overflow: hidden;
+                    background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(168,85,247,0.06));
+                    border: 1.5px solid rgba(124,58,237,0.4);
+                    border-radius: 22px;
+                    padding: clamp(18px,4vw,24px) clamp(16px,4vw,24px);
+                    margin-bottom: 24px;
+                    display: flex;
+                    gap: clamp(14px,3vw,24px);
+                    align-items: flex-start;
+                }
+                .ps-update-glow {
+                    position: absolute;
+                    top: -50px;
+                    right: -50px;
+                    width: 150px;
+                    height: 150px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(168,85,247,0.18), transparent 70%);
+                    pointer-events: none;
+                }
+                .ps-update-notice-content { flex: 1; min-width: 0; }
+                .ps-update-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: rgba(124,58,237,0.2);
+                    border: 1px solid rgba(168,85,247,0.35);
+                    border-radius: 99px;
+                    padding: 4px 12px 4px 8px;
+                    margin-bottom: 12px;
+                    font-size: clamp(10px,2.5vw,11.5px);
+                    font-weight: 700;
+                    color: #c4b5fd;
+                    letter-spacing: 0.04em;
+                    text-transform: uppercase;
+                }
+                .ps-update-notice-title {
+                    font-size: clamp(14px,3.5vw,17px);
+                    font-weight: 800;
+                    color: #fff;
+                    letter-spacing: -0.02em;
+                    margin: 0 0 10px;
+                    line-height: 1.3;
+                }
+                .ps-update-notice-body {
+                    font-size: clamp(12px,3vw,13.5px);
+                    color: rgba(255,255,255,0.48);
+                    line-height: 1.65;
+                    margin: 0 0 14px;
+                }
+                .ps-update-notice-body strong {
+                    color: #a78bfa;
+                    font-weight: 700;
+                }
+                .ps-update-tip {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 7px;
+                    font-size: clamp(11px,2.5vw,12.5px);
+                    color: rgba(255,255,255,0.3);
+                    line-height: 1.5;
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.06);
+                    border-radius: 10px;
+                    padding: 10px 12px;
+                }
+                .ps-update-notice-action {
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    padding-top: 4px;
+                }
+                .ps-update-cta-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px 22px;
+                    border-radius: 13px;
+                    border: none;
+                    background: linear-gradient(135deg, #7c3aed, #a855f7);
+                    box-shadow: 0 6px 22px rgba(124,58,237,0.42);
+                    color: #fff;
+                    font-weight: 800;
+                    font-size: clamp(13px,3vw,14px);
+                    cursor: pointer;
+                    letter-spacing: -0.01em;
+                    white-space: nowrap;
+                    transition: transform 0.18s, box-shadow 0.18s;
+                }
+                .ps-update-cta-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 12px 36px rgba(124,58,237,0.6);
+                }
+                .ps-update-cta-btn:active {
+                    transform: translateY(0);
+                }
+                @media (max-width: 480px) {
+                    .ps-update-notice { flex-direction: column; }
+                    .ps-update-notice-action { width: 100%; }
+                    .ps-update-cta-btn { width: 100%; justify-content: center; padding: 14px 22px; }
+                }
+
+                /* Success toast */
+                .ps-success-toast {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    background: rgba(34,197,94,0.08);
+                    border: 1px solid rgba(34,197,94,0.22);
+                    border-radius: 14px;
+                    padding: 12px 16px;
+                    margin-bottom: 22px;
+                    color: #4ade80;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+
+                /* How section */
+                .ps-how-section {
+                    background: rgba(255,255,255,0.02);
+                    border: 1px solid rgba(255,255,255,0.07);
+                    border-radius: 20px;
+                    padding: clamp(16px,4vw,22px) clamp(14px,4vw,20px);
+                    margin-top: 28px;
+                }
+                .ps-step-icon {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    flex-shrink: 0;
+                    background: rgba(124,58,237,0.12);
+                    border: 1px solid rgba(124,58,237,0.2);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 17px;
+                }
+
+                /* Micro animations */
                 @keyframes spin { to { transform: rotate(360deg); } }
                 .payout-input:focus { border-color: rgba(124,58,237,0.55) !important; outline: none; }
                 .payout-upload:hover { border-color: rgba(124,58,237,0.4) !important; background: rgba(124,58,237,0.04) !important; }
@@ -252,7 +459,7 @@ function EmptyCard({ onAdd }) {
     return (
         <div style={{
             background: 'rgba(255,255,255,0.02)', border: '1.5px dashed rgba(255,255,255,0.1)',
-            borderRadius: 20, padding: '40px 20px', textAlign: 'center',
+            borderRadius: 20, padding: 'clamp(28px,6vw,40px) 20px', textAlign: 'center',
         }}>
             <div style={{ fontSize: 44, marginBottom: 12 }}>🏦</div>
             <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, marginBottom: 22 }}>
@@ -283,11 +490,9 @@ function BankCard({ bank, onEdit }) {
             border: '1px solid rgba(124,58,237,0.28)', borderRadius: 22,
             padding: '20px 20px 18px', position: 'relative', overflow: 'hidden',
         }}>
-            {/* glow */}
             <div style={{ position: 'absolute', top: -30, right: -30, width: 110, height: 110, borderRadius: '50%', background: 'radial-gradient(circle,rgba(168,85,247,0.18),transparent 70%)', pointerEvents: 'none' }} />
 
-            {/* top row: icon + title + edit button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
                 <div style={{
                     width: 52, height: 52, borderRadius: 15, flexShrink: 0,
                     background: 'linear-gradient(135deg, rgba(124,58,237,0.28), rgba(168,85,247,0.18))',
@@ -320,7 +525,6 @@ function BankCard({ bank, onEdit }) {
                 </button>
             </div>
 
-            {/* detail pills */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                 <DetailPill label="Account No." value={`••••${bank.last4}`} />
                 {bank.ifsc && <DetailPill label="IFSC" value={bank.ifsc} />}
@@ -347,9 +551,8 @@ function PayoutForm({ form, onChange, proof, proofRef, onProof, onRemoveProof, s
     return (
         <div style={{
             background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 22, padding: '22px 20px', marginTop: 16,
+            borderRadius: 22, padding: 'clamp(16px,4vw,22px) clamp(14px,4vw,20px)', marginTop: 16,
         }}>
-            {/* form header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22 }}>
                 <div>
                     <p style={{ color: '#fff', fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em', margin: 0 }}>
@@ -431,7 +634,7 @@ function PayoutForm({ form, onChange, proof, proofRef, onProof, onRemoveProof, s
                 )}
 
                 {/* Actions */}
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <button
                         type="button" onClick={onCancel}
                         style={{ flex: '0 0 auto', padding: '13px 20px', borderRadius: 13, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.45)', fontWeight: 600, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s' }}
@@ -443,7 +646,7 @@ function PayoutForm({ form, onChange, proof, proofRef, onProof, onRemoveProof, s
                     <button
                         type="submit" disabled={saving}
                         style={{
-                            flex: 1, padding: '13px 20px', borderRadius: 13, border: 'none',
+                            flex: 1, minWidth: 120, padding: '13px 20px', borderRadius: 13, border: 'none',
                             background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
                             boxShadow: '0 6px 24px rgba(124,58,237,0.35)',
                             color: '#fff', fontWeight: 800, fontSize: 15,
