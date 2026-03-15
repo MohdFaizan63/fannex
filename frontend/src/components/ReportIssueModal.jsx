@@ -196,7 +196,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                 }}>
                     <div>
                         <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 800, margin: 0 }}>
-                            🛟 Report an Issue
+                            Report an Issue
                         </h2>
                         <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 13, margin: '4px 0 0' }}>
                             Help us improve Fannex. We review every report.
@@ -471,7 +471,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                                         }} />
                                         Submitting…
                                     </>
-                                ) : '🛟 Submit Report'}
+                                ) : 'Submit Report'}
                             </button>
                         </div>
                     </form>
