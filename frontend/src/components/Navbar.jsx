@@ -224,7 +224,7 @@ export default function Navbar() {
                                                         onClick={() => { setReportOpen(true); setDropdownOpen(false); }}
                                                         className="w-full text-left px-4 py-2 text-sm text-amber-400 hover:bg-amber-500/5 transition-colors"
                                                     >
-                                                        🛟 Report an Issue
+                                                        Report an Issue
                                                     </button>
                                                 )}
                                                 <div className="border-t border-white/10 my-1" />
@@ -338,7 +338,7 @@ export default function Navbar() {
                                         className="w-full h-12 rounded-xl font-semibold text-sm text-amber-400"
                                         style={{ border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.04)' }}
                                     >
-                                        🛟 Report an Issue
+                                        Report an Issue
                                     </button>
                                     <button onClick={() => { handleLogout(); closeMobile(); }}
                                         className="w-full h-12 rounded-xl font-semibold text-sm text-red-400"
