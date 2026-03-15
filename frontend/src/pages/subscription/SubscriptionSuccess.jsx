@@ -140,12 +140,75 @@ export default function SubscriptionSuccess() {
                     setSearchParams({}, { replace: true });
                 }
 
-            } catch (err) {
-                // Redirect to the dedicated failure page — better UX than an error on the success page
-                navigate('/payment-failed', { replace: true });
-            } finally {
+                // First attempt succeeded — hide the spinner
                 setVerifying(false);
                 refreshUser().catch(() => { });
+                return;
+
+            } catch (err) {
+                // ── Smart failure handling ───────────────────────────────────────
+                // The verify endpoint can throw on transient server errors (5xx),
+                // even when the payment was actually captured by Cashfree.
+                // Strategy:
+                //   1. Wait 3s and retry verify once.
+                //   2. If retry also fails, check /payment/status/:orderId to
+                //      see if the payment was already processed (webhook may have
+                //      handled it). If it was, show success; otherwise go to /payment-failed.
+
+                const retry = async () => {
+                    try {
+                        const { data } = await api.post('/payment/verify', { orderId: cfOrderId, creatorId: null });
+                        if (data.success) {
+                            const type = data.type || 'subscription';
+                            setVerified(true);
+                            verifiedRef.current = true;
+                            setOrderType(type);
+                            if (type === 'wallet') {
+                                setWalletBalance(data.walletBalance);
+                                setWalletAmount(data.amount);
+                            } else {
+                                if (data.creator) {
+                                    setCreator(data.creator);
+                                    sessionStorage.setItem('fannex_sub_success', JSON.stringify({
+                                        orderType: type,
+                                        creator: data.creator,
+                                        chatId: data.chatId || null,
+                                    }));
+                                }
+                                if (data.chatId) setChatId(data.chatId);
+                            }
+                            setSearchParams({}, { replace: true });
+                            setVerifying(false);
+                            refreshUser().catch(() => { });
+                            return; // success on retry — done
+                        }
+                    } catch (_) {
+                        // retry also failed — fall through to /payment/status check
+                    }
+
+                    // Last resort: check if payment was already marked captured in our DB
+                    try {
+                        const { data: statusData } = await api.get(`/payment/status/${cfOrderId}`);
+                        if (statusData?.status === 'captured') {
+                            // Payment was processed (probably by webhook) — show a generic success
+                            setVerified(true);
+                            verifiedRef.current = true;
+                            setOrderType(statusData.type || 'subscription');
+                            setSearchParams({}, { replace: true });
+                            setVerifying(false);
+                            refreshUser().catch(() => { });
+                            return;
+                        }
+                    } catch (_) { /* ignore — we tried */ }
+
+                    // Truly failed — redirect to failure page
+                    setVerifying(false);
+                    navigate('/payment-failed', { replace: true });
+                };
+
+                // Keep the spinner showing while we wait to retry (don't call setVerifying(false) yet)
+                // Wait 3s then retry — gives server time to recover from a cold restart
+                timerRef.current = setTimeout(retry, 3000);
             }
         };
         verify();
