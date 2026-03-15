@@ -30,16 +30,23 @@ export default function SubscriptionSuccess() {
     // but the effect re-runs because cfOrderId enters the dependency array).
     const verifiedRef = useRef(false);
 
-    // ── Prevent Back → Cashfree payment page ─────────────────────────────────
-    // Push a dummy entry so Back triggers popstate (not a real navigation).
-    // Use window.location.replace — more reliable than React Router navigate
-    // when called inside a native browser event listener.
+    // ── Back-navigation guard (5-entry) ──────────────────────────────────────
+    // ROOT CAUSE of the bug: setSearchParams({}, { replace:true }) calls
+    // history.replaceState() internally, which OVERWRITES our single guard entry.
+    // After verify+cleanup runs, history = [...cashfree, /subscription-success]
+    // and pressing Back goes straight to Cashfree.
+    //
+    // Fix: push 5 guard entries. setSearchParams only replaces entry #5.
+    // Entries #1-#4 absorb Back presses → popstate fires → redirect home.
     useEffect(() => {
-        window.history.pushState(null, document.title, window.location.href);
+        const cleanPath = window.location.pathname;
+        for (let i = 0; i < 5; i++) {
+            window.history.pushState({ paymentGuard: true, i }, '', cleanPath);
+        }
         const handleBack = () => { window.location.replace('/'); };
         window.addEventListener('popstate', handleBack);
         return () => window.removeEventListener('popstate', handleBack);
-    }, []); // run once on mount only
+    }, []); // mount-only — must run before verify effect
     // ─────────────────────────────────────────────────────────────────────────
 
     useEffect(() => {

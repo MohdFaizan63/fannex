@@ -13,9 +13,12 @@ import { Link, useNavigate } from 'react-router-dom';
 export default function PaymentFailed() {
     const navigate = useNavigate();
 
-    // Prevent back-nav to payment page — same pattern as SubscriptionSuccess
+    // 5-entry guard — same rationale as SubscriptionSuccess
     useEffect(() => {
-        window.history.pushState(null, document.title, window.location.href);
+        const cleanPath = window.location.pathname;
+        for (let i = 0; i < 5; i++) {
+            window.history.pushState({ paymentGuard: true, i }, '', cleanPath);
+        }
         const handleBack = () => { window.location.replace('/'); };
         window.addEventListener('popstate', handleBack);
         return () => window.removeEventListener('popstate', handleBack);
