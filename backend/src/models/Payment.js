@@ -43,10 +43,14 @@ const paymentSchema = new mongoose.Schema(
         cfOrderId: { type: String, index: true },
         cfPaymentId: { type: String },
 
-        // ── Idempotency flag (BUG-5 fix) ──────────────────────────────────────
-        // Set to true once creator earnings have been credited for this payment.
-        // Prevents double-credit on concurrent gift verify calls.
+        // ── Idempotency flags ──────────────────────────────────────────────────
+        // _earningsCredited: legacy flag (kept for backward compat)
+        // sideEffectsDone:   NEW bulletproof flag — set atomically to true by the
+        //   first caller (webhook OR verify) that wins the "claim" race.
+        //   All subsequent callers see true and skip side effects entirely.
+        //   Prevents double-counting of earnings, subscriber counts, chat unlock.
         _earningsCredited: { type: Boolean, default: false },
+        sideEffectsDone:   { type: Boolean, default: false, index: true },
 
         // ── Legacy Razorpay fields (kept for historical records — do NOT use) ──
         razorpayOrderId: { type: String },

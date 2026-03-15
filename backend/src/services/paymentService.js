@@ -181,8 +181,18 @@ const verifyWebhookSignature = (rawBody, signature, timestamp) => {
 
 // ── Handle Successful Payment ─────────────────────────────────────────────────
 /**
- * Called after verifying a webhook (event: PAYMENT_SUCCESS_WEBHOOK)
- * or after client-side order status check confirms PAID.
+ * Idempotent handler for captured payments.
+ *
+ * Called by BOTH:
+ *   - POST /payment/verify  (frontend, after Cashfree redirect)
+ *   - POST /payment/webhook (Cashfree server, PAYMENT_SUCCESS_WEBHOOK)
+ *
+ * Idempotency guarantee:
+ *   We use a `sideEffectsDone` boolean on the Payment document.
+ *   Only the first caller that atomically sets sideEffectsDone=false→true
+ *   will run subscriber count / earnings increments.
+ *   All subsequent callers find sideEffectsDone=true and return immediately.
+ *   This prevents double-counting even if webhook and verify race each other.
  */
 const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => {
     const { userId, creatorId, type = 'subscription', baseAmount: metaBase } = meta;
@@ -191,34 +201,15 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
 
     const grossAmount = Number(amount);  // total fan paid (base + GST)
 
-    // ── Wallet top-ups: NO GST (fan depositing own money, not buying content) ──
+    // ── Wallet top-ups: NO GST, no creator involved ──────────────────────────
     if (type === 'wallet') {
         const User = require('../models/User');
 
+        // Atomic: only update if not yet captured (prevents double wallet credit)
         const result = await Payment.findOneAndUpdate(
             { cfOrderId: orderId, status: { $ne: 'captured' } },
             {
                 $set: {
-                    userId,
-                    amount: grossAmount,
-                    baseAmount: grossAmount,  // wallet: base = gross (no GST)
-                    gstAmount: 0,
-                    platformFee: 0,
-                    creatorEarning: 0,
-                    currency: 'INR',
-                    type: 'wallet',
-                    status: 'captured',
-                    cfOrderId: orderId,
-                    cfPaymentId: cfPaymentId || null,
-                },
-            },
-            { upsert: false, returnDocument: 'before' }
-        );
-
-        if (!result) {
-            const existed = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
-            if (!existed) {
-                await Payment.create({
                     userId,
                     amount: grossAmount,
                     baseAmount: grossAmount,
@@ -230,78 +221,108 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
                     status: 'captured',
                     cfOrderId: orderId,
                     cfPaymentId: cfPaymentId || null,
-                }).catch(() => { });
+                },
+            },
+            { new: false }  // returns the BEFORE doc; null = doc didn't exist or was already captured
+        );
 
-                const justCreated = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
-                if (justCreated && justCreated.cfPaymentId === (cfPaymentId || null)) {
-                    await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
-                }
-            }
-        } else {
+        if (result) {
+            // result is the old doc — it was NOT captured before → first time → credit wallet
             await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
+            console.log(`[handlePaymentCaptured] Wallet credited userId=${userId} amount=${grossAmount}`);
+        } else {
+            // Either already captured, or doc doesn't exist yet → try insert
+            const existing = await Payment.findOne({ cfOrderId: orderId });
+            if (!existing) {
+                const inserted = await Payment.create({
+                    userId,
+                    amount: grossAmount,
+                    baseAmount: grossAmount,
+                    gstAmount: 0,
+                    platformFee: 0,
+                    creatorEarning: 0,
+                    currency: 'INR',
+                    type: 'wallet',
+                    status: 'captured',
+                    cfOrderId: orderId,
+                    cfPaymentId: cfPaymentId || null,
+                    sideEffectsDone: true,
+                }).catch(() => null);
+
+                if (inserted) {
+                    await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
+                    console.log(`[handlePaymentCaptured] Wallet created+credited userId=${userId} amount=${grossAmount}`);
+                }
+            } else {
+                console.log(`[handlePaymentCaptured] Wallet duplicate skipped orderId=${orderId}`);
+            }
         }
         return;
     }
 
-    // ── All paid-content types: GST breakdown ───────────────────────────────────
+    // ── All paid-content types: GST breakdown ─────────────────────────────────
     if (!creatorId) return;
 
-    // Derive GST breakdown:
-    // metaBase is stored when the order is created; fall back to reverse-calculating
-    // base from grossAmount in case old orders don't have it in meta.
     const base = metaBase ? Number(metaBase) : Math.round(grossAmount / 1.18 * 100) / 100;
     const gst = calcGST(base);
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // BULLETPROOF IDEMPOTENCY PATTERN
+    //
+    // Step 1: Try to INSERT a new Payment doc with sideEffectsDone=false.
+    //         If one already exists for this orderId, this is a no-op.
+    // Step 2: Atomically flip sideEffectsDone false→true.
+    //         Only ONE caller will see the "before" doc with false.
+    //         All other callers (webhook retry, verify retry) see true → skip.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    // Step 1: Ensure Payment doc exists (upsert-safe, no rawResult needed)
+    await Payment.findOneAndUpdate(
+        { cfOrderId: orderId },
+        {
+            $setOnInsert: {
+                userId,
+                creatorId,
+                amount: grossAmount,
+                baseAmount: gst.baseAmount,
+                gstAmount: gst.gstAmount,
+                platformFee: gst.platformFee,
+                creatorEarning: gst.creatorEarning,
+                currency: 'INR',
+                type,
+                status: 'captured',
+                cfOrderId: orderId,
+                cfPaymentId,
+                sideEffectsDone: false,  // ← key flag
+            },
+        },
+        { upsert: true }   // NO rawResult — simple upsert
+    );
+
+    // Step 2: Atomically claim the right to run side effects exactly once
+    // findOneAndUpdate returns the BEFORE doc. If sideEffectsDone was false → we own it.
+    // If it was already true → someone else already ran side effects → skip.
+    const claimed = await Payment.findOneAndUpdate(
+        { cfOrderId: orderId, sideEffectsDone: false },
+        { $set: { sideEffectsDone: true, status: 'captured' } },
+        { new: false }  // return BEFORE doc so we know if we won the claim
+    );
+
+    if (!claimed) {
+        // sideEffectsDone was already true → side effects already ran → idempotent exit
+        console.log(`[handlePaymentCaptured] Side effects already done, skipping orderId=${orderId}`);
+        return;
+    }
+
+    console.log(`[handlePaymentCaptured] Running side effects for orderId=${orderId} type=${type}`);
+
+    // ── Side effects run exactly once for this orderId ────────────────────────
 
     if (type === 'subscription') {
-        // ── Only run side-effects if this is the FIRST time we see this orderId ──
-        // Both the webhook (PAYMENT_SUCCESS_WEBHOOK) AND the frontend /verify endpoint
-        // call handlePaymentCaptured. Without this guard, subscriber count and earnings
-        // would be incremented twice (or more) per payment.
-        //
-        // Strategy: use findOneAndUpdate with rawResult:true and check
-        // lastErrorObject.updatedExisting — false means it was a new upsert (first call),
-        // true means the document already existed (duplicate call → skip side-effects).
-
-        const paymentResult = await Payment.findOneAndUpdate(
-            { cfOrderId: orderId },
-            {
-                $setOnInsert: {        // only written on INSERT, not on UPDATE
-                    userId,
-                    creatorId,
-                    amount: grossAmount,
-                    baseAmount:     gst.baseAmount,
-                    gstAmount:      gst.gstAmount,
-                    platformFee:    gst.platformFee,
-                    creatorEarning: gst.creatorEarning,
-                    currency: 'INR',
-                    type,
-                    status: 'captured',
-                    cfOrderId: orderId,
-                    cfPaymentId,
-                },
-            },
-            { upsert: true, rawResult: true }  // rawResult gives us lastErrorObject
-        );
-
-        // updatedExisting === false   → new document was created (first call)
-        // updatedExisting === true    → document already existed (duplicate call)
-        const isFirstCall = !paymentResult.lastErrorObject?.updatedExisting;
-
-        if (!isFirstCall) {
-            // Already processed — skip all DB side-effects to prevent double-counts
-            console.log(`[handlePaymentCaptured] Skipping duplicate side-effects for orderId=${orderId}`);
-            return;
-        }
-
-        // ──── First call only — run all side-effects exactly once ────────────
-
-        // 2. Activate subscription (1 month)
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-        // Check if this user was already a subscriber BEFORE the upsert.
-        // This is safer than rawResult+returnDocument in Mongoose 9.x (they conflict).
+        // Check if subscriber existed BEFORE this payment
         const existingSub = await Subscription.findOne({ userId, creatorId }).select('_id').lean();
         const isNewSubscriber = !existingSub;
 
@@ -311,15 +332,15 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true }
         );
 
-        // 3. Increment creator subscriber count ONLY for new subscribers
         if (isNewSubscriber) {
             await CreatorProfile.findOneAndUpdate(
                 { userId: creatorId },
                 { $inc: { totalSubscribers: 1 } }
             );
+            console.log(`[handlePaymentCaptured] New subscriber counted creatorId=${creatorId}`);
         }
 
-        // 4. Auto-unlock chat room for subscriber
+        // Unlock chat room
         const ChatRoom = require('../models/ChatRoom');
         await ChatRoom.findOneAndUpdate(
             { creatorId, userId },
@@ -327,36 +348,11 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true }
         );
 
-        // 5. Credit creator earnings — 80% of BASE only (no GST), runs exactly once
+        // Credit 80% of BASE to creator earnings (runs ONCE thanks to the claim above)
         await creditEarningsOnPayment(creatorId, gst.baseAmount, null);
+        console.log(`[handlePaymentCaptured] Earnings credited creatorId=${creatorId} amount=${gst.baseAmount}`);
 
-    } else {
-        // ── Non-subscription types: upsert payment record first ──────────────
-        //    (subscription type already did its upsert above with rawResult)
-        await Payment.findOneAndUpdate(
-            { cfOrderId: orderId },
-            {
-                $set: {
-                    userId,
-                    creatorId,
-                    amount: grossAmount,
-                    baseAmount:     gst.baseAmount,
-                    gstAmount:      gst.gstAmount,
-                    platformFee:    gst.platformFee,
-                    creatorEarning: gst.creatorEarning,
-                    currency: 'INR',
-                    type,
-                    status: 'captured',
-                    cfOrderId: orderId,
-                    cfPaymentId,
-                },
-            },
-            { upsert: true }
-        );
-    }
-
-    if (type === 'gift') {
-        // Gift: idempotent $inc guarded by the Payment idempotency flag
+    } else if (type === 'gift') {
         const Earnings = require('../models/Earnings');
         await Earnings.findOneAndUpdate(
             { creatorId },
@@ -365,14 +361,13 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
         );
 
     } else if (type === 'chat_unlock') {
-        // Chat unlock: unlock room + credit 80% of base to creator
         const ChatRoom = require('../models/ChatRoom');
         const Earnings = require('../models/Earnings');
 
         await ChatRoom.findOneAndUpdate(
             { creatorId, userId },
             { isPaid: true, chatPaymentId: cfPaymentId, unlockedAt: new Date() },
-            { upsert: true, returnDocument: 'after' }
+            { upsert: true }
         );
 
         await Earnings.findOneAndUpdate(
