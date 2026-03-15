@@ -2,6 +2,7 @@ const Post = require('../models/Post');
 const PostLike = require('../models/PostLike');
 const PostComment = require('../models/PostComment');
 const Subscription = require('../models/Subscription');
+const CreatorProfile = require('../models/CreatorProfile');
 const paginate = require('../utils/paginate');
 const { optimizeMediaUrls, getVideoThumbnailUrl } = require('../utils/optimizeMediaUrl');
 const { createNotification, notifySubscribers } = require('../services/notificationService');
@@ -70,6 +71,12 @@ const createPost = async (req, res, next) => {
             mediaType,
             isLocked: isLocked === 'true' || isLocked === true,
         });
+
+        // Increment the denormalised totalPosts counter on the creator's profile
+        CreatorProfile.findOneAndUpdate(
+            { userId: req.user._id },
+            { $inc: { totalPosts: 1 } }
+        ).catch(() => { }); // fire-and-forget — don't block the response
 
         // Fire-and-forget notification to all subscribers
         notifySubscribers(req.user._id, {
@@ -202,11 +209,15 @@ const deletePost = async (req, res, next) => {
             } catch (_) { /* ignore if cloudinary not configured */ }
         }
 
-        // Clean up related likes and comments
+        // Clean up related likes, comments and decrement totalPosts counter
         await Promise.all([
             PostLike.deleteMany({ postId: post._id }),
             PostComment.deleteMany({ postId: post._id }),
             post.deleteOne(),
+            CreatorProfile.findOneAndUpdate(
+                { userId: req.user._id },
+                { $inc: { totalPosts: -1 } }
+            ),
         ]);
 
         res.status(200).json({ success: true, message: 'Post deleted successfully' });
@@ -562,6 +573,10 @@ const removeMedia = async (req, res, next) => {
                 PostLike.deleteMany({ postId: post._id }),
                 PostComment.deleteMany({ postId: post._id }),
                 post.deleteOne(),
+                CreatorProfile.findOneAndUpdate(
+                    { userId: req.user._id },
+                    { $inc: { totalPosts: -1 } }
+                ),
             ]);
             return res.status(200).json({ success: true, message: 'Post deleted (no media remaining)', deleted: true });
         }

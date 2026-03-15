@@ -291,17 +291,25 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-        await Subscription.findOneAndUpdate(
+        // Use rawResult so we can tell whether the sub doc was newly created or
+        // just updated (renewal). We only increment totalSubscribers for NEW subscribers.
+        const subResult = await Subscription.findOneAndUpdate(
             { userId, creatorId },
             { userId, creatorId, status: 'active', expiresAt, cfOrderId: orderId },
-            { upsert: true, returnDocument: 'after' }
+            { upsert: true, returnDocument: 'after', rawResult: true }
         );
 
-        // 3. Increment creator subscriber count by exactly +1
-        await CreatorProfile.findOneAndUpdate(
-            { userId: creatorId },
-            { $inc: { totalSubscribers: 1 } }
-        );
+        // updatedExisting === false → brand-new subscriber (first-time subscription)
+        // updatedExisting === true  → existing subscriber renewing → do NOT increment
+        const isNewSubscriber = !subResult.lastErrorObject?.updatedExisting;
+
+        // 3. Increment creator subscriber count ONLY for new subscribers
+        if (isNewSubscriber) {
+            await CreatorProfile.findOneAndUpdate(
+                { userId: creatorId },
+                { $inc: { totalSubscribers: 1 } }
+            );
+        }
 
         // 4. Auto-unlock chat room for subscriber
         const ChatRoom = require('../models/ChatRoom');

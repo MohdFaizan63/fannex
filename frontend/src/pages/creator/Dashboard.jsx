@@ -214,6 +214,8 @@ export default function Dashboard() {
         try {
             await postService.delete(deletingPost._id);
             setPosts(prev => prev.filter(p => p._id !== deletingPost._id));
+            // Keep the Total Posts stat card in sync without requiring a page reload
+            setProfile(prev => prev ? { ...prev, totalPosts: Math.max(0, (prev.totalPosts ?? 0) - 1) } : prev);
             setDeletingPost(null);
         } catch (_) { }
         setDeleteLoading(false);
@@ -237,7 +239,7 @@ export default function Dashboard() {
         { icon: '👥', label: 'Total Subscribers', value: loading ? '—' : (profile?.totalSubscribers ?? 0).toLocaleString('en-IN') },
         { icon: '💰', label: 'Total Earned', value: loading ? '—' : formatCurrency(earnings?.totalEarned ?? 0), accent: true, sub: 'lifetime' },
         { icon: '⏳', label: 'Pending Payout', value: loading ? '—' : formatCurrency(earnings?.pendingAmount ?? 0), sub: 'withdrawable' },
-        { icon: '📸', label: 'Total Posts', value: loading ? '—' : (profile?.totalPosts ?? posts.length).toLocaleString('en-IN') },
+        { icon: '📸', label: 'Total Posts', value: loading ? '—' : (profile?.totalPosts ?? 0).toLocaleString('en-IN') },
     ];
 
     const profileUrl = profile?.username ? `${window.location.origin}/creator/${profile.username}` : null;
