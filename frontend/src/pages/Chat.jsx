@@ -19,6 +19,7 @@ export default function Chat() {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [otherName, setOtherName] = useState('Creator');
+    const [otherAvatar, setOtherAvatar] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [isOtherOnline, setIsOtherOnline] = useState(false);
     const [text, setText] = useState('');
@@ -97,20 +98,24 @@ export default function Chat() {
         const findRoom = (rooms) => rooms.find(r => String(r._id) === String(chatId));
 
         if (isCreator) {
-            // Creator: look up fan's name from creator rooms
+            // Creator: look up fan's name + avatar from creator rooms
             chatService.getCreatorRooms()
                 .then(({ data }) => {
                     const room = findRoom(data?.data ?? []);
                     if (room?.userId?.name) setOtherName(room.userId.name);
+                    // User model has no photo — graceful fallback to letter avatar
                 })
                 .catch(() => { });
         } else {
-            // Fan: look up creator name from user rooms
+            // Fan: look up creator name + avatar from user rooms
             chatService.getUserRooms()
                 .then(({ data }) => {
                     const room = findRoom(data?.data ?? []);
-                    if (room?.creatorProfile?.displayName) setOtherName(room.creatorProfile.displayName);
-                    else if (room?.userId?.name) setOtherName(room.userId.name);
+                    const displayName = room?.creatorProfile?.displayName || room?.userId?.name;
+                    // CreatorProfile stores photo as 'profileImage'
+                    const avatar = room?.creatorProfile?.profileImage || '';
+                    if (displayName) setOtherName(displayName);
+                    if (avatar)      setOtherAvatar(avatar);
                 })
                 .catch(() => { });
         }
@@ -334,7 +339,12 @@ export default function Chat() {
 
                 {/* Avatar */}
                 <div className="chat-header-avatar">
-                    <div className="chat-header-avatar-circle">{otherName[0]?.toUpperCase()}</div>
+                    <div className="chat-header-avatar-circle">
+                        {otherAvatar
+                            ? <img src={otherAvatar} alt={otherName} />
+                            : otherName[0]?.toUpperCase()
+                        }
+                    </div>
                     {isOtherOnline && <span className="chat-header-online-dot" />}
                 </div>
 
@@ -367,6 +377,7 @@ export default function Chat() {
                 messages={messages}
                 currentUserId={user?._id}
                 otherName={otherName}
+                otherAvatar={otherAvatar}
                 isTyping={isTyping}
                 onScrollTop={handleScrollTop}
             />

@@ -3,10 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './chat.css';
 
 /**
- * ChatWindow — Premium message list with grouped bubbles, day separators,
- * read receipts, and typing indicator.
+ * ChatWindow — premium message list.
+ * Props:
+ *   messages       – array of message objects
+ *   currentUserId  – the logged-in user's _id
+ *   otherName      – display name of the other participant
+ *   otherAvatar    – (optional) profile photo URL of the other participant
+ *   isTyping       – boolean
+ *   onScrollTop    – called when user scrolls to top (load more)
  */
-export default function ChatWindow({ messages, currentUserId, otherName, isTyping, onScrollTop }) {
+export default function ChatWindow({ messages, currentUserId, otherName, otherAvatar, isTyping, onScrollTop }) {
     const bottomRef = useRef(null);
     const containerRef = useRef(null);
 
@@ -14,70 +20,71 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
 
-    // Show a day separator only when the CALENDAR DATE changes (or first message).
-    // Previously used shouldShowTimestamp (10-min gap) — that caused "Today" to
-    // appear multiple times in one day whenever there was a long gap.
+    /* ── Date helpers ─────────────────────────────────────────────────────── */
     const isNewDay = (msg, prevMsg) => {
         if (!prevMsg) return true;
         return new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
     };
 
-    // Control message grouping (avatar, bubble shape) — still 10-min gap
     const shouldGroup = (msg, prevMsg) => {
-        if (!msg || !prevMsg) return false;   // guard: either can be undefined
-        const sameSender = (m) => {
+        if (!msg || !prevMsg) return false;
+        const sid = (m) => {
             const s = m.senderId;
             if (!s) return '';
             if (typeof s === 'object' && s._id) return s._id.toString();
             return s.toString();
         };
-        if (sameSender(msg) !== sameSender(prevMsg)) return false;
+        if (sid(msg) !== sid(prevMsg)) return false;
         return new Date(msg.createdAt) - new Date(prevMsg.createdAt) < 10 * 60 * 1000;
     };
 
     const getDayLabel = (date) => {
         const d = new Date(date);
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
-
-        // Compare calendar dates only (year/month/day) — not raw timestamps.
-        // Raw ms comparison fails: e.g. a msg at 11:59 PM checked at 12:01 AM
-        // next day is only 2 mins apart, giving diffDays=0 → wrongly "Today".
         const dStr = d.toDateString();
-        if (dStr === today.toDateString()) return 'Today';
-        if (dStr === yesterday.toDateString()) return 'Yesterday';
+        const today = new Date().toDateString();
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        if (dStr === today) return 'Today';
+        if (dStr === yesterday) return 'Yesterday';
         return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
-    const formatTime = (date) => {
-        return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
+    const formatTime = (date) =>
+        new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const handleScroll = (e) => {
         if (e.target.scrollTop === 0) onScrollTop?.();
     };
 
+    /* ── Empty state ─────────────────────────────────────────────────────── */
     if (messages.length === 0 && !isTyping) {
         return (
             <div className="chat-empty">
                 <div className="chat-empty-icon">💬</div>
                 <div className="chat-empty-title">Start the conversation</div>
-                <div className="chat-empty-subtitle">Say hello and break the ice! Your messages are private and secure.</div>
+                <div className="chat-empty-subtitle">
+                    Say hello and break the ice! Your messages are private and secure.
+                </div>
             </div>
         );
     }
 
+    // ── Avatar helper: renders photo if available, else initial letter ──
+    const AvatarCircle = ({ size = 'msg' }) => (
+        <div className="chat-msg-avatar">
+            {otherAvatar ? (
+                <img src={otherAvatar} alt={otherName} />
+            ) : (
+                <span>{otherName?.[0]?.toUpperCase()}</span>
+            )}
+        </div>
+    );
+
     return (
-        <div
-            ref={containerRef}
-            className="chat-messages"
-            onScroll={handleScroll}
-        >
-            {/* Spacer — pushes messages to bottom when few messages */}
+        <div ref={containerRef} className="chat-messages" onScroll={handleScroll}>
+            {/* Spacer to push messages toward the bottom initially */}
             <div style={{ flexGrow: 1 }} />
+
             {messages.map((msg, i) => {
-                // Robust sender ID — handles ObjectId, populated object, or plain string
                 const getSenderId = (m) => {
                     const s = m.senderId;
                     if (!s) return '';
@@ -89,20 +96,27 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
                 const prevMsg = messages[i - 1];
                 const nextMsg = messages[i + 1];
 
-                // Day separator: only on calendar date change (not on every 10-min gap)
-                const showDaySep = isNewDay(msg, prevMsg);
-
-                // Bubble grouping: same sender + within 10 minutes
+                const showDaySep   = isNewDay(msg, prevMsg);
                 const groupedWithPrev = shouldGroup(msg, prevMsg);
                 const groupedWithNext = shouldGroup(nextMsg, msg);
 
-                const isFirst = !groupedWithPrev;
-                const isLast = !groupedWithNext;
+                const isFirst  = !groupedWithPrev;
+                const isLast   = !groupedWithNext;
+
+                // Shape: single / first / middle / last
+                let shapeKey = 'single';
+                if (!isFirst && !isLast) shapeKey = 'middle';
+                else if (isFirst && !isLast) shapeKey = 'first';
+                else if (!isFirst && isLast)  shapeKey = 'last';
+
+                // Only show avatar on last message in a received group
                 const showAvatar = !isMine && isLast;
+
+                // Row gap class
+                const gapClass = isFirst ? 'chat-msg-row--gap' : 'chat-msg-row--continued';
 
                 return (
                     <div key={msg._id || i}>
-                        {/* Day separator — once per calendar day */}
                         {showDaySep && (
                             <div className="chat-day-separator">
                                 <span>{getDayLabel(msg.createdAt)}</span>
@@ -111,18 +125,18 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
                         <MessageBubble
                             msg={msg}
                             isMine={isMine}
-                            otherName={otherName}
+                            shapeKey={shapeKey}
                             showAvatar={showAvatar}
-                            isFirst={isFirst}
-                            isLast={isLast}
-                            isSingle={isFirst && isLast}
+                            gapClass={gapClass}
+                            otherName={otherName}
+                            otherAvatar={otherAvatar}
                             formatTime={formatTime}
                         />
                     </div>
                 );
             })}
 
-            {/* Typing indicator */}
+            {/* ── Typing indicator ── */}
             <AnimatePresence>
                 {isTyping && (
                     <motion.div
@@ -132,13 +146,14 @@ export default function ChatWindow({ messages, currentUserId, otherName, isTypin
                         transition={{ duration: 0.2 }}
                         className="chat-typing"
                     >
-                        {/* Avatar */}
                         <div className="chat-msg-avatar-slot">
                             <div className="chat-msg-avatar">
-                                {otherName?.[0]?.toUpperCase()}
+                                {otherAvatar
+                                    ? <img src={otherAvatar} alt={otherName} />
+                                    : <span>{otherName?.[0]?.toUpperCase()}</span>
+                                }
                             </div>
                         </div>
-                        {/* Dots bubble */}
                         <div className="chat-typing-bubble">
                             <span className="chat-typing-dot" />
                             <span className="chat-typing-dot" />
@@ -158,31 +173,37 @@ function ReadTick({ seen }) {
     return (
         <span className={`chat-tick ${seen ? 'chat-tick--seen' : ''}`}>
             <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
-                <path
-                    d="M1 5.5L4.5 9L11 2"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-                <path
-                    d="M5 5.5L8.5 9L15 2"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={seen ? 1 : 0.3}
-                />
+                <path d="M1 5.5L4.5 9L11 2"
+                    stroke="currentColor" strokeWidth="1.6"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5 5.5L8.5 9L15 2"
+                    stroke="currentColor" strokeWidth="1.6"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    opacity={seen ? 1 : 0.3} />
             </svg>
         </span>
     );
 }
 
+/* ── Avatar element ─────────────────────────────────────────────────────────── */
+function AvatarImg({ name, photoUrl }) {
+    return (
+        <div className="chat-msg-avatar">
+            {photoUrl
+                ? <img src={photoUrl} alt={name} />
+                : <span>{name?.[0]?.toUpperCase()}</span>
+            }
+        </div>
+    );
+}
+
 /* ── Message Bubble ────────────────────────────────────────────────────────── */
-const MessageBubble = memo(function MessageBubble({ msg, isMine, otherName, showAvatar, isFirst, isLast, isSingle, formatTime }) {
+const MessageBubble = memo(function MessageBubble({
+    msg, isMine, shapeKey, showAvatar, gapClass, otherName, otherAvatar, formatTime
+}) {
     const time = formatTime(msg.createdAt);
 
-    // Gift bubble
+    /* ── Gift bubble ── */
     if (msg.type === 'gift') {
         return (
             <motion.div
@@ -191,28 +212,29 @@ const MessageBubble = memo(function MessageBubble({ msg, isMine, otherName, show
                 transition={{ type: 'spring', damping: 16 }}
                 className={`chat-msg-row ${isMine ? 'chat-msg-row--sent' : ''} chat-msg-row--gap`}
             >
-                <div className="chat-msg-avatar-slot" />
+                {/* No avatar for gift — center-aligned feel */}
+                {!isMine && <div className="chat-msg-avatar-slot" />}
                 <div className="chat-gift-bubble">
-                    <div className="chat-gift-emoji">🎁</div>
+                    <span className="chat-gift-emoji">🎁</span>
                     <div className="chat-gift-amount">₹{msg.giftAmount?.toLocaleString('en-IN')}</div>
-                    <div className="chat-gift-label">Gift sent</div>
-                    <div className="chat-gift-time">{time}</div>
+                    <div className="chat-gift-label">Gift Sent</div>
+                    <span className="chat-gift-time">{time}</span>
                 </div>
             </motion.div>
         );
     }
 
+    /* ── Image bubble ── */
     if (msg.type === 'image') {
         const isUploading = String(msg._id).startsWith('opt-img-');
         return (
-            <div className={`chat-msg-row ${isMine ? 'chat-msg-row--sent' : ''} ${!isFirst ? '' : 'chat-msg-row--gap'}`}>
-                <div className="chat-msg-avatar-slot">
-                    {showAvatar && (
-                        <div className="chat-msg-avatar">
-                            {otherName?.[0]?.toUpperCase()}
-                        </div>
-                    )}
-                </div>
+            <div className={`chat-msg-row ${isMine ? 'chat-msg-row--sent' : ''} ${gapClass}`}>
+                {/* Avatar slot for received images */}
+                {!isMine && (
+                    <div className="chat-msg-avatar-slot">
+                        {showAvatar && <AvatarImg name={otherName} photoUrl={otherAvatar} />}
+                    </div>
+                )}
                 <div className={`chat-image-bubble${isUploading ? ' chat-image-bubble--uploading' : ''}`}>
                     <img src={msg.content} alt="shared" loading="lazy" />
                 </div>
@@ -220,31 +242,26 @@ const MessageBubble = memo(function MessageBubble({ msg, isMine, otherName, show
         );
     }
 
-    // Determine bubble shape class
-    let shapeClass = '';
-    if (isSingle) shapeClass = 'chat-bubble--single';
-    else if (isFirst) shapeClass = 'chat-bubble--first';
-    else if (!isFirst && !isLast) shapeClass = 'chat-bubble--continued';
-    // else: default radius (last in group)
+    /* ── Text bubble ── */
+    const bubbleSideClass = isMine ? 'chat-bubble--sent' : 'chat-bubble--received';
+    const bubbleShapeClass = `chat-bubble--${shapeKey}`;
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className={`chat-msg-row ${isMine ? 'chat-msg-row--sent' : ''} ${isFirst && !isSingle ? 'chat-msg-row--gap' : ''}`}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className={`chat-msg-row ${isMine ? 'chat-msg-row--sent' : ''} ${gapClass}`}
         >
-            {/* Avatar (received only, last in group) */}
-            <div className="chat-msg-avatar-slot">
-                {!isMine && showAvatar && (
-                    <div className="chat-msg-avatar">
-                        {otherName?.[0]?.toUpperCase()}
-                    </div>
-                )}
-            </div>
+            {/* Avatar slot — only on received side */}
+            {!isMine && (
+                <div className="chat-msg-avatar-slot">
+                    {showAvatar && <AvatarImg name={otherName} photoUrl={otherAvatar} />}
+                </div>
+            )}
 
             {/* Bubble */}
-            <div className={`chat-bubble ${isMine ? 'chat-bubble--sent' : 'chat-bubble--received'} ${shapeClass}`}>
+            <div className={`chat-bubble ${bubbleSideClass} ${bubbleShapeClass}`}>
                 <span>{msg.content}</span>
                 <div className="chat-bubble-meta">
                     <span className="chat-bubble-time">{time}</span>
