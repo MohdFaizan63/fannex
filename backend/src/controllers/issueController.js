@@ -4,11 +4,15 @@
 const IssueReport = require('../models/IssueReport');
 const rateLimit = require('express-rate-limit');
 
+// ipKeyGenerator helper resolves IPv6 addresses correctly
+// (required by express-rate-limit ≥ 7 when a keyGenerator may return req.ip)
+const { ipKeyGenerator } = require('express-rate-limit');
+
 // ── Rate limiter: max 5 reports per user per hour ─────────────────────────────
 const reportLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,      // 1 hour
     max: 5,
-    keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+    keyGenerator: (req) => req.user?._id?.toString() || ipKeyGenerator(req),
     message: { success: false, message: 'Too many reports submitted. Please wait before submitting again.' },
     standardHeaders: true,
     legacyHeaders: false,
