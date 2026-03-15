@@ -7,6 +7,7 @@ const {
     getVerifications, approveVerification, rejectVerification,
     listAllPayouts, approvePayout, rejectPayout, markPaid,
     repairStats,
+    dedupSubscriptions,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -41,8 +42,10 @@ router.patch('/payouts/:id/mark-paid', markPaid);
 
 // ── One-time data repair ─────────────────────────────────────────────────────
 // POST /api/admin/repair-stats — recalculates totalPosts and totalSubscribers
-// for all CreatorProfiles from actual Post and Subscription collections.
-// Safe to run multiple times (idempotent). Remove this route after first run.
 router.post('/repair-stats', repairStats);
+
+// POST /api/admin/dedup-subscriptions — removes duplicate Subscription documents
+// Run once after deploying the unique index to clean existing bad data
+router.post('/dedup-subscriptions', dedupSubscriptions);
 
 module.exports = router;

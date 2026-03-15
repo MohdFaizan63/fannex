@@ -516,6 +516,56 @@ const repairStats = async (req, res, next) => {
     }
 };
 
+/**
+ * @desc    Remove duplicate Subscription documents (same userId+creatorId).
+ *          Keeps the most recently created document and deletes all older ones.
+ *          Run ONCE after deploying the unique index to clean existing bad data.
+ * @route   POST /api/admin/dedup-subscriptions
+ * @access  Admin
+ */
+const dedupSubscriptions = async (req, res, next) => {
+    try {
+        console.log('[dedupSubscriptions] Starting dedup...');
+
+        // Find all (userId, creatorId) groups that have more than 1 document
+        const groups = await Subscription.aggregate([
+            {
+                $group: {
+                    _id: { userId: '$userId', creatorId: '$creatorId' },
+                    count: { $sum: 1 },
+                    ids: { $push: '$_id' },
+                    // Keep the most recently created one
+                    latestId: { $last: '$_id' },
+                },
+            },
+            { $match: { count: { $gt: 1 } } },      // only groups with dups
+        ]);
+
+        let deleted = 0;
+        for (const group of groups) {
+            // Delete all IDs EXCEPT the most recent one
+            const toDelete = group.ids.filter(
+                (id) => id.toString() !== group.latestId.toString()
+            );
+            if (toDelete.length > 0) {
+                const result = await Subscription.deleteMany({ _id: { $in: toDelete } });
+                deleted += result.deletedCount;
+            }
+        }
+
+        console.log(`[dedupSubscriptions] Done. Groups with dups: ${groups.length}, docs deleted: ${deleted}`);
+
+        res.status(200).json({
+            success: true,
+            message: `Dedup complete. ${groups.length} duplicate groups found, ${deleted} stale documents removed.`,
+            data: { duplicateGroups: groups.length, deleted },
+        });
+    } catch (error) {
+        console.error('[dedupSubscriptions] Error:', error.message);
+        next(error);
+    }
+};
+
 
 module.exports = {
     getAllUsers,
@@ -536,4 +586,5 @@ module.exports = {
     markPaid,
     // One-time repair
     repairStats,
+    dedupSubscriptions,
 };
