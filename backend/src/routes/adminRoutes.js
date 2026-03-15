@@ -8,7 +8,9 @@ const {
     listAllPayouts, approvePayout, rejectPayout, markPaid,
     repairStats,
     dedupSubscriptions,
+    repairGiftEarnings,
 } = require('../controllers/adminController');
+
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 // All admin routes require JWT + admin role
@@ -47,5 +49,8 @@ router.post('/repair-stats', repairStats);
 // POST /api/admin/dedup-subscriptions — removes duplicate Subscription documents
 // Run once after deploying the unique index to clean existing bad data
 router.post('/dedup-subscriptions', dedupSubscriptions);
+// POST /api/admin/repair-gift-earnings — backfills creatorEarning=0 gift Payment docs
+router.post('/repair-gift-earnings', repairGiftEarnings);
 
 module.exports = router;
+

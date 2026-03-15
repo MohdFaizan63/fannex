@@ -107,13 +107,15 @@ export default function SubscriptionSuccess() {
 
                     // Call /chat/gift/verify to persist the gift message bubble
                     const stored = sessionStorage.getItem('fannex_gift_chat');
+                    let giftChatId = null;
                     if (stored) {
                         try {
-                            const { chatId: giftChatId, amount } = JSON.parse(stored);
-                            setSourceChatId(giftChatId);
+                            const { chatId: gc, amount } = JSON.parse(stored);
+                            giftChatId = gc;
+                            setSourceChatId(gc);
                             await chatService.verifyGift({
                                 orderId: cfOrderId,
-                                chatId: giftChatId,
+                                chatId: gc,
                                 amount,
                             });
                             sessionStorage.removeItem('fannex_gift_chat');
@@ -121,9 +123,18 @@ export default function SubscriptionSuccess() {
                             // verifyGift failure is non-fatal — webhook may have already processed it
                         }
                     }
-                    // Clean the URL without navigating away — CRITICAL: navigate() would
-                    // set cfOrderId=null and redirect to /explore before the UI renders.
+                    // Clean the URL without navigating away
                     setSearchParams({}, { replace: true });
+
+                    // ✅ Auto-redirect back to chat after 2.5s so gift bubble shows immediately
+                    if (giftChatId) {
+                        setRedirecting(true);
+                        timerRef.current = setTimeout(() => {
+                            navigate(`/chat/${giftChatId}?refresh=1`, { replace: true });
+                        }, 2500);
+                    }
+
+
 
                 } else {
                     // ── Subscription (default) ───────────────────────────────────

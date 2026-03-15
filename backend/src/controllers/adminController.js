@@ -566,6 +566,53 @@ const dedupSubscriptions = async (req, res, next) => {
     }
 };
 
+// One-time repair: backfill creatorEarning=0 gift Payment docs
+// POST /api/v1/admin/repair-gift-earnings
+const repairGiftEarnings = async (req, res, next) => {
+    try {
+        const Payment  = require('../models/Payment');
+        const Earnings = require('../models/Earnings');
+
+        // Find all gift payments with missing or zero creatorEarning
+        const broken = await Payment.find({
+            type: 'gift',
+            status: 'captured',
+            $or: [{ creatorEarning: { $lte: 0 } }, { creatorEarning: { $exists: false } }],
+        });
+
+        let fixed = 0;
+        for (const p of broken) {
+            const gross = Number(p.giftAmount || p.amount || 0);
+            if (!gross) continue;
+
+            const base          = Math.round(gross / 1.18 * 100) / 100;
+            const creatorEarning = Math.round(base * 0.8 * 100) / 100;
+            const platformFee   = Math.round(base * 0.2 * 100) / 100;
+            const gstAmount     = Math.round((gross - base) * 100) / 100;
+
+            // Patch the Payment doc
+            await Payment.findByIdAndUpdate(p._id, {
+                $set: { baseAmount: base, gstAmount, platformFee, creatorEarning },
+            });
+
+            // Credit Earnings if not already credited
+            if (!p._earningsCredited && p.creatorId) {
+                await Earnings.findOneAndUpdate(
+                    { creatorId: p.creatorId },
+                    { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
+                    { upsert: true }
+                );
+                await Payment.findByIdAndUpdate(p._id, { $set: { _earningsCredited: true } });
+            }
+            fixed++;
+        }
+
+        res.json({ success: true, message: `Repaired ${fixed} gift Payment docs`, total: broken.length, fixed });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 module.exports = {
     getAllUsers,
@@ -584,7 +631,8 @@ module.exports = {
     approvePayout,
     rejectPayout,
     markPaid,
-    // One-time repair
+    // One-time repairs
     repairStats,
     dedupSubscriptions,
+    repairGiftEarnings,
 };

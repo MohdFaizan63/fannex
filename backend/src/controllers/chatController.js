@@ -503,7 +503,7 @@ const verifyGift = async (req, res, next) => {
         }
 
         // ── BULLETPROOF IDEMPOTENCY: claim earnings exactly once ─────────────────
-        // Step 1: mark payment captured with correct amounts
+        // Step 1: calculate correct split
         const base = Math.round(amount / 1.18 * 100) / 100;
         const creatorEarning = Math.round(base * 0.8 * 100) / 100;
         const platformFee    = Math.round(base * 0.2 * 100) / 100;
@@ -521,14 +521,14 @@ const verifyGift = async (req, res, next) => {
                     baseAmount: base,
                     gstAmount,
                     platformFee,
-                    creatorEarning,         // ← THIS is what shows in Earning History
+                    creatorEarning,         // ← shows in Earning History
                     _earningsCredited: true,
                 },
             },
-            { new: false }  // no returnDocument — safe in Mongoose 9
+            { new: false }
         );
 
-        // If doc doesn't exist yet, create it captured+done (idempotent insert)
+        // Step 3: If doc doesn't exist (no Payment created yet), insert it
         if (!claimed) {
             await Payment.findOneAndUpdate(
                 { cfOrderId: orderId },
@@ -542,17 +542,52 @@ const verifyGift = async (req, res, next) => {
                         cfOrderId: orderId,
                         status: 'captured',
                         cfPaymentId: cfPaymentId || null,
-                        baseAmount: base, gstAmount, platformFee, creatorEarning,
                         sideEffectsDone: true,
-                        _earningsCredited: true,
+                        _earningsCredited: false,   // will be claimed below
                     },
                 },
                 { upsert: true }
             );
+
+            // CRITICAL FIX: ALWAYS write the correct amounts into the doc.
+            // If webhook ran first it set sideEffectsDone=true but LEFT creatorEarning=0.
+            // This $set ensures the doc always has correct fields for Earning History display.
+            await Payment.findOneAndUpdate(
+                { cfOrderId: orderId },
+                {
+                    $set: {
+                        status: 'captured',
+                        cfPaymentId: cfPaymentId || null,
+                        giftAmount: amount,
+                        baseAmount: base,
+                        gstAmount,
+                        platformFee,
+                        creatorEarning,
+                    },
+                },
+                { upsert: false }
+            );
         }
 
+        // Step 4: Credit Earnings exactly once — guarded by _earningsCredited flag
+        const earnClaim = await Payment.findOneAndUpdate(
+            { cfOrderId: orderId, _earningsCredited: { $ne: true } },
+            { $set: { _earningsCredited: true } },
+            { new: false }
+        );
         const room = await ChatRoom.findById(chatId);
         if (!room) return res.status(404).json({ success: false, message: 'Chat room not found' });
+
+        if (earnClaim) {
+            await Earnings.findOneAndUpdate(
+                { creatorId: room.creatorId },
+                { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
+                { upsert: true }
+            );
+            console.log(`[verifyGift] ✅ Gift earnings credited creatorId=${room.creatorId} amount=₹${creatorEarning}`);
+        } else {
+            console.log(`[verifyGift] ℹ️ Gift earnings already credited, skipping orderId=${orderId}`);
+        }
 
         // Save gift message
         const message = await ChatMessage.create({
@@ -571,19 +606,7 @@ const verifyGift = async (req, res, next) => {
             $inc: { unreadByCreator: 1 },
         });
 
-        if (claimed) {
-            // Only first caller credits creator earnings
-            await Earnings.findOneAndUpdate(
-                { creatorId: room.creatorId },
-                { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
-                { upsert: true }
-            );
-            console.log(`[verifyGift] ✅ Gift earnings credited creatorId=${room.creatorId} amount=₹${creatorEarning}`);
-        } else {
-            console.log(`[verifyGift] ℹ️ Gift already processed, skipping earning credit orderId=${orderId}`);
-        }
-
-        // Broadcast gift message
+        // Broadcast gift message to anyone in the chat room
         const io = req.app.get('io');
         if (io) io.to(String(chatId)).emit('new_message', message.toObject ? message.toObject() : message);
 
@@ -593,6 +616,8 @@ const verifyGift = async (req, res, next) => {
         next(err);
     }
 };
+
+
 
 
 
