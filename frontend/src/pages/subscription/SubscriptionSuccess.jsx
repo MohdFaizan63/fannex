@@ -31,15 +31,15 @@ export default function SubscriptionSuccess() {
     const verifiedRef = useRef(false);
 
     // ── Prevent Back → Cashfree payment page ─────────────────────────────────
-    // Push a dummy state so the browser Back button triggers popstate instead of
-    // navigating to the Cashfree redirect URL. We catch popstate and send the
-    // user to Home — a much better UX than ending up on a payment-processing page.
+    // Push a dummy entry so Back triggers popstate (not a real navigation).
+    // Use window.location.replace — more reliable than React Router navigate
+    // when called inside a native browser event listener.
     useEffect(() => {
-        window.history.pushState(null, '', window.location.href);
-        const handleBack = () => navigate('/', { replace: true });
+        window.history.pushState(null, document.title, window.location.href);
+        const handleBack = () => { window.location.replace('/'); };
         window.addEventListener('popstate', handleBack);
         return () => window.removeEventListener('popstate', handleBack);
-    }, [navigate]);
+    }, []); // run once on mount only
     // ─────────────────────────────────────────────────────────────────────────
 
     useEffect(() => {
