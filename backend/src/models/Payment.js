@@ -53,6 +53,16 @@ const paymentSchema = new mongoose.Schema(
         razorpayPaymentId: { type: String },
         razorpaySignature: { type: String },
         razorpaySubscriptionId: { type: String },
+        // ── GST & fee breakdown (added for Indian tax compliance) ─────────────
+        // baseAmount    = creator-set price before GST
+        // gstAmount     = 18% GST collected from fan
+        // platformFee   = 20% of baseAmount (platform revenue)
+        // creatorEarning = 80% of baseAmount (credited to creator dashboard)
+        // amount        = baseAmount + gstAmount (total fan paid, stored above)
+        baseAmount:     { type: Number, default: 0 },
+        gstAmount:      { type: Number, default: 0 },
+        platformFee:    { type: Number, default: 0 },
+        creatorEarning: { type: Number, default: 0 },
     },
     { timestamps: true }
 );

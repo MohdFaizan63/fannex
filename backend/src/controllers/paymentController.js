@@ -8,6 +8,7 @@ const User = require('../models/User');
 const PaymentModel = require('../models/Payment');
 const ChatRoom = require('../models/ChatRoom');
 const Subscription = require('../models/Subscription');
+const { calcGST } = require('../utils/gstHelper');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBSCRIPTION
@@ -26,10 +27,13 @@ const createOrder = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Creator not found' });
         }
 
+        // Apply 18% GST on top of the creator-set subscription price
+        const gst = calcGST(creatorProfile.subscriptionPrice);
+
         const orderId = `sub_${user._id.toString().slice(-6)}_${Date.now()}`;
 
         const order = await paymentService.createOrder({
-            amount: creatorProfile.subscriptionPrice,
+            amount: gst.totalPaid,          // fan pays base + 18% GST
             orderId,
             customerId: user._id.toString(),
             customerName: user.name || 'Fannex User',
@@ -40,10 +44,24 @@ const createOrder = async (req, res, next) => {
                 userId: user._id.toString(),
                 creatorId: creatorId.toString(),
                 type: 'subscription',
+                baseAmount: gst.baseAmount.toString(), // stored for GST split on verify/webhook
             },
         });
 
-        res.status(200).json({ success: true, data: order });
+        // Return GST breakdown so the frontend can display it
+        res.status(200).json({
+            success: true,
+            data: {
+                ...order,
+                gstBreakdown: {
+                    baseAmount:     gst.baseAmount,
+                    gstAmount:      gst.gstAmount,
+                    totalPaid:      gst.totalPaid,
+                    platformFee:    gst.platformFee,
+                    creatorEarning: gst.creatorEarning,
+                },
+            },
+        });
     } catch (error) {
         console.error('[createOrder] Error:', error.message);
         if (error.response?.data) {
@@ -129,6 +147,7 @@ const verifyPayment = async (req, res, next) => {
                 userId: userId.toString(),
                 creatorId: creatorId.toString(),
                 type,
+                baseAmount: tags.baseAmount || null,  // pass through for GST split
             },
         });
 
@@ -303,10 +322,13 @@ async function createGiftOrder(req, res, next) {
             return res.status(400).json({ success: false, message: `Gift must be between ₹${minGift} and ₹${maxGift}` });
         }
 
+        // Apply 18% GST on fan-entered gift base amount
+        const gst = calcGST(Number(amount));
+
         const orderId = `gift_${user._id.toString().slice(-6)}_${Date.now()}`;
 
         const order = await paymentService.createOrder({
-            amount,
+            amount: gst.totalPaid,    // fan pays base + 18% GST
             orderId,
             customerId: user._id.toString(),
             customerName: user.name || 'Fannex User',
@@ -317,10 +339,23 @@ async function createGiftOrder(req, res, next) {
                 userId: user._id.toString(),
                 creatorId: creatorId.toString(),
                 type: 'gift',
+                baseAmount: gst.baseAmount.toString(), // stored for GST split on verify/webhook
             },
         });
 
-        res.status(200).json({ success: true, data: order });
+        res.status(200).json({
+            success: true,
+            data: {
+                ...order,
+                gstBreakdown: {
+                    baseAmount:     gst.baseAmount,
+                    gstAmount:      gst.gstAmount,
+                    totalPaid:      gst.totalPaid,
+                    platformFee:    gst.platformFee,
+                    creatorEarning: gst.creatorEarning,
+                },
+            },
+        });
     } catch (err) {
         next(err);
     }
@@ -339,21 +374,25 @@ async function verifyGift(req, res, next) {
             return res.status(400).json({ success: false, message: 'Gift payment not completed' });
         }
 
-        // BUG-5 FIX: use authoritative amount from Cashfree, NOT user-supplied req.body.amount
         const verifiedAmount = orderData.order_amount;
+        const tags = orderData.order_tags || {};
 
-        // Fetch cfPaymentId properly via getOrderPayments
         let cfPaymentId = null;
         try {
             const payments = await paymentService.getOrderPayments(orderId);
             cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
-        } catch { /* ignore — cfPaymentId is optional */ }
+        } catch { /* ignore */ }
 
         await paymentService.handlePaymentCaptured({
             orderId,
             cfPaymentId,
             amount: verifiedAmount,
-            meta: { userId: userId.toString(), creatorId: creatorId.toString(), type: 'gift' },
+            meta: {
+                userId: userId.toString(),
+                creatorId: creatorId.toString(),
+                type: 'gift',
+                baseAmount: tags.baseAmount || null, // pass through for GST split
+            },
         });
 
         res.status(200).json({ success: true, message: 'Gift sent successfully!' });

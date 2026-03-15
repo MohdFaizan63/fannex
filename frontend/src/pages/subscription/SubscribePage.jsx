@@ -4,6 +4,14 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import subscriptionService from '../../services/subscriptionService';
 
+// ── GST helper (kept client-side for price display only; backend is authoritative) ──
+const GST_RATE = 0.18;
+const calcLocalGST = (base) => ({
+    baseAmount: base,
+    gstAmount:  Math.round(base * GST_RATE * 100) / 100,
+    totalPaid:  Math.round(base * (1 + GST_RATE) * 100) / 100,
+});
+
 export default function SubscribePage() {
     const { username } = useParams();
     const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -107,7 +115,8 @@ export default function SubscribePage() {
 
     if (!creator) return null;
 
-    const price = creator.subscriptionPrice || 199;
+    const basePrice = creator.subscriptionPrice || 199;
+    const gst = calcLocalGST(basePrice);
 
     return (
         <div className="min-h-screen pt-16 pb-16 px-4" style={{ backgroundColor: 'var(--color-surface-900)' }}>
@@ -164,10 +173,45 @@ export default function SubscribePage() {
                             </div>
                         ) : (
                             <>
-                                {/* Price */}
-                                <div className="text-center mb-6">
-                                    <p className="text-surface-400 text-sm mb-1">Subscribe for</p>
-                                    <p className="text-4xl font-black text-white">₹{price}<span className="text-lg text-surface-400 font-normal">/month</span></p>
+                                {/* Price + GST Breakdown */}
+                                <div style={{
+                                    background: 'rgba(124,58,237,0.06)',
+                                    border: '1px solid rgba(124,58,237,0.22)',
+                                    borderRadius: 16,
+                                    padding: '16px 18px',
+                                    marginBottom: 20,
+                                }}>
+                                    <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, margin: '0 0 10px' }}>
+                                        Payment Summary
+                                    </p>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {/* Base */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13.5 }}>Subscription Price</span>
+                                            <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>₹{gst.baseAmount}<span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: 400 }}>/mo</span></span>
+                                        </div>
+
+                                        {/* GST */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ color: 'rgba(255,255,255,0.42)', fontSize: 13 }}>GST (18%)</span>
+                                            <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 600, fontSize: 13.5 }}>+ ₹{gst.gstAmount}</span>
+                                        </div>
+
+                                        {/* Divider */}
+                                        <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
+
+                                        {/* Total */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>Total Payable</span>
+                                            <span style={{ color: '#a78bfa', fontWeight: 900, fontSize: 18 }}>₹{gst.totalPaid}<span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: 400 }}>/mo</span></span>
+                                        </div>
+                                    </div>
+
+                                    <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8, lineHeight: 1.5 }}>
+                                        GST is applicable as per Indian tax regulations (CGST + SGST @ 9% each).
+                                        The creator will receive ₹{Math.round(gst.baseAmount * 0.8)} of your subscription.
+                                    </p>
                                 </div>
 
                                 {/* Benefits */}
@@ -202,7 +246,7 @@ export default function SubscribePage() {
                                     {subscribing ? (
                                         <><span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Processing…</>
                                     ) : (
-                                        `Confirm & Pay ₹${price}/mo`
+                                        `Confirm & Pay ₹${gst.totalPaid}/mo (incl. GST)`
                                     )}
                                 </button>
 

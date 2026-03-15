@@ -153,6 +153,7 @@ const AdminDashboard = lazyRetry(() => import('../pages/admin/AdminDashboard'));
 const AdminUsers = lazyRetry(() => import('../pages/admin/AdminUsers'));
 const AdminPayouts = lazyRetry(() => import('../pages/admin/AdminPayouts'));
 const AdminVerifications = lazyRetry(() => import('../pages/admin/AdminVerifications'));
+const AdminIssues = lazyRetry(() => import('../pages/admin/AdminIssues'));
 const AdminGate = lazy(() => import('../pages/admin/AdminGate'));
 
 // ── Route tree ────────────────────────────────────────────────────────────────
@@ -218,10 +219,11 @@ const router = createBrowserRouter([
                 children: [{
                     element: <DashboardLayout />,
                     children: [
-                        { path: '/admin', element: wrap(AdminDashboard) },
-                        { path: '/admin/users', element: wrap(AdminUsers) },
-                        { path: '/admin/payouts', element: wrap(AdminPayouts) },
-                        { path: '/admin/verifications', element: wrap(AdminVerifications) },
+                        { path: '/admin',                   element: wrap(AdminDashboard) },
+                        { path: '/admin/users',              element: wrap(AdminUsers) },
+                        { path: '/admin/payouts',            element: wrap(AdminPayouts) },
+                        { path: '/admin/verifications',      element: wrap(AdminVerifications) },
+                        { path: '/admin/issues',             element: wrap(AdminIssues) },
                     ],
                 }],
             },

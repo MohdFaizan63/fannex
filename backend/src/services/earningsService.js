@@ -63,18 +63,18 @@ const withTransaction = async (fn) => {
 // ─── Service Functions ────────────────────────────────────────────────────────
 
 /**
- * Credit earnings when a subscription payment is confirmed.
- * Deducts the platform fee and upserts the creator's Earnings document.
- * Can receive an existing `session` when called from inside a parent transaction
- * (e.g. the payment webhook), or opens its own transaction if session is null.
+ * Credit earnings when a payment is confirmed.
+ * Deducts the 20% platform fee and credits 80% of the BASE price to the creator.
+ * GST (18%) is collected by the platform for tax compliance and is never included
+ * in creator earnings.
  *
  * @param {ObjectId|string} creatorId
- * @param {number}          grossAmount   - full payment amount (INR)
- * @param {ClientSession}   [session]     - optional existing Mongo session
+ * @param {number}          baseAmount   - price BEFORE GST (creator-set price)
+ * @param {ClientSession}   [session]    - optional existing Mongo session
  */
-const creditEarningsOnPayment = async (creatorId, grossAmount, session = null) => {
-    const platformFee = (PLATFORM_FEE_PERCENT / 100) * grossAmount;
-    const creatorShare = grossAmount - platformFee;
+const creditEarningsOnPayment = async (creatorId, baseAmount, session = null) => {
+    // Creator earns 80% of base price — platform keeps 20% as fee
+    const creatorShare = Math.round(baseAmount * (1 - PLATFORM_FEE_PERCENT / 100) * 100) / 100;
 
     const opts = session ? { session } : {};
 

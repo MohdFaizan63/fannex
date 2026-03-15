@@ -16,6 +16,7 @@ const creatorRoutes = require('./routes/creatorRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const issueRoutes = require('./routes/issueRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const xssSanitize = require('./middleware/xssSanitize');
 const hppProtect = require('./middleware/hppProtect');
@@ -130,6 +131,7 @@ app.use('/api/v1/verification', verificationRoutes);
 app.use('/api/v1/subscriptions', subscriptionRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/issues', issueRoutes);
 
 
 // ─── 7. Health Check ─────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CreatorOnboardingModal from './onboarding/CreatorOnboardingModal';
 import NotificationBell from './NotificationBell';
+import ReportIssueModal from './ReportIssueModal';
 
 export default function Navbar() {
     const { user, isAuthenticated, isCreator, isAdmin, logout, creatorApplicationStatus } = useAuth();
@@ -14,6 +15,7 @@ export default function Navbar() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
     const [onboardingOpen, setOnboardingOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
 
     const searchRef = useRef(null);
     const searchContainerRef = useRef(null);
@@ -214,8 +216,18 @@ export default function Navbar() {
                                                     <DropdownLink to="/admin" onClick={() => setDropdownOpen(false)}>🛡️ Admin</DropdownLink>
                                                     <DropdownLink to="/admin/verifications" onClick={() => setDropdownOpen(false)}>🪪 Verifications</DropdownLink>
                                                     <DropdownLink to="/admin/payouts" onClick={() => setDropdownOpen(false)}>💸 Payouts</DropdownLink>
+                                                    <DropdownLink to="/admin/issues" onClick={() => setDropdownOpen(false)}>🛟 Issues</DropdownLink>
                                                     <div className="border-t border-white/10 my-1" />
                                                 </>}
+                                                {isAuthenticated && (
+                                                    <button
+                                                        onClick={() => { setReportOpen(true); setDropdownOpen(false); }}
+                                                        className="w-full text-left px-4 py-2 text-sm text-amber-400 hover:bg-amber-500/5 transition-colors"
+                                                    >
+                                                        🛟 Report an Issue
+                                                    </button>
+                                                )}
+                                                <div className="border-t border-white/10 my-1" />
                                                 <button onClick={handleLogout}
                                                     className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/5 transition-colors">
                                                     🚪 Sign out
@@ -321,6 +333,13 @@ export default function Navbar() {
                                             Become a Creator
                                         </button>
                                     )}
+                                    <button
+                                        onClick={() => { setReportOpen(true); closeMobile(); }}
+                                        className="w-full h-12 rounded-xl font-semibold text-sm text-amber-400"
+                                        style={{ border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.04)' }}
+                                    >
+                                        🛟 Report an Issue
+                                    </button>
                                     <button onClick={() => { handleLogout(); closeMobile(); }}
                                         className="w-full h-12 rounded-xl font-semibold text-sm text-red-400"
                                         style={{ border: '1px solid rgba(255,255,255,0.12)', background: 'transparent' }}>
@@ -360,6 +379,12 @@ export default function Navbar() {
             <CreatorOnboardingModal
                 isOpen={onboardingOpen}
                 onClose={() => setOnboardingOpen(false)}
+            />
+
+            {/* ── Report Issue Modal ────────────────────────────────────────────── */}
+            <ReportIssueModal
+                isOpen={reportOpen}
+                onClose={() => setReportOpen(false)}
             />
         </>
     );

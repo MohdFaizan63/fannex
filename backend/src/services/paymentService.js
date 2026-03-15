@@ -10,6 +10,7 @@ const Subscription = require('../models/Subscription');
 const Payment = require('../models/Payment');
 const CreatorProfile = require('../models/CreatorProfile');
 const { creditEarningsOnPayment } = require('./earningsService');
+const { calcGST } = require('../utils/gstHelper');
 
 // ── Cashfree config ────────────────────────────────────────────────────────────
 const CF_APP_ID = process.env.CASHFREE_APP_ID;
@@ -143,25 +144,26 @@ const verifyWebhookSignature = (rawBody, signature, timestamp) => {
  * or after client-side order status check confirms PAID.
  */
 const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => {
-    const { userId, creatorId, type = 'subscription' } = meta;
+    const { userId, creatorId, type = 'subscription', baseAmount: metaBase } = meta;
 
     if (!userId) return;
 
-    const grossAmount = Number(amount);
+    const grossAmount = Number(amount);  // total fan paid (base + GST)
 
-    // Wallet top-ups — idempotent via atomic $setOnInsert
+    // ── Wallet top-ups: NO GST (fan depositing own money, not buying content) ──
     if (type === 'wallet') {
         const User = require('../models/User');
 
-        // BUG-2 FIX: Atomic upsert — $set always updates fields, $setOnInsert only runs on INSERT.
-        // If two concurrent verify calls race, only the first one will match 'status:{$ne:"captured"}'
-        // and succeed in updating the record; subsequent calls are no-ops.
         const result = await Payment.findOneAndUpdate(
-            { cfOrderId: orderId, status: { $ne: 'captured' } }, // guard: only update if not yet captured
+            { cfOrderId: orderId, status: { $ne: 'captured' } },
             {
                 $set: {
                     userId,
                     amount: grossAmount,
+                    baseAmount: grossAmount,  // wallet: base = gross (no GST)
+                    gstAmount: 0,
+                    platformFee: 0,
+                    creatorEarning: 0,
                     currency: 'INR',
                     type: 'wallet',
                     status: 'captured',
@@ -169,59 +171,70 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
                     cfPaymentId: cfPaymentId || null,
                 },
             },
-            { upsert: false, returnDocument: 'before' } // upsert=false: only update existing records
+            { upsert: false, returnDocument: 'before' }
         );
 
-        // Fallback: if no existing record found, create it (first-time flow from verifyWalletRecharge)
         if (!result) {
-            // Try to insert — if a concurrent call already inserted, the unique cfOrderId index will reject this
             const existed = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
             if (!existed) {
                 await Payment.create({
                     userId,
                     amount: grossAmount,
+                    baseAmount: grossAmount,
+                    gstAmount: 0,
+                    platformFee: 0,
+                    creatorEarning: 0,
                     currency: 'INR',
                     type: 'wallet',
                     status: 'captured',
                     cfOrderId: orderId,
                     cfPaymentId: cfPaymentId || null,
-                }).catch(() => { /* duplicate key from racing request — safe to ignore */ });
+                }).catch(() => { });
 
-                // Credit wallet only if we were the one to create the record
                 const justCreated = await Payment.findOne({ cfOrderId: orderId, status: 'captured' });
                 if (justCreated && justCreated.cfPaymentId === (cfPaymentId || null)) {
                     await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
                 }
             }
         } else {
-            // result is the document BEFORE our update (status was not 'captured') → credit wallet
             await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
         }
         return;
     }
 
-
-    // For all other types (subscription, gift, chat_unlock), creatorId is required
+    // ── All paid-content types: GST breakdown ───────────────────────────────────
     if (!creatorId) return;
 
-    // 1. Store/update Payment record (may already exist from order creation step)
+    // Derive GST breakdown:
+    // metaBase is stored when the order is created; fall back to reverse-calculating
+    // base from grossAmount in case old orders don't have it in meta.
+    const base = metaBase ? Number(metaBase) : Math.round(grossAmount / 1.18 * 100) / 100;
+    const gst = calcGST(base);
+
+    // 1. Upsert Payment record with full GST breakdown
     await Payment.findOneAndUpdate(
         { cfOrderId: orderId },
         {
-            userId,
-            creatorId,
-            amount: grossAmount,
-            currency: 'INR',
-            type,
-            status: 'captured',
-            cfOrderId: orderId,
-            cfPaymentId,
+            $set: {
+                userId,
+                creatorId,
+                amount: grossAmount,          // total fan paid
+                baseAmount:     gst.baseAmount,
+                gstAmount:      gst.gstAmount,
+                platformFee:    gst.platformFee,
+                creatorEarning: gst.creatorEarning,
+                currency: 'INR',
+                type,
+                status: 'captured',
+                cfOrderId: orderId,
+                cfPaymentId,
+            },
         },
         { upsert: true }
     );
 
     if (type === 'subscription') {
-        // 2. Upsert Subscription record (active for 1 month)
+        // 2. Activate subscription (1 month)
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 1);
 
@@ -231,13 +244,13 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true, returnDocument: 'after' }
         );
 
-        // 3. Increment creator's totalSubscribers
+        // 3. Increment creator subscriber count
         await CreatorProfile.findOneAndUpdate(
             { userId: creatorId },
             { $inc: { totalSubscribers: 1 } }
         );
 
-        // 4. Auto-create / unlock chat room so subscriber can chat immediately
+        // 4. Auto-unlock chat room for subscriber
         const ChatRoom = require('../models/ChatRoom');
         await ChatRoom.findOneAndUpdate(
             { creatorId, userId },
@@ -245,34 +258,32 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true }
         );
 
-        // 5. Credit creator earnings (80% after 20% platform fee)
-        await creditEarningsOnPayment(creatorId, grossAmount, null);
+        // 5. Credit creator earnings — 80% of BASE only (no GST)
+        await creditEarningsOnPayment(creatorId, gst.baseAmount, null);
 
     } else if (type === 'gift') {
-        // Credit 90% to creator for gifts
+        // Gift: creator earns 80% of base (GST excluded)
         const Earnings = require('../models/Earnings');
-        const creatorCut = Math.floor(grossAmount * 0.9);
         await Earnings.findOneAndUpdate(
             { creatorId },
-            { $inc: { totalEarned: creatorCut, pendingAmount: creatorCut } },
-            { upsert: true, new: true }
+            { $inc: { totalEarned: gst.creatorEarning, pendingAmount: gst.creatorEarning } },
+            { upsert: true }
         );
 
     } else if (type === 'chat_unlock') {
-        // Create/unlock chat room and credit creator
+        // Chat unlock: unlock room + credit 80% of base to creator
         const ChatRoom = require('../models/ChatRoom');
         const Earnings = require('../models/Earnings');
 
-        const room = await ChatRoom.findOneAndUpdate(
+        await ChatRoom.findOneAndUpdate(
             { creatorId, userId },
             { isPaid: true, chatPaymentId: cfPaymentId, unlockedAt: new Date() },
             { upsert: true, returnDocument: 'after' }
         );
 
-        // Credit full amount to creator for chat unlocks
         await Earnings.findOneAndUpdate(
             { creatorId },
-            { $inc: { totalEarned: grossAmount, pendingAmount: grossAmount } },
+            { $inc: { totalEarned: gst.creatorEarning, pendingAmount: gst.creatorEarning } },
             { upsert: true }
         );
     }
