@@ -425,10 +425,31 @@ const reviewCreatorApplication = async (req, res, next) => {
 const getCreatorApplicationStatus = async (req, res, next) => {
     try {
         const profile = await CreatorProfile.findOne({ userId: req.user._id })
-            .select('displayName username verificationStatus profileImage profileImagePosition coverImage coverImagePosition bio subscriptionPrice totalSubscribers createdAt');
+            .select('displayName username verificationStatus profileImage profileImagePosition coverImage coverImagePosition bio subscriptionPrice totalSubscribers totalPosts createdAt');
 
         if (!profile) return res.json({ success: true, data: null });
-        res.json({ success: true, data: profile });
+
+        // Also attach bank/identity verification data so PayoutSettings can
+        // show the current bank account without a separate API call.
+        const CreatorVerification = require('../models/CreatorVerification');
+        const verification = await CreatorVerification.findOne({ userId: req.user._id })
+            .select('bankAccountNumber ifscCode bankProofImageUrl accountHolderName bankName status');
+
+        const data = profile.toObject();
+        if (verification) {
+            data.verificationData = {
+                bankAccountNumber: verification.bankAccountNumber || '',
+                ifscCode: verification.ifscCode || '',
+                bankProofImageUrl: verification.bankProofImageUrl || '',
+                accountHolderName: verification.accountHolderName || '',
+                bankName: verification.bankName || '',
+                status: verification.status || '',
+            };
+        } else {
+            data.verificationData = null;
+        }
+
+        res.json({ success: true, data });
     } catch (err) { next(err); }
 };
 

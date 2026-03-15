@@ -79,6 +79,10 @@ const creatorVerificationSchema = new mongoose.Schema(
             match: [/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Please enter a valid IFSC code'],
         },
 
+        // ── Plain-text bank metadata (not sensitive) ──────────────────────────
+        accountHolderName: { type: String, default: '' },
+        bankName: { type: String, default: '' },
+
         // ── Document image URLs (stored on Cloudinary, optional if not configured) ─
         aadhaarImageUrl: { type: String, default: '' },
         panImageUrl: { type: String, default: '' },

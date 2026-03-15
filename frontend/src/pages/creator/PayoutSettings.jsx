@@ -51,7 +51,7 @@ export default function PayoutSettings() {
                 const v = data.data?.verificationData;
                 if (v?.bankAccountNumber) {
                     setBank({
-                        holder: v.fullName || user?.name || '',
+                        holder: v.accountHolderName || user?.name || '',
                         last4: v.bankAccountNumber.slice(-4),
                         ifsc: v.ifscCode || '',
                         name: v.bankName || '',

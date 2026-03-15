@@ -366,7 +366,7 @@ const listAllPayouts = async (req, res, next) => {
 
             const verifications = await CreatorVerification
                 .find({ userId: { $in: creatorIds } })
-                .select('userId bankAccountNumber ifscCode bankProofImageUrl');
+                .select('userId bankAccountNumber ifscCode bankProofImageUrl accountHolderName bankName');
             // Note: no .lean() so Mongoose getters (AES decryption) auto-run on bankAccountNumber
 
             const verMap = {};
@@ -378,8 +378,8 @@ const listAllPayouts = async (req, res, next) => {
                 if (cid && verMap[cid]) {
                     const v = verMap[cid];
                     pObj.bankDetails = {
-                        accountHolderName: pObj.creatorId?.name || '',
-                        bankName: '',
+                        accountHolderName: v.accountHolderName || pObj.creatorId?.name || '',
+                        bankName: v.bankName || '',
                         accountNumber: v.bankAccountNumber || '',
                         last4: v.bankAccountNumber ? v.bankAccountNumber.slice(-4) : '',
                         ifscCode: v.ifscCode || '',

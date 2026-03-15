@@ -62,6 +62,8 @@ router.patch(
             const update = {
                 bankAccountNumber: accountNumber,
                 ifscCode: ifscCode.toUpperCase(),
+                accountHolderName: accountHolderName.trim(),
+                bankName: (bankName || '').trim(),
             };
             const hasCloudinary = process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;
             const bankProofFile = req.files?.bankProofImage?.[0];
@@ -72,8 +74,8 @@ router.patch(
             }
             const verification = await CreatorVerification.findOneAndUpdate(
                 { userId: req.user._id },
-                update,
-                { new: true, returnDocument: 'after', upsert: true }
+                { $set: update },
+                { new: true, upsert: true, runValidators: true }
             );
             res.json({ success: true, data: verification });
         } catch (err) { next(err); }
