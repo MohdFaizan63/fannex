@@ -258,20 +258,52 @@ const rejectPayoutService = async (payoutId, adminId, notes) => {
     });
 };
 
-/**
- * Get (or seed) the earnings document for a creator.
- *
- * @param {ObjectId|string} creatorId
- */
 const getMyEarningsService = async (creatorId) => {
-    // upsert so a brand-new creator always gets a zero-balance doc
-    const earnings = await Earnings.findOneAndUpdate(
+    const Payment      = require('../models/Payment');
+    const PayoutRequest = require('../models/PayoutRequest');
+
+    // ── Three parallel DB reads ───────────────────────────────────────────────
+    const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
+        // 1. Live sum of all captured creator earnings (source of truth)
+        Payment.aggregate([
+            { $match: { creatorId, status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock'] } } },
+            { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
+        ]),
+        // 2. Earnings doc (for withdrawnAmount — incremented only when payout is marked PAID)
+        Earnings.findOneAndUpdate(
+            { creatorId },
+            {},
+            { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+        ),
+        // 3. Sum of all pending/approved payouts (money reserved, not yet disbursed)
+        PayoutRequest.aggregate([
+            { $match: { creatorId, status: { $in: ['pending', 'approved'] } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+    ]);
+
+    const R = (n) => Math.round(n * 100) / 100;
+
+    const totalEarned    = R(aggResult[0]?.total ?? 0);
+    const withdrawnAmt   = R(earnDoc.withdrawnAmount ?? 0);
+    const inFlight       = R(inFlightAgg[0]?.total ?? 0);
+
+    // Available = earned minus already withdrawn minus reserved-for-payout
+    // This is what the creator can actually request RIGHT NOW
+    const pendingAmount  = R(Math.max(0, totalEarned - withdrawnAmt - inFlight));
+
+    // Write synced values back so requestPayoutService can use them for concurrency guard
+    const synced = await Earnings.findOneAndUpdate(
         { creatorId },
-        {},
-        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+        { $set: { totalEarned, pendingAmount } },
+        { returnDocument: 'after' }
     );
-    return earnings;
+
+    return synced;
 };
+
+
+
 
 /**
  * Paginated list of payout requests for a creator.

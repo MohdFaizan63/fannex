@@ -515,47 +515,72 @@ const updateCreatorProfile = async (req, res, next) => {
 const getEarningsHistory = async (req, res, next) => {
     try {
         const creatorId = req.user._id;
-        const { type = 'all', page = 1, limit = 20 } = req.query;
+        const type      = req.query.type   || 'all';
+        const page      = Math.max(1, parseInt(req.query.page,  10) || 1);
+        const limit     = Math.min(50, parseInt(req.query.limit, 10) || 20);
+        const skip      = (page - 1) * limit;
 
-        const query = { creatorId, status: 'captured' };
-        if (type !== 'all') query.type = type;
+        // ── Single faceted aggregation — ONE round-trip to MongoDB ─────────────
+        // Facets: transactions (paginated) + total count + per-type breakdown
+        const matchBase  = { creatorId, status: 'captured' };
+        const matchPage  = type !== 'all' ? { ...matchBase, type } : matchBase;
 
-        const total = await Payment.countDocuments(query);
-        const payments = await Payment.find(query)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(Number(limit))
-            .populate('userId', 'name username profileImage')
-            .lean();
+        const [result] = await Payment.aggregate([
+            // Stage 1: narrow by creatorId + status (uses compound index)
+            { $match: matchBase },
 
-        // Per-type totals (for stat cards)
-        const [subTotal, giftTotal, chatTotal] = await Promise.all([
-            Payment.aggregate([{ $match: { creatorId, status: 'captured', type: 'subscription' } }, { $group: { _id: null, total: { $sum: '$creatorEarning' } } }]),
-            Payment.aggregate([{ $match: { creatorId, status: 'captured', type: 'gift' } }, { $group: { _id: null, total: { $sum: '$creatorEarning' } } }]),
-            Payment.aggregate([{ $match: { creatorId, status: 'captured', type: 'chat_unlock' } }, { $group: { _id: null, total: { $sum: '$creatorEarning' } } }]),
+            // Stage 2: parallel facets
+            { $facet: {
+                // Paginated transactions for the selected type
+                transactions: [
+                    ...(type !== 'all' ? [{ $match: { type } }] : []),
+                    { $sort:  { createdAt: -1 } },
+                    { $skip:  skip },
+                    { $limit: limit },
+                    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'userId', pipeline: [{ $project: { name: 1, username: 1, profileImage: 1 } }] } },
+                    { $unwind: { path: '$userId', preserveNullAndEmpty: true } },
+                ],
+                // Total count (for pagination bar)
+                totalCount: [
+                    ...(type !== 'all' ? [{ $match: { type } }] : []),
+                    { $count: 'n' },
+                ],
+                // Per-type breakdown — ALWAYS computed across ALL types regardless of filter
+                breakdown: [
+                    { $group: {
+                        _id: '$type',
+                        total: { $sum: '$creatorEarning' },
+                    }},
+                ],
+            }},
         ]);
+
+        // Collapse breakdown array → { subscription, gift, chat_unlock }
+        const breakdownMap = { subscription: 0, gift: 0, chat_unlock: 0 };
+        (result?.breakdown ?? []).forEach(({ _id, total }) => {
+            if (_id in breakdownMap) breakdownMap[_id] = Math.round(total * 100) / 100;
+        });
+
+        const total = result?.totalCount?.[0]?.n ?? 0;
 
         res.json({
             success: true,
             data: {
-                transactions: payments,
+                transactions: result?.transactions ?? [],
                 pagination: {
                     total,
-                    page: Number(page),
-                    limit: Number(limit),
+                    page,
+                    limit,
                     pages: Math.ceil(total / limit),
                 },
-                breakdown: {
-                    subscription: subTotal[0]?.total ?? 0,
-                    gift:         giftTotal[0]?.total ?? 0,
-                    chat_unlock:  chatTotal[0]?.total ?? 0,
-                },
+                breakdown: breakdownMap,
             },
         });
     } catch (error) {
         next(error);
     }
 };
+
 
 module.exports = {
     getMyEarnings, requestPayout, listMyPayouts, listCreators, mySubscriptions, myCreatorSubscribers,

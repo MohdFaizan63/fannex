@@ -254,17 +254,21 @@ function Tab({ active, onClick, children, count }) {
 
 // ── Main Earnings Page ────────────────────────────────────────────────────────
 export default function Earnings() {
-    const [earnings, setEarnings] = useState(null);
-    const [payouts, setPayouts] = useState([]);
-    const [history, setHistory] = useState({ transactions: [], pagination: null, breakdown: null });
+    const [earnings, setEarnings]           = useState(null);
+    const [payouts, setPayouts]             = useState([]);
+    // breakdown is fetched on mount — SEPARATE from history transactions
+    const [breakdown, setBreakdown]         = useState({ subscription: 0, gift: 0, chat_unlock: 0 });
+    const [breakdownLoading, setBreakdownLoading] = useState(true);
+    const [history, setHistory]             = useState({ transactions: [], pagination: null });
     const [historyLoading, setHistoryLoading] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-    const [successMsg, setSuccessMsg] = useState('');
-    const [activeSection, setActiveSection] = useState('overview'); // 'overview' | 'history'
+    const [loading, setLoading]             = useState(true);
+    const [showModal, setShowModal]         = useState(false);
+    const [successMsg, setSuccessMsg]       = useState('');
+    const [activeSection, setActiveSection] = useState('overview');
     const [historyFilter, setHistoryFilter] = useState('all');
-    const [historyPage, setHistoryPage] = useState(1);
+    const [historyPage, setHistoryPage]     = useState(1);
 
+    /** Fetch earnings summary + payout history */
     const loadEarnings = useCallback(async () => {
         setLoading(true);
         try {
@@ -279,20 +283,46 @@ export default function Earnings() {
         }
     }, []);
 
+    /**
+     * Fetch ONLY the per-type breakdown totals (no transactions).
+     * Called on mount so stat cards always show correct values.
+     */
+    const loadBreakdown = useCallback(async () => {
+        setBreakdownLoading(true);
+        try {
+            const res = await payoutService.getEarningsHistory({ type: 'all', page: 1, limit: 1 });
+            const bd  = res.data?.data?.breakdown;
+            if (bd) setBreakdown(bd);
+        } catch {
+            // leave at zeros — non-blocking
+        } finally {
+            setBreakdownLoading(false);
+        }
+    }, []);
+
+    /** Fetch paginated transaction list (only when History tab is active) */
     const loadHistory = useCallback(async (type = historyFilter, page = historyPage) => {
         setHistoryLoading(true);
         try {
             const res = await payoutService.getEarningsHistory({ type, page, limit: 20 });
-            setHistory(res.data?.data ?? { transactions: [], pagination: null, breakdown: null });
+            const data = res.data?.data ?? {};
+            setHistory({ transactions: data.transactions ?? [], pagination: data.pagination ?? null });
+            // Also refresh breakdown totals in case new payments came in
+            if (data.breakdown) setBreakdown(data.breakdown);
         } catch {
-            setHistory({ transactions: [], pagination: null, breakdown: null });
+            setHistory({ transactions: [], pagination: null });
         } finally {
             setHistoryLoading(false);
         }
     }, [historyFilter, historyPage]);
 
-    useEffect(() => { loadEarnings(); }, [loadEarnings]);
+    // Mount: load earnings summary + breakdown in parallel
+    useEffect(() => {
+        loadEarnings();
+        loadBreakdown();
+    }, [loadEarnings, loadBreakdown]);
 
+    // When History tab becomes active, or filter/page changes → fetch transactions
     useEffect(() => {
         if (activeSection === 'history') loadHistory(historyFilter, historyPage);
     }, [activeSection, historyFilter, historyPage]);
@@ -306,21 +336,21 @@ export default function Earnings() {
         setShowModal(false);
         setSuccessMsg("Payout request submitted! We'll process it within 2 business days.");
         loadEarnings();
+        loadBreakdown();  // also refresh type breakdown after payout
         setTimeout(() => setSuccessMsg(''), 6000);
     };
 
-    const bd = history.breakdown;
-
+    // Breakdown always comes from dedicated `breakdown` state — never from `history.breakdown`
+    // so stat cards show correct values even on the Overview tab
     const statCards = [
         { icon: Icon.wallet, label: 'Total Earned',      value: earnings?.totalEarned ?? 0,    accent: true, chip: 'lifetime' },
         { icon: Icon.clock,  label: 'Pending Balance',   value: earnings?.pendingAmount ?? 0,   accent: false },
         { icon: Icon.check,  label: 'Withdrawn',         value: earnings?.withdrawnAmount ?? 0, accent: false },
-        { icon: Icon.sub,    label: 'Subscription Earn', value: bd?.subscription ?? 0,          gradient: 'bg-violet-500/15 text-violet-400', accent: false },
-        { icon: Icon.gift,   label: 'Gift Earnings',     value: bd?.gift ?? 0,                  gradient: 'bg-rose-500/15 text-rose-400',   accent: false },
-        { icon: Icon.chat,   label: 'Chat Earnings',     value: bd?.chat_unlock ?? 0,           gradient: 'bg-sky-500/15 text-sky-400',     accent: false },
+        { icon: Icon.sub,    label: 'Subscription Earn', value: breakdown.subscription ?? 0,    gradient: 'bg-violet-500/15 text-violet-400', accent: false },
+        { icon: Icon.gift,   label: 'Gift Earnings',     value: breakdown.gift ?? 0,            gradient: 'bg-rose-500/15 text-rose-400',   accent: false },
+        { icon: Icon.chat,   label: 'Chat Earnings',     value: breakdown.chat_unlock ?? 0,     gradient: 'bg-sky-500/15 text-sky-400',     accent: false },
     ];
 
-    // First 3 always visible; last 3 only after history is loaded (they use breakdown data)
     const mainCards = statCards.slice(0, 3);
     const typeCards = statCards.slice(3);
 
@@ -362,13 +392,13 @@ export default function Earnings() {
                 {typeCards.map((c) => (
                     <div
                         key={c.label}
-                        className={`glass rounded-2xl p-4 sm:p-5 border border-white/5 hover:border-white/10 transition-all hover:-translate-y-0.5 cursor-pointer ${activeSection === 'history' ? '' : ''}`}
+                        className="glass rounded-2xl p-4 sm:p-5 border border-white/5 hover:border-white/10 transition-all hover:-translate-y-0.5 cursor-pointer"
                         onClick={() => { setActiveSection('history'); handleFilterChange(c.label === 'Subscription Earn' ? 'subscription' : c.label === 'Gift Earnings' ? 'gift' : 'chat_unlock'); }}
                     >
                         <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center mb-3 ${c.gradient}`}>
                             {c.icon}
                         </div>
-                        {historyLoading && activeSection === 'history' ? (
+                        {breakdownLoading ? (
                             <Skeleton className="h-6 w-16 mb-1" />
                         ) : (
                             <p className="text-lg sm:text-xl font-black text-white">{formatCurrency(c.value)}</p>

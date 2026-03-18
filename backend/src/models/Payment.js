@@ -73,6 +73,13 @@ const paymentSchema = new mongoose.Schema(
 
 // Compound index for wallet history query (userId + type + status + sorted by date)
 paymentSchema.index({ userId: 1, type: 1, status: 1, createdAt: -1 });
+
+// ── Earnings aggregation indexes ──────────────────────────────────────────────
+// getEarningsHistory $facet: matches creatorId + status, sorts by createdAt, groups by type
+paymentSchema.index({ creatorId: 1, status: 1, type: 1, createdAt: -1 });
+// Sum aggregation for Earnings reconciliation (creatorId + status + creatorEarning)
+paymentSchema.index({ creatorId: 1, status: 1, creatorEarning: 1 });
 // cfOrderId already has index:true defined on the field itself — no need for a separate index here
+
 
 module.exports = mongoose.model('Payment', paymentSchema);
