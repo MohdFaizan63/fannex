@@ -103,26 +103,31 @@ export default function SubscriptionSuccess() {
                 } else if (type === 'gift') {
                     // ── Gift payment ─────────────────────────────────────────────
                     if (data.creator) setCreator(data.creator);
-                    if (data.amount) setGiftAmount(data.amount);
 
                     // Call /chat/gift/verify to persist the gift message bubble
                     const stored = sessionStorage.getItem('fannex_gift_chat');
                     let giftChatId = null;
                     if (stored) {
                         try {
-                            const { chatId: gc, amount } = JSON.parse(stored);
+                            const { chatId: gc, amount: storedBase } = JSON.parse(stored);
                             giftChatId = gc;
                             setSourceChatId(gc);
+                            // Prefer stored base amount (₹1) over total paid (₹1.18) for display
+                            setGiftAmount(storedBase ?? data.amount);
                             await chatService.verifyGift({
                                 orderId: cfOrderId,
                                 chatId: gc,
-                                amount,
+                                amount: storedBase ?? data.amount,
                             });
                             sessionStorage.removeItem('fannex_gift_chat');
                         } catch (_) {
                             // verifyGift failure is non-fatal — webhook may have already processed it
                         }
+                    } else {
+                        // Non-chat gift (profile page) — data.amount is total paid, no base available
+                        if (data.amount) setGiftAmount(data.amount);
                     }
+
                     // Clean the URL without navigating away
                     setSearchParams({}, { replace: true });
 

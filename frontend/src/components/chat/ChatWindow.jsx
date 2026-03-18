@@ -217,7 +217,6 @@ const MessageBubble = memo(function MessageBubble({
                 <div className="chat-gift-bubble">
                     <span className="chat-gift-emoji">🎁</span>
                     <div className="chat-gift-amount">₹{msg.giftAmount?.toLocaleString('en-IN')}</div>
-                    <div className="chat-gift-label">Gift Sent</div>
                     <span className="chat-gift-time">{time}</span>
                 </div>
             </motion.div>

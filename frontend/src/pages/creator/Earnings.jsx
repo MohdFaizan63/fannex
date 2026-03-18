@@ -224,7 +224,6 @@ function TxRow({ tx }) {
             {/* Amount */}
             <div className="text-right flex-shrink-0">
                 <p className="text-sm font-bold text-emerald-400">+{formatCurrency(tx.creatorEarning)}</p>
-                <p className="text-xs text-surface-400 mt-0.5">of {formatCurrency(tx.amount)}</p>
             </div>
         </div>
     );
