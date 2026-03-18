@@ -523,14 +523,47 @@ export default function CreatorProfile() {
                                     {/* Avatar */}
                                     <Avatar src={profileImage} name={displayName} size="lg" objectPosition={profileImagePosition} />
 
-                                    {/* Share icon — top right */}
-                                    <button onClick={handleShare}
-                                        className="mb-1 p-2.5 rounded-full glass border border-white/10 text-surface-400 hover:text-white hover:border-white/20 transition-all"
-                                        title="Share profile">
-                                        {copied
-                                            ? <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                            : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
-                                    </button>
+                                {/* Social action buttons — Instagram + Share */}
+                                    <div className="mb-1 flex items-center gap-2">
+                                        {/* Instagram button — only if creator has set their link */}
+                                        {creator.instagramUrl && (
+                                            <a
+                                                href={creator.instagramUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="Instagram"
+                                                className="p-2.5 rounded-full glass border border-white/10 hover:border-white/20 transition-all flex items-center justify-center"
+                                                style={{ lineHeight: 0 }}
+                                                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                            >
+                                                {/* Official Instagram gradient icon */}
+                                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <defs>
+                                                        <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
+                                                            <stop offset="0%" stopColor="#fdf497" />
+                                                            <stop offset="5%" stopColor="#fdf497" />
+                                                            <stop offset="45%" stopColor="#fd5949" />
+                                                            <stop offset="60%" stopColor="#d6249f" />
+                                                            <stop offset="90%" stopColor="#285AEB" />
+                                                        </radialGradient>
+                                                    </defs>
+                                                    <rect x="2" y="2" width="20" height="20" rx="6" ry="6" fill="url(#igGrad)" />
+                                                    <circle cx="12" cy="12" r="4.5" fill="none" stroke="white" strokeWidth="1.8" />
+                                                    <circle cx="17.2" cy="6.8" r="1.1" fill="white" />
+                                                </svg>
+                                            </a>
+                                        )}
+
+                                        {/* Share button */}
+                                        <button onClick={handleShare}
+                                            className="p-2.5 rounded-full glass border border-white/10 text-surface-400 hover:text-white hover:border-white/20 transition-all"
+                                            title="Share profile">
+                                            {copied
+                                                ? <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Name + stats — ABOVE buttons */}

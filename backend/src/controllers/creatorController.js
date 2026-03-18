@@ -172,6 +172,7 @@ const getCreatorByUsername = async (req, res, next) => {
                 username: profile.username,
                 displayName: profile.displayName,
                 bio: profile.bio,
+                instagramUrl: profile.instagramUrl || '',
                 profileImage: optimizeImageUrl(profile.profileImage),
                 coverImage: optimizeImageUrl(profile.coverImage),
                 subscriptionPrice: profile.subscriptionPrice,
@@ -462,7 +463,7 @@ const getCreatorApplicationStatus = async (req, res, next) => {
 const updateCreatorProfile = async (req, res, next) => {
     try {
         const userId = req.user._id;
-        const { bio, displayName, coverImagePosition, profileImagePosition, subscriptionPrice } = req.body;
+        const { bio, displayName, coverImagePosition, profileImagePosition, subscriptionPrice, instagramUrl } = req.body;
 
         const hasCloudinary =
             process.env.CLOUDINARY_CLOUD_NAME &&
@@ -479,6 +480,10 @@ const updateCreatorProfile = async (req, res, next) => {
         const updates = {};
         if (bio !== undefined) updates.bio = bio;
         if (displayName !== undefined) updates.displayName = displayName;
+        if (instagramUrl !== undefined) {
+            // Accept full URL or just the username; strip trailing slashes
+            updates.instagramUrl = instagramUrl.trim().replace(/\/+$/, '');
+        }
         if (coverImagePosition !== undefined) updates.coverImagePosition = Number(coverImagePosition);
         if (profileImagePosition !== undefined) updates.profileImagePosition = Number(profileImagePosition);
         if (subscriptionPrice !== undefined && !isNaN(Number(subscriptionPrice))) {

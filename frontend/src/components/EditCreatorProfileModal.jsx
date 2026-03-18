@@ -69,6 +69,7 @@ function DraggableImage({ src, position, setPosition, height, shape = 'rect', la
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
     const [bio, setBio] = useState(profile?.bio || '');
+    const [instagramUrl, setInstagramUrl] = useState(profile?.instagramUrl || '');
     const [displayName, setDisplay] = useState(profile?.displayName || '');
     const [subPrice, setSubPrice] = useState(Math.max(0.1, profile?.subscriptionPrice ?? 199));
     const [profileFile, setProfileFile] = useState(null);
@@ -106,6 +107,7 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
             const fd = new FormData();
             if (bio !== profile?.bio) fd.append('bio', bio);
             if (displayName !== profile?.displayName) fd.append('displayName', displayName);
+            fd.append('instagramUrl', instagramUrl);
             if (profileFile) fd.append('profileImage', profileFile);
             if (bannerFile) fd.append('bannerImage', bannerFile);
             fd.append('coverImagePosition', Math.round(coverPos));
@@ -245,6 +247,34 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
                             className="input-dark w-full resize-none"
                         />
                         <p className="text-xs text-surface-600 mt-1 text-right">{bio.length}/300</p>
+                    </div>
+
+                    {/* ── Instagram Link ──────────────────────────────────────── */}
+                    <div>
+                        <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-1.5 flex items-center gap-2">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                style={{ background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', borderRadius: 5, padding: 2, stroke: '#fff', strokeWidth: 1.8 }}>
+                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                            </svg>
+                            Instagram Profile
+                        </p>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500 text-xs select-none pointer-events-none">instagram.com/</span>
+                            <input
+                                value={instagramUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//, '')}
+                                onChange={(e) => {
+                                    const val = e.target.value.trim();
+                                    // Store as full URL if it looks like a username, else store as-is
+                                    setInstagramUrl(val ? `https://www.instagram.com/${val.replace(/^@/, '')}` : '');
+                                }}
+                                placeholder="yourhandle"
+                                maxLength={80}
+                                className="input-dark w-full pl-28"
+                            />
+                        </div>
+                        <p className="text-[10px] text-surface-600 mt-1">Shown as an icon on your public profile.</p>
                     </div>
 
                     {/* ── Subscription Price ───────────────────────────────────── */}

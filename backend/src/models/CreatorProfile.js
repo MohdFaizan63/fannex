@@ -12,6 +12,7 @@ const creatorProfileSchema = new mongoose.Schema(
         displayName: { type: String, default: '' },
         username: { type: String, default: '', lowercase: true, index: true, unique: true, sparse: true },
         bio: { type: String, default: '' },
+        instagramUrl: { type: String, default: '' },  // optional Instagram profile link
         countryOfResidency: { type: String, default: '' },
         creatorType: { type: String, enum: ['human', 'ai'], default: 'human' },
         genre: {
