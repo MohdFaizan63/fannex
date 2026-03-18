@@ -363,13 +363,6 @@ export default function Earnings() {
                     <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Earnings</h1>
                     <p style={{ color: 'rgba(255,255,255,0.42)' }} className="mt-1 text-sm sm:text-base">Track your income and request payouts.</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="btn-brand h-11 px-6 flex items-center gap-2 self-start sm:self-auto"
-                >
-                    {Icon.payout}
-                    <span className="font-semibold">Request Payout</span>
-                </button>
             </div>
 
             {/* ── Success toast ───────────────────────────────────────────── */}
@@ -445,12 +438,6 @@ export default function Earnings() {
                         <div className="flex flex-col items-center justify-center py-16 text-surface-500">
                             {Icon.empty}
                             <p className="mt-4 text-sm">No payout requests yet.</p>
-                            <button
-                                onClick={() => setShowModal(true)}
-                                className="mt-4 text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1 transition-colors"
-                            >
-                                Request your first payout {Icon.arrow}
-                            </button>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
