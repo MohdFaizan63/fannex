@@ -138,31 +138,38 @@ io.on('connection', (socket) => {
                         newBalance: newWalletBalance,
                     });
 
-                    // Credit creator earnings
+                    // ── 80/20 split: creator gets 80%, platform keeps 20% ────────────
+                    const { calcGST } = require('./src/utils/gstHelper');
+                    const split = calcGST(msgCost);
+                    const creatorEarning = split.creatorEarning; // 80% of msgCost
+
+                    // Credit only 80% to creator earnings
                     await Earnings.findOneAndUpdate(
                         { creatorId: room.creatorId },
-                        { $inc: { totalEarned: msgCost, pendingAmount: msgCost } },
+                        { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
                         { upsert: true }
                     );
 
                     // ✅ FIX 2: Create a Payment doc per message so it shows in Earning History
                     // Use fire-and-forget so it doesn't block the message delivery path
-                    const base = Math.round(msgCost / 1.18 * 100) / 100;
-                    const creatorEarning = msgCost; // wallet deductions pass through fully — no extra GST
                     Payment.create({
                         userId: room.userId,
                         creatorId: room.creatorId,
                         chatId: room._id,
-                        amount: msgCost,
-                        baseAmount: base,
-                        gstAmount: 0,
-                        platformFee: 0,
-                        creatorEarning,
-                        type: 'chat_unlock',         // reuse chat_unlock so it appears in Chat tab
+                        amount: msgCost,              // what fan paid (full msgCost from wallet)
+                        baseAmount: msgCost,
+                        gstAmount: split.gstAmount,
+                        platformFee: split.platformFee, // 20% — platform keeps this
+                        creatorEarning,                 // 80% — shown in Earning History
+                        type: 'chat_unlock',            // shows in Chat tab of Earning History
                         status: 'captured',
                         cfOrderId: `msg_${String(socket.userId).slice(-6)}_${Date.now()}`,
                         sideEffectsDone: true,
+                        _earningsCredited: true,
                     }).catch((err) => console.warn('[payment/msg] create failed:', err.message));
+
+                    console.log(`[send_message] ₹${msgCost} → creator ₹${creatorEarning} (80%) + platform ₹${split.platformFee} (20%)`);
+
                 }
             }
             // ─────────────────────────────────────────────────────────────────
