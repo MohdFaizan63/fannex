@@ -45,16 +45,29 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 
 // ─── 2. CORS Configuration ───────────────────────────────────────────────────
-app.use(cors({
+// IMPORTANT: corsOptions is defined once and reused for both app.use(cors())
+// and app.options() so that preflight responses ALWAYS include CORS headers —
+// even if a subsequent rate-limiter would reject the actual request.
+const corsOptions = {
   origin: [
     "http://localhost:5173",
+    "http://localhost:5174",
     "https://fannex.vercel.app",
     "https://fannex.in",
     "https://www.fannex.in",
     "https://api.fannex.in",
   ],
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+// Handle ALL preflight OPTIONS requests BEFORE rate limiters run.
+// Without this, express-rate-limit's 429 response lacks CORS headers,
+// causing the browser to block the request entirely (net::ERR_FAILED).
+app.options('*', cors(corsOptions));
+
+app.use(cors(corsOptions));
 
 
 // ─── 3. Rate Limiter ─────────────────────────────────────────────────────────
