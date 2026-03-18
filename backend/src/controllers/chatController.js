@@ -399,7 +399,6 @@ const sendMessage = async (req, res, next) => {
 
         // ── Wallet deduction for fan messages ─────────────────────────────────
         if (!isCreator) {
-            // BUG-7 FIX: Use messagePrice (per-message cost), not chatPrice (unlock cost)
             const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
             const msgCost = profile?.messagePrice ?? 0;
 
@@ -413,13 +412,39 @@ const sendMessage = async (req, res, next) => {
                         walletBalance: fan?.walletBalance ?? 0,
                     });
                 }
-                // Deduct from wallet and credit creator
+
+                // 80/20 split: creator gets 80%, platform keeps 20%
+                const { calcGST } = require('../utils/gstHelper');
+                const split = calcGST(msgCost);
+                const creatorEarning = split.creatorEarning; // 80% of msgCost
+
+                // Deduct full msgCost from fan wallet
                 await User.findByIdAndUpdate(senderId, { $inc: { walletBalance: -msgCost } });
+
+                // Credit only 80% to creator
                 await Earnings.findOneAndUpdate(
                     { creatorId: room.creatorId },
-                    { $inc: { totalEarned: msgCost, pendingAmount: msgCost } },
+                    { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
                     { upsert: true }
                 );
+
+                // Create a Payment record so it appears in Earning History
+                await Payment.create({
+                    userId: senderId,
+                    creatorId: room.creatorId,
+                    amount: split.totalPaid,        // total fan paid (base + GST equiv)
+                    baseAmount: msgCost,
+                    gstAmount: split.gstAmount,
+                    platformFee: split.platformFee, // 20% platform cut
+                    creatorEarning,                 // 80% of msgCost
+                    type: 'chat_unlock',             // grouped under Chat in Earning History
+                    chatId: room._id,
+                    status: 'captured',
+                    sideEffectsDone: true,
+                    _earningsCredited: true,
+                });
+
+                console.log(`[sendMessage] ₹${msgCost} → creator ₹${creatorEarning} (80%) + platform ₹${split.platformFee} (20%)`);
             }
         }
         // ─────────────────────────────────────────────────────────────────────
@@ -766,12 +791,35 @@ const sendImageMessage = async (req, res, next) => {
                         walletBalance: fan?.walletBalance ?? 0,
                     });
                 }
+
+                // 80/20 split: creator gets 80%, platform keeps 20%
+                const { calcGST } = require('../utils/gstHelper');
+                const split = calcGST(msgCost);
+                const creatorEarning = split.creatorEarning;
+
                 await User.findByIdAndUpdate(senderId, { $inc: { walletBalance: -msgCost } });
                 await Earnings.findOneAndUpdate(
                     { creatorId: room.creatorId },
-                    { $inc: { totalEarned: msgCost, pendingAmount: msgCost } },
+                    { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
                     { upsert: true }
                 );
+
+                await Payment.create({
+                    userId: senderId,
+                    creatorId: room.creatorId,
+                    amount: split.totalPaid,
+                    baseAmount: msgCost,
+                    gstAmount: split.gstAmount,
+                    platformFee: split.platformFee,
+                    creatorEarning,
+                    type: 'chat_unlock',
+                    chatId: room._id,
+                    status: 'captured',
+                    sideEffectsDone: true,
+                    _earningsCredited: true,
+                });
+
+                console.log(`[sendImageMessage] ₹${msgCost} → creator ₹${creatorEarning} (80%) + platform ₹${split.platformFee} (20%)`);
             }
         }
         // ─────────────────────────────────────────────────────────────────────────
