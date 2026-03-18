@@ -538,9 +538,9 @@ export default function CreatorProfile() {
                                                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                                             >
                                                 {/* Official Instagram gradient icon */}
-                                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <defs>
-                                                        <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
+                                                        <radialGradient id="igGrad2" cx="30%" cy="107%" r="150%">
                                                             <stop offset="0%" stopColor="#fdf497" />
                                                             <stop offset="5%" stopColor="#fdf497" />
                                                             <stop offset="45%" stopColor="#fd5949" />
@@ -548,9 +548,9 @@ export default function CreatorProfile() {
                                                             <stop offset="90%" stopColor="#285AEB" />
                                                         </radialGradient>
                                                     </defs>
-                                                    <rect x="2" y="2" width="20" height="20" rx="6" ry="6" fill="url(#igGrad)" />
-                                                    <circle cx="12" cy="12" r="4.5" fill="none" stroke="white" strokeWidth="1.8" />
-                                                    <circle cx="17.2" cy="6.8" r="1.1" fill="white" />
+                                                    <rect x="1" y="1" width="22" height="22" rx="7" ry="7" fill="url(#igGrad2)" />
+                                                    <circle cx="12" cy="12" r="4.8" fill="none" stroke="white" strokeWidth="2" />
+                                                    <circle cx="17.5" cy="6.5" r="1.3" fill="white" />
                                                 </svg>
                                             </a>
                                         )}
