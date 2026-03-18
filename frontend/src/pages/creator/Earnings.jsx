@@ -101,7 +101,7 @@ function StatCard({ icon, label, value, accent, gradient, loading, chip }) {
                     <p className={`text-2xl font-black tracking-tight mb-1 ${accent ? 'gradient-text' : 'text-white'}`}>
                         {formatCurrency(value)}
                     </p>
-                    <p className="text-xs uppercase tracking-widest text-surface-500 font-medium">{label}</p>
+                    <p className="text-xs uppercase tracking-widest text-surface-300 font-medium">{label}</p>
                 </>
             )}
         </div>
@@ -218,13 +218,13 @@ function TxRow({ tx }) {
                 <p className="text-sm text-surface-400 truncate mt-0.5">
                     {fan?.name || fan?.username || 'Anonymous Fan'}
                 </p>
-                <p className="text-xs text-surface-600 mt-0.5">{formatDate(tx.createdAt)}</p>
+                <p className="text-xs text-surface-400 mt-0.5">{formatDate(tx.createdAt)}</p>
             </div>
 
             {/* Amount */}
             <div className="text-right flex-shrink-0">
                 <p className="text-sm font-bold text-emerald-400">+{formatCurrency(tx.creatorEarning)}</p>
-                <p className="text-xs text-surface-600 mt-0.5">of {formatCurrency(tx.amount)}</p>
+                <p className="text-xs text-surface-400 mt-0.5">of {formatCurrency(tx.amount)}</p>
             </div>
         </div>
     );
@@ -374,7 +374,7 @@ export default function Earnings() {
                         ) : (
                             <p className="text-lg sm:text-xl font-black text-white">{formatCurrency(c.value)}</p>
                         )}
-                        <p className="text-xs text-surface-500 font-medium mt-0.5 leading-tight">{c.label}</p>
+                        <p className="text-xs text-surface-300 font-medium mt-0.5 leading-tight">{c.label}</p>
                     </div>
                 ))}
             </div>
@@ -399,7 +399,7 @@ export default function Earnings() {
                 <div className="glass rounded-2xl border border-white/5 overflow-hidden">
                     <div className="px-4 sm:px-5 py-4 border-b border-white/5 flex items-center justify-between">
                         <h2 className="font-bold text-white text-base sm:text-lg">Payout History</h2>
-                        <span className="text-xs text-surface-500">{payouts.length} request{payouts.length !== 1 ? 's' : ''}</span>
+                        <span className="text-xs text-surface-300">{payouts.length} request{payouts.length !== 1 ? 's' : ''}</span>
                     </div>
 
                     {loading ? (
@@ -485,7 +485,7 @@ export default function Earnings() {
                             </button>
                         ))}
                         <div className="ml-auto flex items-center gap-2">
-                            <span className="text-xs text-surface-600 whitespace-nowrap">
+                            <span className="text-xs text-surface-300 whitespace-nowrap">
                                 {history.pagination?.total ?? 0} transactions
                             </span>
                             <button

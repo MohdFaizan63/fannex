@@ -134,7 +134,7 @@ function AreaChart({ dataPoints, range, prefix = '', isCurrency = false, accentC
         });
 
         // X axis labels
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.font = '11px Inter, system-ui, sans-serif';
         ctx.textAlign = 'center';
         const maxLabels = W < 400 ? 5 : 8;
@@ -271,7 +271,7 @@ function TimelineDotChart({ dataPoints, range, isCurrency = true }) {
                                 </div>
 
                                 {/* Label */}
-                                <p className={`text-[9px] mt-1.5 transition-colors ${isActive ? 'text-white font-semibold' : 'text-surface-600'}`}>
+                                <p className={`text-[9px] mt-1.5 transition-colors ${isActive ? 'text-white font-semibold' : 'text-surface-400'}`}>
                                     {formatDateLabel(d.date, range)}
                                 </p>
                             </div>
@@ -295,7 +295,7 @@ function OverviewCard({ icon, label, value, gradient }) {
             <div className="relative">
                 <span className="text-xl mb-2 block">{icon}</span>
                 <p className="text-lg sm:text-xl font-black text-white">{value}</p>
-                <p className="text-[10px] uppercase tracking-widest text-surface-500 font-medium mt-1">{label}</p>
+                <p className="text-[10px] uppercase tracking-widest text-surface-300 font-medium mt-1">{label}</p>
             </div>
         </div>
     );
@@ -369,7 +369,7 @@ export default function ProfileInsights() {
                 </Link>
                 <div>
                     <h1 className="text-xl sm:text-2xl font-black text-white">Profile Insights</h1>
-                    <p className="text-xs text-surface-500 mt-0.5">Track your performance & growth</p>
+                    <p className="text-xs text-surface-300 mt-0.5">Track your performance & growth</p>
                 </div>
             </div>
 
@@ -399,7 +399,7 @@ export default function ProfileInsights() {
                                 <p className="text-2xl sm:text-3xl font-black text-white mt-1">
                                     {formatNumber(views?.total ?? 0)}
                                 </p>
-                                <p className="text-xs text-surface-500 mt-0.5">{dateRangeLabel}</p>
+                                <p className="text-xs text-surface-400 mt-0.5">{dateRangeLabel}</p>
                             </div>
                             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                                 <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -425,7 +425,7 @@ export default function ProfileInsights() {
                                 <p className="text-2xl sm:text-3xl font-black text-white mt-1">
                                     {formatCurrency(earnings?.total ?? 0)}
                                 </p>
-                                <p className="text-xs text-surface-500 mt-0.5">{dateRangeLabel}</p>
+                                <p className="text-xs text-surface-400 mt-0.5">{dateRangeLabel}</p>
                             </div>
                             <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
                                 <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -477,7 +477,7 @@ export default function ProfileInsights() {
                             </div>
                             <div>
                                 <h3 className="text-sm font-bold text-white mb-1">Pro Tips</h3>
-                                <ul className="space-y-1.5 text-xs text-surface-400">
+                                <ul className="space-y-1.5 text-xs text-surface-300">
                                     <li className="flex items-start gap-2">
                                         <span className="text-brand-400 mt-0.5">•</span>
                                         Post consistently to keep your audience engaged

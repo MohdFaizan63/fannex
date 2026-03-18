@@ -18,10 +18,10 @@ function StatCard({ icon, label, value, sub, accent = false }) {
         <div className={`glass rounded-2xl p-4 sm:p-5 border transition-all ${accent ? 'border-brand-500/30' : 'border-white/5'}`}>
             <div className="flex items-start justify-between mb-2">
                 <span className="text-xl sm:text-2xl">{icon}</span>
-                {sub && <span className="text-[10px] text-surface-500 bg-surface-700/50 px-2 py-0.5 rounded-full">{sub}</span>}
+                {sub && <span className="text-[10px] text-surface-300 bg-surface-700/50 px-2 py-0.5 rounded-full">{sub}</span>}
             </div>
             <p className={`text-xl sm:text-2xl font-black mb-1 ${accent ? 'gradient-text' : 'text-white'}`}>{value}</p>
-            <p className="text-[10px] uppercase tracking-widest text-surface-500 font-medium">{label}</p>
+            <p className="text-[10px] uppercase tracking-widest text-surface-300 font-medium">{label}</p>
         </div>
     );
 }
@@ -559,7 +559,7 @@ export default function Dashboard() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-white truncate">{s.subscriberId?.name ?? 'Unknown'}</p>
-                                            <p className="text-xs text-surface-500">{formatDate(s.createdAt)}</p>
+                                            <p className="text-xs text-surface-400">{formatDate(s.createdAt)}</p>
                                         </div>
                                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 flex-shrink-0">active</span>
                                     </div>

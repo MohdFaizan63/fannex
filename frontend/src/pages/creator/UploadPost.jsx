@@ -169,11 +169,11 @@ export default function UploadPost() {
             <p className="text-surface-400 mb-6">Share exclusive content with your subscribers.</p>
 
             {/* Size limits info */}
-            <div className="flex items-center gap-4 text-xs text-surface-500 mb-6">
-                <span className="flex items-center gap-1.5 px-3 py-1.5 glass rounded-lg border border-white/5">
+            <div className="flex items-center gap-4 text-xs text-surface-300 mb-6">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 glass rounded-lg border border-white/10">
                     📷 Photos: {MAX_IMAGE_MB}MB each · up to {MAX_FILES}
                 </span>
-                <span className="flex items-center gap-1.5 px-3 py-1.5 glass rounded-lg border border-white/5">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 glass rounded-lg border border-white/10">
                     🎬 Videos: {MAX_VIDEO_MB}MB · 1 per post
                 </span>
             </div>
@@ -203,8 +203,8 @@ export default function UploadPost() {
                         <>
                             <div className="text-5xl mb-4 opacity-40">📤</div>
                             <p className="text-white font-medium">Click or drag to upload</p>
-                            <p className="text-xs text-surface-500 mt-1">JPEG · PNG · WebP · GIF · MP4 · MOV · WebM</p>
-                            <p className="text-xs text-surface-600 mt-0.5">Drop multiple photos for an album post</p>
+                            <p className="text-sm text-surface-300 mt-1">JPEG · PNG · WebP · GIF · MP4 · MOV · WebM</p>
+                            <p className="text-xs text-surface-400 mt-0.5">Drop multiple photos for an album post</p>
                         </>
                     ) : mode === 'video' ? (
                         <>
