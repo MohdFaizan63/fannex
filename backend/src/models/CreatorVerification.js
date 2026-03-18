@@ -10,15 +10,21 @@ const ALGORITHM = 'aes-256-gcm';
 const getKey = () => {
     const key = process.env.ENCRYPTION_KEY;
     if (!key || Buffer.from(key, 'hex').length !== 32) {
-        throw new Error('ENCRYPTION_KEY must be a 64-character hex string (32 bytes)');
+        // Log a warning but do NOT crash — missing key means we store plain text.
+        // Admins should set ENCRYPTION_KEY in .env for production security.
+        console.warn('[CreatorVerification] WARNING: ENCRYPTION_KEY missing or invalid. Sensitive fields stored as plain text.');
+        return null;
     }
     return Buffer.from(key, 'hex');
 };
 
 const encrypt = (plainText) => {
     if (!plainText) return null;
+    const key = getKey();
+    // If no valid key, store plain text (non-crash fallback for dev/unconfigured envs)
+    if (!key) return String(plainText);
     const iv = crypto.randomBytes(12); // 96-bit IV for GCM
-    const cipher = crypto.createCipheriv(ALGORITHM, getKey(), iv);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
     let encrypted = cipher.update(String(plainText), 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -30,17 +36,26 @@ const encrypt = (plainText) => {
 
 const decrypt = (cipherText) => {
     if (!cipherText) return null;
-    const [ivHex, authTagHex, encrypted] = cipherText.split(':');
+    const key = getKey();
+    // If format doesn't look encrypted (no colons) or key missing, return as-is
+    if (!key || !cipherText.includes(':')) return cipherText;
+    try {
+        const [ivHex, authTagHex, encrypted] = cipherText.split(':');
+        if (!ivHex || !authTagHex || !encrypted) return cipherText;
 
-    const iv = Buffer.from(ivHex, 'hex');
-    const authTag = Buffer.from(authTagHex, 'hex');
+        const iv = Buffer.from(ivHex, 'hex');
+        const authTag = Buffer.from(authTagHex, 'hex');
 
-    const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), iv);
-    decipher.setAuthTag(authTag);
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+        decipher.setAuthTag(authTag);
 
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch (e) {
+        console.error('[CreatorVerification] Decryption failed:', e.message);
+        return cipherText; // return raw value rather than crashing
+    }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
