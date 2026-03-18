@@ -20,6 +20,7 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [phase, setPhase] = useState('select'); // 'select' | 'paying'
+    const [gstBreakdown, setGstBreakdown] = useState(null);
 
     const effectiveAmount = customAmt !== '' ? Number(customAmt) : selected;
 
@@ -27,11 +28,13 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
         const val = e.target.value.replace(/[^0-9]/g, '');
         setCustomAmt(val);
         if (val) setSelected(null);
+        setGstBreakdown(null); // reset so stale total isn't shown
     };
 
     const handlePresetClick = (amt) => {
         setSelected(amt);
         setCustomAmt('');
+        setGstBreakdown(null); // reset so stale total isn't shown
     };
 
     // Clear stale gift sessionStorage (called on close/cancel — BUG-7 fix)
@@ -47,17 +50,17 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
         setError('');
         try {
             const { data } = await chatService.createGiftOrder(chatId, amount);
-            const { order } = data;
+            const { order, gstBreakdown: breakdown } = data;
+            if (breakdown) setGstBreakdown(breakdown);
 
             if (!order?.paymentSessionId) {
                 throw new Error('Invalid order response from server');
             }
 
-            // Store chatId + amount so the success page can call /chat/gift/verify
-            // Always set fresh — clears any previous stale value (BUG-7)
+            // Store chatId + base amount so success page can show correct gift amount
             sessionStorage.setItem('fannex_gift_chat', JSON.stringify({
                 chatId,
-                amount,
+                amount: breakdown?.baseAmount ?? amount,   // base amount for display
                 orderId: order.orderId,
             }));
 
@@ -212,8 +215,13 @@ export default function GiftPanel({ chatId, creatorName, onGiftSent, onClose }) 
                             boxShadow: '0 4px 16px rgba(124,58,237,0.3)',
                         }}
                     >
-                        {loading ? 'Opening payment…' : effectiveAmount
-                            ? `Send ₹${Number(effectiveAmount).toLocaleString('en-IN')} Gift 🎁`
+                    {loading ? 'Opening payment…' : effectiveAmount
+                            ? (
+                                <span>
+                                    Pay ₹{(gstBreakdown?.totalPaid ?? Number(effectiveAmount) * 1.18).toFixed(2)} Gift 🎁
+                                    {effectiveAmount && <span style={{ fontWeight: 500, fontSize: 11, opacity: 0.7, display: 'block', marginTop: 2 }}>₹{effectiveAmount} + 18% GST</span>}
+                                </span>
+                            )
                             : 'Select or enter an amount'}
                     </button>
                 </motion.div>

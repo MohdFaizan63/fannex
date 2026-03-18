@@ -437,39 +437,62 @@ const createGiftOrder = async (req, res, next) => {
         }
 
         const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('minGift maxGift');
-        // BUG-6 FIX: minimum ₹1 (payment gateways reject sub-₹1 INR amounts)
-        // BUG-8 FIX: default maxGift to ₹10,000 when creator hasn't configured it
         const minGift = profile?.minGift ?? 1;
         const maxGift = profile?.maxGift ?? 10000;
         if (amount < minGift) return res.status(400).json({ success: false, message: `Minimum gift is ₹${minGift}` });
         if (amount > maxGift) return res.status(400).json({ success: false, message: `Maximum gift is ₹${maxGift}` });
 
+        // Apply 18% GST — fan pays base + GST, creator earns 80% of base only
+        const { calcGST } = require('../utils/gstHelper');
+        const gst = calcGST(Number(amount));
+
         const orderId = `gf_${String(chatId).slice(-8)}_${Date.now()}`;
         const order = await paymentService.createOrder({
-            amount,
+            amount: gst.totalPaid,    // fan pays base + 18% GST
             orderId,
             customerId: user._id.toString(),
             customerName: user.name || 'Fannex User',
             customerEmail: user.email || 'user@fannex.in',
             customerPhone: user.phone || '9000000000',
             returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/subscription-success?order_id={order_id}`,
-            meta: { userId: user._id.toString(), creatorId: room.creatorId.toString(), type: 'gift', chatId: String(chatId) },
+            meta: {
+                userId: user._id.toString(),
+                creatorId: room.creatorId.toString(),
+                type: 'gift',
+                chatId: String(chatId),
+                baseAmount: gst.baseAmount.toString(), // stored for correct split on verify
+            },
         });
 
         await Payment.create({
             userId: user._id,
             creatorId: room.creatorId,
-            amount,
-            giftAmount: amount,
+            amount: gst.totalPaid,        // total fan paid (base + GST)
+            giftAmount: gst.baseAmount,   // base amount (for display)
+            baseAmount: gst.baseAmount,
+            gstAmount: gst.gstAmount,
+            platformFee: gst.platformFee,
+            creatorEarning: gst.creatorEarning,
             type: 'gift',
             chatId,
             cfOrderId: order.orderId,
             status: 'created',
         });
 
-        res.json({ success: true, order });
+        res.json({
+            success: true,
+            order,
+            gstBreakdown: {
+                baseAmount:     gst.baseAmount,
+                gstAmount:      gst.gstAmount,
+                totalPaid:      gst.totalPaid,
+                platformFee:    gst.platformFee,
+                creatorEarning: gst.creatorEarning,
+            },
+        });
     } catch (err) { next(err); }
 };
+
 
 // @desc  Verify gift payment and save gift message
 // @route POST /api/v1/chat/gift/verify
@@ -484,8 +507,8 @@ const verifyGift = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Gift payment not completed' });
         }
 
-        // Use verified amount from Cashfree — never trust client-supplied amount
-        const amount = Number(orderData.order_amount);
+        // Use verified total-paid amount from Cashfree
+        const grossAmount = Number(orderData.order_amount);
 
         let cfPaymentId = null;
         try {
@@ -493,11 +516,19 @@ const verifyGift = async (req, res, next) => {
             cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
         } catch { /* cfPaymentId is optional */ }
 
-        // ── Pre-calculate the correct GST split ──────────────────────────────────
-        const base = Math.round(amount / 1.18 * 100) / 100;
-        const creatorEarning = Math.round(base * 0.8 * 100) / 100;
-        const platformFee    = Math.round(base * 0.2 * 100) / 100;
-        const gstAmount      = Math.round((amount - base) * 100) / 100;
+        // ── Canonical GST split via calcGST ──────────────────────────────────────
+        // Prefer baseAmount from order_tags (stored by createGiftOrder since the GST fix).
+        // For old orders without it, reverse-extract base from the gross amount.
+        const { calcGST } = require('../utils/gstHelper');
+        const tags = orderData.order_tags || {};
+        const baseAmt = tags.baseAmount ? Number(tags.baseAmount) : Math.round(grossAmount / 1.18 * 100) / 100;
+        const gstCalc = calcGST(baseAmt);
+        const base          = gstCalc.baseAmount;
+        const creatorEarning = gstCalc.creatorEarning;
+        const platformFee    = gstCalc.platformFee;
+        const gstAmount      = gstCalc.gstAmount;
+        const amount = gstCalc.totalPaid; // total fan paid
+
 
         // ── ALWAYS patch the Payment doc with correct fields ─────────────────────
         // The Payment doc may have been pre-created by createGiftOrder with
