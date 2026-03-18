@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
 
 // ── Icon map ──────────────────────────────────────────────────────────────────
@@ -29,6 +30,8 @@ export default function NotificationBell() {
     const [loading, setLoading] = useState(false);
     const ref = useRef(null);
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const isCreator = user?.role === 'creator';
 
     // ── Fetch unread count on mount (and every 30s) ──────────────────────────
     const fetchCount = useCallback(async () => {
@@ -76,9 +79,24 @@ export default function NotificationBell() {
             setUnreadCount((c) => Math.max(0, c - 1));
         }
         setOpen(false);
-        if (notif.referenceModel === 'Post') navigate('/explore');
-        else if (notif.referenceModel === 'ChatRoom') navigate('/creator/chat');
-        else if (notif.referenceModel === 'Subscription') navigate('/my-subscriptions');
+
+        if (notif.referenceModel === 'Post') {
+            navigate('/explore');
+        } else if (notif.referenceModel === 'ChatRoom') {
+            // ── Core fix: route by role ───────────────────────────────────────
+            // Creators → their chat inbox (/creator/chat)
+            // Fans     → the specific chat room (/chat/:chatId)
+            // Both use the notification's referenceId (= chatId) when available.
+            if (isCreator) {
+                navigate('/creator/chat');
+            } else {
+                // Route fan directly to the conversation thread
+                const chatId = notif.referenceId;
+                navigate(chatId ? `/chat/${chatId}` : '/chat');
+            }
+        } else if (notif.referenceModel === 'Subscription') {
+            navigate('/my-subscriptions');
+        }
     };
 
     return (
