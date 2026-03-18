@@ -543,16 +543,19 @@ async function createWalletOrder(req, res, next) {
             return res.status(400).json({ success: false, message: 'Invalid amount' });
         }
         if (parsed < 1) {
-            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹1 (payment gateway limit)' });
+            return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹1 (base, excl. GST)' });
         }
         if (parsed > 50000) {
             return res.status(400).json({ success: false, message: 'Maximum recharge amount is ₹50,000' });
         }
 
+        // Apply 18% GST — fan pays base + GST, wallet credits only base amount
+        const gst = calcGST(parsed);
+
         const orderId = `wallet_${user._id.toString().slice(-6)}_${Date.now()}`;
 
         const order = await paymentService.createOrder({
-            amount: parsed,
+            amount: gst.totalPaid,   // fan pays base + 18% GST
             orderId,
             customerId: user._id.toString(),
             customerName: user.name || 'Fannex User',
@@ -562,12 +565,20 @@ async function createWalletOrder(req, res, next) {
             meta: {
                 userId: user._id.toString(),
                 type: 'wallet',
+                baseAmount: gst.baseAmount.toString(), // wallet credits this, not totalPaid
             },
         });
 
-        res.status(200).json({ success: true, data: order });
+        res.status(200).json({
+            success: true,
+            data: order,
+            gstBreakdown: {
+                baseAmount:  gst.baseAmount,
+                gstAmount:   gst.gstAmount,
+                totalPaid:   gst.totalPaid,
+            },
+        });
     } catch (err) {
-        // Use safeCfStatus so Cashfree 401 never triggers the frontend logout interceptor
         const cfMessage = err?.response?.data?.message;
         const upstreamStatus = err?.response?.status;
         if (cfMessage) {
@@ -576,6 +587,7 @@ async function createWalletOrder(req, res, next) {
         next(err);
     }
 }
+
 
 // @desc  Verify wallet recharge and credit balance
 // @route POST /api/payment/wallet-verify

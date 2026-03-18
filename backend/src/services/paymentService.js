@@ -201,20 +201,31 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
 
     const grossAmount = Number(amount);  // total fan paid (base + GST)
 
-    // ── Wallet top-ups: NO GST, no creator involved ──────────────────────────
+    // ── Wallet top-ups: WITH GST (fan pays base+18%, wallet credits base only) ──
     if (type === 'wallet') {
         const User = require('../models/User');
-        // STEP 1: Ensure Payment doc exists (idempotent upsert, no rawResult)
-        // If doc already exists, $setOnInsert is a no-op. sideEffectsDone is NOT changed here.
+
+        // Amount to credit to wallet = base amount ONLY (excluding GST)
+        // Read from order meta (set by createWalletOrder after GST fix).
+        // Fall back to grossAmount for old orders that didn't store baseAmount.
+        const { baseAmount: metaBaseWallet } = meta;
+        const walletCredit = metaBaseWallet
+            ? Number(metaBaseWallet)
+            : grossAmount; // backward compat: old orders had no GST, so grossAmount = base
+
+        const walletGst    = Math.round((grossAmount - walletCredit) * 100) / 100;
+        const walletPlatform = 0; // wallet top-ups have no platform split
+
+        // STEP 1: Ensure Payment doc exists
         await Payment.findOneAndUpdate(
             { cfOrderId: orderId },
             {
                 $setOnInsert: {
                     userId,
-                    amount: grossAmount,
-                    baseAmount: grossAmount,
-                    gstAmount: 0,
-                    platformFee: 0,
+                    amount: grossAmount,          // total fan paid (base + GST)
+                    baseAmount: walletCredit,     // base (goes to wallet)
+                    gstAmount: walletGst,         // 18% GST (tracked separately)
+                    platformFee: walletPlatform,
                     creatorEarning: 0,
                     currency: 'INR',
                     type: 'wallet',
@@ -226,9 +237,7 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true }
         );
 
-        // STEP 2: Atomically claim the "credit" slot — only ONE caller wins this.
-        // The winner gets back the old doc (sideEffectsDone: false).
-        // Loser (or retrier) finds sideEffectsDone: true → skip.
+        // STEP 2: Atomically claim the "credit" slot
         const claimed = await Payment.findOneAndUpdate(
             { cfOrderId: orderId, sideEffectsDone: false },
             {
@@ -236,20 +245,23 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
                     status: 'captured',
                     cfPaymentId: cfPaymentId || null,
                     sideEffectsDone: true,
+                    baseAmount: walletCredit,
+                    gstAmount: walletGst,
                 },
             },
             { new: false }
         );
 
         if (claimed) {
-            // We are the first and only caller — credit the wallet once
-            await User.findByIdAndUpdate(userId, { $inc: { walletBalance: grossAmount } });
-            console.log(`[handlePaymentCaptured] ✅ Wallet credited userId=${userId} amount=₹${grossAmount}`);
+            // Credit only BASE amount to wallet — GST goes to government, not fan's balance
+            await User.findByIdAndUpdate(userId, { $inc: { walletBalance: walletCredit } });
+            console.log(`[handlePaymentCaptured] ✅ Wallet credited userId=${userId} base=₹${walletCredit} (fan paid ₹${grossAmount} incl. GST)`);
         } else {
             console.log(`[handlePaymentCaptured] ℹ️ Wallet already credited, skipping orderId=${orderId}`);
         }
         return;
     }
+
 
     // ── All paid-content types: GST breakdown ─────────────────────────────────
     if (!creatorId) return;

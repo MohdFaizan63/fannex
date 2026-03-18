@@ -34,6 +34,10 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
     const containerRef = useRef(null);
 
     const finalAmount = selected ?? (customAmt ? Number(customAmt) : null);
+    // Live GST preview — compute on the fly from selected amount
+    const gstPreview = finalAmount
+        ? { base: finalAmount, gst: Math.round(finalAmount * 0.18 * 100) / 100, total: Math.round(finalAmount * 1.18 * 100) / 100 }
+        : null;
 
     // Load Cashfree SDK script once
     const loadSDK = useCallback(() => {
@@ -237,6 +241,18 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                             </div>
                         )}
 
+                        {/* GST preview line */}
+                        {gstPreview && (
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)',
+                                borderRadius: 12, padding: '8px 14px', marginBottom: 12, fontSize: 13,
+                            }}>
+                                <span style={{ color: 'rgba(255,255,255,0.5)' }}>₹{gstPreview.base} + 18% GST (₹{gstPreview.gst})</span>
+                                <span style={{ color: '#a78bfa', fontWeight: 700 }}>= ₹{gstPreview.total}</span>
+                            </div>
+                        )}
+
                         <button
                             onClick={handleRecharge}
                             disabled={loading || !finalAmount}
@@ -252,7 +268,11 @@ export default function WalletRechargeModal({ currentBalance = 0, onClose, onRec
                                 boxShadow: '0 4px 16px rgba(124,58,237,0.3)',
                             }}
                         >
-                            {loading ? 'Opening payment…' : `Add ₹${finalAmount ?? '...'} to Wallet`}
+                            {loading
+                                ? 'Opening payment…'
+                                : gstPreview
+                                    ? `Pay ₹${gstPreview.total} · Add ₹${gstPreview.base} to Wallet`
+                                    : 'Select or enter an amount'}
                         </button>
 
                         <button
