@@ -4,16 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import subscriptionService from '../../services/subscriptionService';
 
-// ── Pricing logic (display only — backend is authoritative) ──────────────────
+// ── Pricing (display only — backend is authoritative) ─────────────────────────
 const GST_RATE = 0.18;
 const PLAN_DISCOUNTS = { 1: 0, 3: 10, 6: 20, 12: 30 };
-const PLAN_LABELS    = { 1: 'Popular', 3: 'Popular', 6: 'Great Value', 12: 'Best Value' };
-const PLAN_BADGE_HIGHLIGHT = { 3: true, 12: true };
 
 function calcPlan(base, months) {
-    const discPct   = PLAN_DISCOUNTS[months] ?? 0;
-    const discFactor = 1 - discPct / 100;
-    const discounted = Math.round(base * months * discFactor * 100) / 100;
+    const discPct    = PLAN_DISCOUNTS[months] ?? 0;
+    const discounted = Math.round(base * months * (1 - discPct / 100) * 100) / 100;
     const original   = base * months;
     const savings    = Math.round((original - discounted) * 100) / 100;
     const gstAmt     = Math.round(discounted * GST_RATE * 100) / 100;
@@ -24,11 +21,11 @@ function calcPlan(base, months) {
 
 // ── Plan Card ─────────────────────────────────────────────────────────────────
 function PlanCard({ months, base, selected, onSelect }) {
-    const plan   = calcPlan(base, months);
-    const label  = PLAN_LABELS[months];
-    const isTop  = months === 12;
-    const isPop  = months === 3;
+    const plan      = calcPlan(base, months);
     const isSelected = selected === months;
+    const isBest     = months === 12;
+    const isPop      = months === 3;
+    const hasTop     = isBest || isPop;
 
     return (
         <button
@@ -36,55 +33,47 @@ function PlanCard({ months, base, selected, onSelect }) {
             style={{
                 position: 'relative',
                 flex: '0 0 auto',
-                width: 148,
-                minHeight: 172,
+                width: 'calc(50% - 6px)',
+                minWidth: 140,
+                maxWidth: 180,
                 borderRadius: 18,
-                padding: '16px 14px 14px',
+                padding: hasTop ? '24px 14px 16px' : '16px 14px 16px',
                 cursor: 'pointer',
                 textAlign: 'left',
-                transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
                 background: isSelected
-                    ? 'linear-gradient(145deg, rgba(124,58,237,0.18), rgba(168,85,247,0.08))'
-                    : 'rgba(255,255,255,0.04)',
+                    ? 'linear-gradient(145deg,rgba(124,58,237,0.22),rgba(168,85,247,0.10))'
+                    : 'rgba(255,255,255,0.05)',
                 border: isSelected
-                    ? '2px solid rgba(168,85,247,0.8)'
-                    : isTop
-                        ? '2px solid rgba(236,72,153,0.35)'
-                        : '2px solid rgba(255,255,255,0.1)',
+                    ? '2px solid rgba(168,85,247,0.9)'
+                    : isBest
+                        ? '1.5px solid rgba(236,72,153,0.3)'
+                        : '1.5px solid rgba(255,255,255,0.1)',
                 boxShadow: isSelected
-                    ? '0 0 24px rgba(168,85,247,0.25)'
-                    : isTop
-                        ? '0 4px 20px rgba(236,72,153,0.12)'
-                        : 'none',
-                transform: isSelected ? 'translateY(-2px) scale(1.02)' : 'none',
+                    ? '0 0 28px rgba(168,85,247,0.3), inset 0 1px 0 rgba(255,255,255,0.1)'
+                    : 'none',
+                transform: isSelected ? 'translateY(-3px) scale(1.02)' : 'none',
             }}
         >
             {/* Top badge */}
-            {(isTop || isPop) && (
+            {hasTop && (
                 <div style={{
-                    position: 'absolute',
-                    top: -12,
-                    left: '50%',
+                    position: 'absolute', top: -11, left: '50%',
                     transform: 'translateX(-50%)',
-                    background: isTop
-                        ? 'linear-gradient(90deg, #ec4899, #a855f7)'
-                        : 'linear-gradient(90deg, #7c3aed, #6d28d9)',
-                    color: '#fff',
-                    fontSize: 10,
-                    fontWeight: 800,
-                    padding: '3px 10px',
-                    borderRadius: 999,
-                    whiteSpace: 'nowrap',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    boxShadow: isTop ? '0 2px 12px rgba(236,72,153,0.4)' : '0 2px 12px rgba(124,58,237,0.4)',
+                    background: isBest
+                        ? 'linear-gradient(90deg,#ec4899,#a855f7)'
+                        : 'linear-gradient(90deg,#7c3aed,#6d28d9)',
+                    color: '#fff', fontSize: 9, fontWeight: 800,
+                    padding: '3px 12px', borderRadius: 999,
+                    whiteSpace: 'nowrap', letterSpacing: '0.06em', textTransform: 'uppercase',
+                    boxShadow: isBest ? '0 2px 12px rgba(236,72,153,0.5)' : '0 2px 12px rgba(124,58,237,0.5)',
                 }}>
-                    {isTop ? '🏆 Best Value' : '🔥 Popular'}
+                    {isBest ? '🏆 Best Value' : '🔥 Popular'}
                 </div>
             )}
 
-            {/* Duration label */}
-            <p style={{ color: '#fff', fontWeight: 800, fontSize: 17, marginBottom: 6, lineHeight: 1.2 }}>
+            {/* Duration */}
+            <p style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: '0 0 8px', lineHeight: 1.2 }}>
                 {months} {months === 1 ? 'month' : 'months'}
             </p>
 
@@ -93,49 +82,38 @@ function PlanCard({ months, base, selected, onSelect }) {
                 <div style={{
                     display: 'inline-block',
                     background: 'rgba(74,222,128,0.15)',
-                    border: '1px solid rgba(74,222,128,0.3)',
-                    color: '#4ade80',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: 6,
-                    marginBottom: 10,
+                    border: '1px solid rgba(74,222,128,0.35)',
+                    color: '#4ade80', fontSize: 11, fontWeight: 700,
+                    padding: '2px 8px', borderRadius: 6, marginBottom: 12,
                 }}>
                     {plan.discPct}% off
                 </div>
-            ) : (
-                <div style={{ height: 20, marginBottom: 10 }} />
-            )}
+            ) : <div style={{ height: 22, marginBottom: 4 }} />}
 
             {/* Price */}
-            <p style={{ color: '#fff', fontWeight: 900, fontSize: 18, marginBottom: 2, lineHeight: 1 }}>
+            <p style={{ color: '#fff', fontWeight: 900, fontSize: 22, margin: '0 0 2px', lineHeight: 1 }}>
                 ₹{plan.totalPaid}
             </p>
             {plan.discPct > 0 && (
-                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, textDecoration: 'line-through' }}>
+                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textDecoration: 'line-through', margin: '2px 0 4px' }}>
                     ₹{Math.round(plan.original * (1 + GST_RATE))}
                 </p>
             )}
-            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 4 }}>
+            <p style={{ color: 'rgba(255,255,255,0.42)', fontSize: 11, margin: 0 }}>
                 ₹{plan.perMonth}/mo incl. GST
             </p>
 
-            {/* Selected checkmark */}
+            {/* Selected check */}
             {isSelected && (
                 <div style={{
-                    position: 'absolute',
-                    bottom: 10,
-                    right: 10,
-                    width: 20,
-                    height: 20,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    position: 'absolute', bottom: 10, right: 10,
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(124,58,237,0.5)',
                 }}>
-                    <svg width="10" height="10" viewBox="0 0 20 20" fill="white">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg width="11" height="11" viewBox="0 0 20 20" fill="white">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
                     </svg>
                 </div>
             )}
@@ -146,25 +124,21 @@ function PlanCard({ months, base, selected, onSelect }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SubscribePage() {
     const { username } = useParams();
-    const { user, isAuthenticated, loading: authLoading } = useAuth();
+    const { isAuthenticated, loading: authLoading } = useAuth();
     const navigate = useNavigate();
 
-    const [creator, setCreator]                 = useState(null);
-    const [loading, setLoading]                 = useState(true);
-    const [subscribing, setSubscribing]         = useState(false);
-    const [error, setError]                     = useState('');
+    const [creator, setCreator]             = useState(null);
+    const [loading, setLoading]             = useState(true);
+    const [subscribing, setSubscribing]     = useState(false);
+    const [error, setError]                 = useState('');
     const [alreadySubscribed, setAlreadySubscribed] = useState(false);
-    const [selectedPlan, setSelectedPlan]       = useState(3);   // default: 3-month
-    const [showSummary, setShowSummary]         = useState(false);
+    const [selectedPlan, setSelectedPlan]   = useState(3);
 
-    // Redirect unauthenticated users
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
+        if (!authLoading && !isAuthenticated)
             navigate(`/register?redirect=${encodeURIComponent(`/creator/${username}/subscribe`)}`, { replace: true });
-        }
     }, [isAuthenticated, authLoading, navigate, username]);
 
-    // Load creator profile
     useEffect(() => {
         if (!username) return;
         setLoading(true);
@@ -172,8 +146,8 @@ export default function SubscribePage() {
             .then(({ data }) => {
                 setCreator(data.data);
                 if (isAuthenticated && data.data) {
-                    const creatorId = data.data.userId || data.data._id;
-                    subscriptionService.checkStatus(creatorId)
+                    const id = data.data.userId || data.data._id;
+                    subscriptionService.checkStatus(id)
                         .then(({ data: s }) => { if (s.data?.subscribed) setAlreadySubscribed(true); })
                         .catch(() => {});
                 }
@@ -182,120 +156,116 @@ export default function SubscribePage() {
             .finally(() => setLoading(false));
     }, [username, isAuthenticated]);
 
-    const handleConfirmSubscribe = async () => {
+    const handleSubscribe = async () => {
         if (!creator || subscribing) return;
-        setSubscribing(true);
-        setError('');
+        setSubscribing(true); setError('');
         try {
             const creatorId = creator.userId || creator._id;
             const response  = await subscriptionService.createOrder(creatorId, selectedPlan);
             const orderData = response.data?.data;
-
-            if (!orderData?.paymentSessionId) throw new Error('Invalid order response from server');
+            if (!orderData?.paymentSessionId) throw new Error('Invalid order response');
 
             sessionStorage.setItem('fannex_subscribe_return', window.location.pathname);
-
             if (!window.Cashfree) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.head.appendChild(script);
+                await new Promise((res, rej) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                    s.onload = res; s.onerror = rej;
+                    document.head.appendChild(s);
                 });
             }
-
-            const cashfree = window.Cashfree({ mode: orderData.cfMode || 'production' });
-            cashfree.checkout({ paymentSessionId: orderData.paymentSessionId, redirectTarget: '_self' });
+            window.Cashfree({ mode: orderData.cfMode || 'production' })
+                  .checkout({ paymentSessionId: orderData.paymentSessionId, redirectTarget: '_self' });
         } catch (err) {
             if (err?.response?.status === 409 && err?.response?.data?.alreadySubscribed) {
-                setAlreadySubscribed(true);
-                setSubscribing(false);
-                return;
+                setAlreadySubscribed(true); setSubscribing(false); return;
             }
             setError(err?.response?.data?.message || err.message || 'Unable to initiate payment. Please try again.');
             setSubscribing(false);
         }
     };
 
-    // ── Loading ───────────────────────────────────────────────────────────────
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0f' }}>
-            <div className="w-10 h-10 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080510' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2.5px solid #7c3aed', borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
     );
 
     if (error && !creator) return (
-        <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#0a0a0f' }}>
-            <div className="text-center">
-                <p className="text-red-400 mb-4">{error}</p>
-                <Link to="/explore" className="btn-brand px-6 py-2">Browse Creators</Link>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: '#080510' }}>
+            <div style={{ textAlign: 'center' }}>
+                <p style={{ color: '#f87171', marginBottom: 16 }}>{error}</p>
+                <Link to="/explore" className="btn-brand" style={{ padding: '10px 24px', borderRadius: 12, textDecoration: 'none' }}>Browse Creators</Link>
             </div>
         </div>
     );
 
     if (!creator) return null;
 
-    const basePrice = creator.subscriptionPrice || 199;
-    const plan      = calcPlan(basePrice, selectedPlan);
-    const postCount = creator.postsCount ?? 0;
-    const vidCount  = creator.videosCount ?? 0;
+    const base = creator.subscriptionPrice || 199;
+    const plan = calcPlan(base, selectedPlan);
 
     return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(170deg, #0f0515 0%, #0a0a0f 50%, #050208 100%)' }}>
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#0f0518 0%,#080510 60%,#050208 100%)', paddingBottom: 130 }}>
 
-            {/* ── Background glow ─────────────────────────────────────────── */}
-            <div style={{ position: 'fixed', inset: 0, overflowHidden: true, pointerEvents: 'none' }}>
-                <div style={{ position: 'absolute', top: '10%', left: '30%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.12), transparent 70%)', filter: 'blur(60px)' }} />
-                <div style={{ position: 'absolute', bottom: '10%', right: '20%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(236,72,153,0.08), transparent 70%)', filter: 'blur(40px)' }} />
+            {/* Ambient glow */}
+            <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)', width: 500, height: 400, borderRadius: '50%', background: 'radial-gradient(circle,rgba(124,58,237,0.13),transparent 70%)', filter: 'blur(60px)' }} />
+                <div style={{ position: 'absolute', bottom: '5%', right: '10%', width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle,rgba(236,72,153,0.09),transparent 70%)', filter: 'blur(40px)' }} />
             </div>
 
-            <div style={{ position: 'relative', zIndex: 10, maxWidth: 480, margin: '0 auto', paddingTop: 80, paddingBottom: 120, paddingLeft: 16, paddingRight: 16 }}>
+            <div style={{ position: 'relative', zIndex: 10, maxWidth: 460, margin: '0 auto', paddingTop: 12, paddingLeft: 14, paddingRight: 14 }}>
 
-                {/* ── Back arrow ──────────────────────────────────────────── */}
+                {/* Back link */}
                 <Link to={`/creator/${username}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'rgba(255,255,255,0.5)', fontSize: 13, textDecoration: 'none', marginBottom: 20, transition: 'color 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.8)'}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.5)', fontSize: 13, textDecoration: 'none', marginBottom: 14, transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#fff'}
                     onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.5)'}
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="15 18 9 12 15 6" />
+                        <polyline points="15 18 9 12 15 6"/>
                     </svg>
                     Back to profile
                 </Link>
 
-                {/* ── Creator card ─────────────────────────────────────────── */}
+                {/* ── Main card ─────────────────────────────────────────────── */}
                 <div style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: 24,
                     overflow: 'hidden',
-                    boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.09)',
+                    boxShadow: '0 24px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
                 }}>
 
-                    {/* Banner */}
-                    <div style={{ height: 120, position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg,#3a0060,#0d0020 55%,#1a0040)' }}>
-                        {creator.coverImage && (
-                            <img src={creator.coverImage} alt="" style={{
-                                position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                                objectPosition: `center ${creator.coverImagePosition ?? 50}%`
-                            }} />
+                    {/* ── Cover image ───────────────────────────────────────── */}
+                    <div style={{ height: 180, position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg,#3a0060,#1a0040)' }}>
+                        {creator.coverImage ? (
+                            <img src={creator.coverImage} alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${creator.coverImagePosition ?? 50}%`, display: 'block' }}/>
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #3a0060 0%, #7c3aed 50%, #ec4899 100%)' }} />
                         )}
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.75))' }} />
+                        {/* Gradient overlay */}
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 40%, rgba(8,5,16,0.9) 100%)' }} />
                     </div>
 
-                    <div style={{ padding: '0 24px 24px' }}>
-
-                        {/* Avatar — centered, overlapping banner */}
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: -42, marginBottom: 12 }}>
-                            <div style={{ padding: 3, borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #ec4899)', boxShadow: '0 4px 20px rgba(124,58,237,0.4)' }}>
+                    {/* ── Avatar + name ─────────────────────────────────────── */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: -46, paddingBottom: 6 }}>
+                        {/* Avatar ring */}
+                        <div style={{
+                            padding: 3, borderRadius: '50%',
+                            background: 'linear-gradient(135deg,#7c3aed,#ec4899,#f59e0b)',
+                            boxShadow: '0 4px 24px rgba(124,58,237,0.5)',
+                        }}>
+                            <div style={{ padding: 3, borderRadius: '50%', background: '#080510' }}>
                                 {creator.profileImage ? (
                                     <img src={creator.profileImage} alt={creator.displayName}
-                                        style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', objectPosition: `center ${creator.profileImagePosition ?? 50}%`, display: 'block' }} />
+                                        style={{ width: 82, height: 82, borderRadius: '50%', objectFit: 'cover', objectPosition: `center ${creator.profileImagePosition ?? 50}%`, display: 'block' }}/>
                                 ) : (
-                                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 900, color: '#fff' }}>
+                                    <div style={{ width: 82, height: 82, borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 900, color: '#fff' }}>
                                         {creator.displayName?.charAt(0)?.toUpperCase() || '?'}
                                     </div>
                                 )}
@@ -303,166 +273,120 @@ export default function SubscribePage() {
                         </div>
 
                         {/* Name */}
-                        <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 2 }}>
-                                <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 20, margin: 0, letterSpacing: '-0.02em' }}>{creator.displayName}</h1>
+                        <div style={{ textAlign: 'center', marginTop: 12, paddingLeft: 20, paddingRight: 20 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 22, margin: 0, letterSpacing: '-0.025em' }}>{creator.displayName}</h1>
                                 {creator.isVerified && (
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="#4ade80"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                                 )}
                             </div>
-                            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, margin: 0 }}>@{creator.username}</p>
+                            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, margin: '3px 0 10px' }}>@{creator.username}</p>
 
-                            {/* Posts/videos stats */}
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700 }}>{postCount}</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700 }}>{vidCount}</span>
-                                </div>
+                            {/* Stats */}
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginBottom: 20 }}>
+                                {[
+                                    { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>, val: creator.postsCount ?? 0 },
+                                    { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>, val: creator.videosCount ?? 0 },
+                                ].map((s, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.45)' }}>
+                                        {s.icon}
+                                        <span style={{ fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.65)' }}>{s.val}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
+                    </div>
+
+                    {/* ── Inner content (padding) ───────────────────────────── */}
+                    <div style={{ padding: '0 18px 24px' }}>
 
                         {alreadySubscribed ? (
-                            /* Already subscribed */
-                            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(74,222,128,0.15)', border: '2px solid rgba(74,222,128,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                                    <svg className="w-7 h-7" style={{ color: '#4ade80' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
+                            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                                <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(74,222,128,0.15)', border: '2px solid rgba(74,222,128,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                                    <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#4ade80" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <p style={{ color: '#4ade80', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Already Subscribed!</p>
-                                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 20 }}>You already have full access to this creator's content.</p>
-                                <Link to={`/creator/${username}`} className="btn-brand" style={{ display: 'block', padding: '12px', borderRadius: 14, textAlign: 'center', textDecoration: 'none', fontWeight: 700 }}>
+                                <p style={{ color: '#4ade80', fontWeight: 700, fontSize: 18, marginBottom: 6 }}>Already Subscribed!</p>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 20 }}>You have full access to this creator's content.</p>
+                                <Link to={`/creator/${username}`} className="btn-brand" style={{ display: 'block', padding: '14px', borderRadius: 14, textAlign: 'center', textDecoration: 'none', fontWeight: 800, fontSize: 16 }}>
                                     View Content →
                                 </Link>
                             </div>
                         ) : (
                             <>
-                                {/* ── Perks ────────────────────────────────────────── */}
+                                {/* ── Perks ──────────────────────────────── */}
                                 <div style={{
                                     background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.07)',
-                                    borderRadius: 16,
-                                    padding: '14px 16px',
-                                    marginBottom: 24,
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: 16, padding: '16px 18px', marginBottom: 22,
                                 }}>
-                                    <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 800, marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 14px' }}>
                                         Don't miss out on full access to:
                                     </p>
                                     {[
-                                        { icon: '🔓', text: 'All exclusive subscriber-only content' },
-                                        { icon: '💬', text: 'Unlimited direct messaging' },
-                                        { icon: '✕',  text: 'Cancel at any time, risk free', sym: true },
-                                    ].map((perk, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-                                            <span style={{ fontSize: perk.sym ? 12 : 16, color: perk.sym ? '#4ade80' : undefined, fontWeight: perk.sym ? 900 : undefined }}>
-                                                {perk.sym ? '✓' : perk.icon}
+                                        { emoji: '🔓', text: 'All exclusive subscriber-only content' },
+                                        { emoji: '💬', text: 'Unlimited direct messaging' },
+                                        { emoji: '✓',  text: 'Cancel at any time, risk free', green: true },
+                                    ].map((p, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                            <span style={{ fontSize: p.green ? 14 : 18, minWidth: 22, textAlign: 'center', color: p.green ? '#4ade80' : undefined, fontWeight: p.green ? 900 : undefined }}>
+                                                {p.emoji}
                                             </span>
-                                            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13.5 }}>{perk.text}</span>
+                                            <span style={{ color: 'rgba(255,255,255,0.72)', fontSize: 14, lineHeight: 1.4 }}>{p.text}</span>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* ── Plan cards grid (horizontal scroll) ─────────── */}
-                                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 20 }}>
+                                {/* ── Plan header ───────────────────────── */}
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>
                                     Choose your plan
                                 </p>
-                                <div style={{
-                                    display: 'flex',
-                                    gap: 10,
-                                    overflowX: 'auto',
-                                    paddingBottom: 8,
-                                    marginLeft: -8,
-                                    marginRight: -8,
-                                    paddingLeft: 8,
-                                    paddingRight: 8,
-                                    scrollbarWidth: 'none',
-                                }}>
-                                    {[1, 3, 6, 12].map(months => (
-                                        <PlanCard
-                                            key={months}
-                                            months={months}
-                                            base={basePrice}
-                                            selected={selectedPlan}
-                                            onSelect={setSelectedPlan}
-                                        />
+
+                                {/* ── Plan grid — 2-column wrap ─────────── */}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24, justifyContent: 'center' }}>
+                                    {[1, 3, 6, 12].map(m => (
+                                        <PlanCard key={m} months={m} base={base} selected={selectedPlan} onSelect={setSelectedPlan} />
                                     ))}
                                 </div>
 
-                                {/* ── Payment summary ───────────────────────────────── */}
+                                {/* ── Payment summary ───────────────────── */}
                                 <div style={{
-                                    background: 'rgba(124,58,237,0.07)',
-                                    border: '1px solid rgba(124,58,237,0.2)',
-                                    borderRadius: 16,
-                                    padding: '14px 16px',
-                                    marginTop: 20,
+                                    background: 'linear-gradient(145deg,rgba(124,58,237,0.1),rgba(124,58,237,0.04))',
+                                    border: '1px solid rgba(124,58,237,0.22)',
+                                    borderRadius: 18, padding: '18px 18px',
                                 }}>
-                                    <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                                    <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
                                         Payment Summary
                                     </p>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                                        {/* Subscription period */}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
-                                                {selectedPlan}-month plan
-                                            </span>
-                                            <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>
-                                                ₹{basePrice} × {selectedPlan}mo = ₹{Math.round(basePrice * selectedPlan)}
-                                            </span>
-                                        </div>
-
-                                        {/* Discount */}
-                                        {plan.discPct > 0 && (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ color: '#4ade80', fontSize: 13 }}>
-                                                    Discount ({plan.discPct}% off)
-                                                </span>
-                                                <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 13 }}>
-                                                    − ₹{plan.savings}
-                                                </span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {[
+                                            { label: `${selectedPlan}-month plan`, val: `₹${base} × ${selectedPlan}mo = ₹${Math.round(base * selectedPlan)}`, color: 'rgba(255,255,255,0.55)' },
+                                            ...(plan.discPct > 0 ? [{ label: `Discount (${plan.discPct}% off)`, val: `− ₹${plan.savings}`, color: '#4ade80', labelColor: '#4ade80' }] : []),
+                                            { label: 'Subtotal', val: `₹${plan.discounted}`, color: 'rgba(255,255,255,0.7)' },
+                                            { label: 'GST (18%)', val: `+ ₹${plan.gstAmt}`, color: 'rgba(255,255,255,0.45)' },
+                                        ].map((row, i) => (
+                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ color: row.labelColor || 'rgba(255,255,255,0.45)', fontSize: 13.5 }}>{row.label}</span>
+                                                <span style={{ color: row.color, fontWeight: 700, fontSize: 13.5 }}>{row.val}</span>
                                             </div>
-                                        )}
+                                        ))}
 
-                                        {/* Discounted subtotal */}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Subtotal</span>
-                                            <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>₹{plan.discounted}</span>
-                                        </div>
-
-                                        {/* GST */}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>GST (18%)</span>
-                                            <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 600, fontSize: 13 }}>+ ₹{plan.gstAmt}</span>
-                                        </div>
-
-                                        {/* Divider */}
-                                        <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '3px 0' }} />
+                                        <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />
 
                                         {/* Total */}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>Total Payable</span>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <span style={{ color: '#a78bfa', fontWeight: 900, fontSize: 20 }}>₹{plan.totalPaid}</span>
-                                                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginLeft: 4 }}>incl. GST</span>
+                                            <span style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>Total Payable</span>
+                                            <div>
+                                                <span style={{ color: '#c084fc', fontWeight: 900, fontSize: 22 }}>₹{plan.totalPaid}</span>
+                                                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginLeft: 4 }}>incl. GST</span>
                                             </div>
                                         </div>
 
-                                        {/* You save banner */}
                                         {plan.savings > 0 && (
                                             <div style={{
-                                                marginTop: 6,
-                                                background: 'rgba(74,222,128,0.1)',
-                                                border: '1px solid rgba(74,222,128,0.2)',
-                                                borderRadius: 10,
-                                                padding: '6px 12px',
-                                                textAlign: 'center',
-                                                fontSize: 12,
-                                                color: '#4ade80',
-                                                fontWeight: 700,
+                                                background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.22)',
+                                                borderRadius: 10, padding: '8px 14px', textAlign: 'center',
+                                                color: '#4ade80', fontSize: 13, fontWeight: 700, marginTop: 4,
                                             }}>
                                                 🎉 You save ₹{plan.savings} with this plan!
                                             </div>
@@ -470,7 +394,6 @@ export default function SubscribePage() {
                                     </div>
                                 </div>
 
-                                {/* Error */}
                                 {error && (
                                     <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: '10px 14px', color: '#f87171', fontSize: 13, marginTop: 16 }}>
                                         {error}
@@ -482,91 +405,66 @@ export default function SubscribePage() {
                 </div>
             </div>
 
-            {/* ── Fixed bottom CTA ──────────────────────────────────────────── */}
+            {/* ── Fixed bottom CTA ─────────────────────────────────────────── */}
             {!alreadySubscribed && creator && (
                 <div style={{
-                    position: 'fixed',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    zIndex: 50,
-                    background: 'rgba(5,2,8,0.95)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    borderTop: '1px solid rgba(255,255,255,0.08)',
-                    padding: '14px 20px 20px',
-                    maxWidth: 480,
-                    margin: '0 auto',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '100%',
+                    position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+                    background: 'rgba(8,5,16,0.96)',
+                    backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+                    borderTop: '1px solid rgba(255,255,255,0.07)',
+                    padding: '12px 18px env(safe-area-inset-bottom, 16px)',
                 }}>
-                    {/* Price preview line */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    {/* Summary line */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, maxWidth: 460, margin: '0 auto 10px' }}>
                         <div>
                             <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
-                                {selectedPlan} month{selectedPlan > 1 ? 's' : ''} plan
-                                {plan.discPct > 0 ? ` · ${plan.discPct}% off` : ''}
+                                {selectedPlan} month{selectedPlan > 1 ? 's' : ''}{plan.discPct > 0 ? ` · ${plan.discPct}% off` : ''}
                             </span>
-                            {plan.savings > 0 && (
-                                <span style={{ color: '#4ade80', fontSize: 11, marginLeft: 8, fontWeight: 700 }}>
-                                    Save ₹{plan.savings}
-                                </span>
-                            )}
+                            {plan.savings > 0 && <span style={{ color: '#4ade80', fontSize: 11, marginLeft: 8, fontWeight: 700 }}>Save ₹{plan.savings}</span>}
                         </div>
-                        <div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                             {plan.discPct > 0 && (
-                                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textDecoration: 'line-through', marginRight: 6 }}>
+                                <span style={{ color: 'rgba(255,255,255,0.28)', fontSize: 12, textDecoration: 'line-through' }}>
                                     ₹{Math.round(plan.original * (1 + GST_RATE))}
                                 </span>
                             )}
-                            <span style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>₹{plan.totalPaid}</span>
+                            <span style={{ color: '#fff', fontWeight: 900, fontSize: 20 }}>₹{plan.totalPaid}</span>
                         </div>
                     </div>
 
-                    {/* CTA button */}
-                    <button
-                        onClick={handleConfirmSubscribe}
-                        disabled={subscribing}
-                        style={{
-                            width: '100%',
-                            height: 54,
-                            borderRadius: 16,
-                            border: 'none',
-                            background: subscribing
-                                ? 'rgba(124,58,237,0.5)'
-                                : 'linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%)',
-                            color: '#fff',
-                            fontWeight: 900,
-                            fontSize: 17,
-                            letterSpacing: '-0.02em',
-                            cursor: subscribing ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 10,
-                            boxShadow: '0 8px 32px rgba(124,58,237,0.45)',
-                            transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={e => { if (!subscribing) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
-                    >
-                        {subscribing ? (
-                            <><span style={{ width: 20, height: 20, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Processing…</>
-                        ) : (
-                            <>⚡ Subscribe Now — ₹{plan.totalPaid}</>
-                        )}
-                    </button>
-
-                    <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 8 }}>
-                        Secure payment via Cashfree · Cancel anytime
-                    </p>
+                    {/* Button */}
+                    <div style={{ maxWidth: 460, margin: '0 auto' }}>
+                        <button
+                            onClick={handleSubscribe}
+                            disabled={subscribing}
+                            style={{
+                                width: '100%', height: 56, borderRadius: 18, border: 'none',
+                                background: subscribing
+                                    ? 'rgba(124,58,237,0.45)'
+                                    : 'linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#ec4899 100%)',
+                                color: '#fff', fontWeight: 900, fontSize: 18,
+                                letterSpacing: '-0.025em', cursor: subscribing ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                boxShadow: '0 8px 32px rgba(124,58,237,0.45)',
+                                transition: 'all 0.2s ease',
+                            }}
+                            onMouseEnter={e => { if (!subscribing) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(124,58,237,0.6)'; }}}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.45)'; }}
+                        >
+                            {subscribing ? (
+                                <><span style={{ width: 20, height: 20, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.35)', borderTopColor: '#fff', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Processing…</>
+                            ) : (
+                                <>⚡ Subscribe Now — ₹{plan.totalPaid}</>
+                            )}
+                        </button>
+                        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 8 }}>
+                            Secure payment via Cashfree · Cancel anytime
+                        </p>
+                    </div>
                 </div>
             )}
 
-            <style>{`
-                @keyframes spin { to { transform: rotate(360deg); } }
-            `}</style>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
     );
 }
