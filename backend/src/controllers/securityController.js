@@ -41,7 +41,11 @@ const logActivity = async (req, res) => {
  */
 const getLogsForUser = async (req, res) => {
     try {
-        const { userId } = req.query;
+        // Admin-only endpoint — check role inline
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Admin access required' });
+        }
+
         const limit = Math.min(parseInt(req.query.limit) || 50, 200);
 
         const query = userId ? { userId } : {};
