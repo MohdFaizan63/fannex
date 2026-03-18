@@ -369,7 +369,7 @@ export default function ProfileInsights() {
                 </Link>
                 <div>
                     <h1 className="text-xl sm:text-2xl font-black text-white">Profile Insights</h1>
-                    <p className="text-xs text-surface-300 mt-0.5">Track your performance & growth</p>
+                    <p style={{ color: 'rgba(255,255,255,0.72)' }} className="text-xs mt-0.5">Track your performance & growth</p>
                 </div>
             </div>
 

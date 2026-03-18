@@ -268,7 +268,7 @@ export default function Dashboard() {
                 <div className="mb-5 flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                         <h1 className="text-2xl sm:text-3xl font-black text-white">Dashboard</h1>
-                        <p className="text-surface-400 mt-0.5 text-sm">
+                        <p style={{ color: 'rgba(255,255,255,0.72)' }} className="mt-0.5 text-sm">
                             Welcome back, <span className="text-brand-400">{user?.name}</span>
                         </p>
                     </div>

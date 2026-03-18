@@ -830,7 +830,7 @@
 .chat-dashboard-inner { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
 
 .chat-dashboard-header h1 { font-size: 24px; font-weight: 900; color: #fff; margin: 0 0 4px; letter-spacing: -0.3px; }
-.chat-dashboard-header p  { color: var(--chat-text-muted); font-size: 14px; margin: 0; }
+.chat-dashboard-header p  { color: rgba(255, 255, 255, 0.72); font-size: 14px; margin: 0; }
 
 .chat-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 24px 0; }
 
