@@ -62,11 +62,9 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
-// Handle ALL preflight OPTIONS requests BEFORE rate limiters run.
-// Without this, express-rate-limit's 429 response lacks CORS headers,
-// causing the browser to block the request entirely (net::ERR_FAILED).
-app.options('*', cors(corsOptions));
-
+// NOTE: Nginx handles OPTIONS preflight via the fannex-api config.
+// app.options('*') is intentionally omitted — it crashes Express 5 (path-to-regexp v8
+// no longer accepts bare '*' as a wildcard; use '(.*)' in Express 5 if ever needed).
 app.use(cors(corsOptions));
 
 
