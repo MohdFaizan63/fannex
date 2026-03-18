@@ -624,22 +624,23 @@ const verifyGift = async (req, res, next) => {
             console.log(`[verifyGift] ℹ️ Gift earnings already credited, skipping orderId=${orderId}`);
         }
 
-        // Save gift message
+        // Save gift message — store BASE amount (₹1) not total paid (₹1.18)
         const message = await ChatMessage.create({
             chatId,
             senderId: userId,
             type: 'gift',
-            content: `Sent a gift of ₹${amount} [${orderId}]`,
-            giftAmount: amount,
+            content: `Sent a gift of ₹${base} [${orderId}]`,
+            giftAmount: base,                 // base amount for display in chat bubble
             giftPaymentId: cfPaymentId,
         });
 
         await ChatRoom.findByIdAndUpdate(chatId, {
-            lastMessage: `🎁 ₹${amount} gift`,
+            lastMessage: `🎁 ₹${base} gift`,
             lastMessageAt: new Date(),
             lastMessageType: 'gift',
             $inc: { unreadByCreator: 1 },
         });
+
 
         // Broadcast gift message to anyone in the chat room
         const io = req.app.get('io');

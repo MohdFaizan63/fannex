@@ -302,15 +302,21 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
-        // For gift orders, return creator info + amount so success page can show gift confirmation
+        // For gift orders, return creator info + BASE amount so success page shows what the fan gifted
         if (type === 'gift') {
             const creatorProfile = await CreatorProfile.findOne({ userId: creatorId })
                 .select('displayName username profileImage');
-            console.log(`[verifyPayment] SUCCESS gift userId=${userId} creatorId=${creatorId}`);
+            // Extract the base amount (before GST) from order tags — that's what the fan intended to give
+            const tags = (orderData.order_tags && typeof orderData.order_tags === 'object') ? orderData.order_tags : {};
+            const baseAmount = tags.baseAmount
+                ? Number(tags.baseAmount)
+                : Math.round(orderData.order_amount / 1.18 * 100) / 100;
+            console.log(`[verifyPayment] SUCCESS gift userId=${userId} creatorId=${creatorId} base=₹${baseAmount}`);
             return res.status(200).json({
                 success: true,
                 type: 'gift',
-                amount: orderData.order_amount,
+                amount: baseAmount,           // base amount (₹1), NOT total paid (₹1.18)
+                totalPaid: orderData.order_amount,  // for reference if needed
                 creator: {
                     id: creatorId,
                     name: creatorProfile?.displayName || 'the creator',
@@ -320,6 +326,7 @@ const verifyPayment = async (req, res, next) => {
                 message: 'Gift sent successfully',
             });
         }
+
 
         res.status(200).json({ success: true, type, message: 'Payment verified and subscription activated' });
     } catch (error) {
