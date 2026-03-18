@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import subscriptionService from '../services/subscriptionService';
 import postService from '../services/postService';
@@ -277,6 +277,12 @@ export default function CreatorProfile() {
     const { id: usernameParam } = useParams();
     const { user, isAuthenticated } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    // Preview mode: creator clicked "View Profile" from their dashboard.
+    // Force isSubscribed=false so they see exactly what a fan sees.
+    const isPreview = searchParams.get('preview') === 'true';
+    const [showPreviewBanner, setShowPreviewBanner] = useState(isPreview);
 
     const [creator, setCreator] = useState(null);
     const [posts, setPosts] = useState([]);
@@ -301,14 +307,14 @@ export default function CreatorProfile() {
         api.get(`/creator/profile/${usernameParam}`)
             .then(({ data }) => {
                 setCreator(data.data);
-                // Don't overwrite isSubscribed if we just came from a payment success 
-                if (!subscribedFromPaymentRef.current) {
+                // In preview mode always show isSubscribed=false (fan view)
+                if (!subscribedFromPaymentRef.current && !isPreview) {
                     setIsSubscribed(data.data.isSubscribed ?? false);
                 }
             })
             .catch(() => setError('Creator not found.'))
             .finally(() => setLoadingProfile(false));
-    }, [usernameParam]);
+    }, [usernameParam, isPreview]);
 
     // ── Load posts ───────────────────────────────────────────────────────────
     useEffect(() => {
@@ -408,7 +414,42 @@ export default function CreatorProfile() {
 
     return (
         <>
-            <div className="min-h-screen bg-surface-950">
+            {/* ── Preview mode banner ─────────────────────────────────────────── */}
+            {isPreview && showPreviewBanner && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+                    background: 'linear-gradient(90deg, #7c3aed, #a855f7)',
+                    padding: '10px 16px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: 12,
+                    boxShadow: '0 4px 20px rgba(124,58,237,0.4)',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 18 }}>👁</span>
+                        <div>
+                            <p style={{ color: '#fff', fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.3 }}>
+                                You're in Preview Mode
+                            </p>
+                            <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, margin: 0 }}>
+                                This is exactly how fans see your profile
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setShowPreviewBanner(false)}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)', border: 'none',
+                            color: '#fff', borderRadius: 8,
+                            padding: '4px 12px', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', flexShrink: 0,
+                        }}
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
+
+            <div className="min-h-screen bg-surface-950" style={isPreview && showPreviewBanner ? { paddingTop: 52 } : {}}>
                 <div className="max-w-5xl mx-auto">
                     <div className="flex flex-col lg:flex-row gap-0 lg:gap-8 lg:items-start px-0 lg:px-4 pb-16">
 

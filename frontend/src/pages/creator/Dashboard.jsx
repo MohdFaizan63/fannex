@@ -320,8 +320,8 @@ export default function Dashboard() {
                                 {copied ? '✓ Copied' : '⎘ Copy'}
                             </button>
                         </div>
-                        {/* View Profile button */}
-                        <a href={profileUrl} target="_blank" rel="noreferrer"
+                        {/* View Profile button — opens public fan view in a new tab */}
+                        <a href={`${profileUrl}?preview=true`} target="_blank" rel="noreferrer"
                             className="flex items-center justify-center w-full gap-2 text-sm font-semibold text-white/80 hover:text-white transition-colors"
                             style={{
                                 height: '40px',
@@ -329,7 +329,7 @@ export default function Dashboard() {
                                 background: 'rgba(255,255,255,0.05)',
                                 border: '1px solid rgba(255,255,255,0.08)',
                             }}>
-                            View Profile
+                            👁 View Profile
                         </a>
                     </div>
                 ) : (
