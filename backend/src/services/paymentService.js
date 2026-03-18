@@ -345,6 +345,22 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
 
     } else if (type === 'gift') {
         const Earnings = require('../models/Earnings');
+
+        // ALWAYS update Payment doc with correct GST split — the doc may have been
+        // pre-created by chatController.createGiftOrder with creatorEarning=0 (default).
+        // $setOnInsert above was a no-op in that case, so we must $set it explicitly.
+        await Payment.findOneAndUpdate(
+            { cfOrderId: orderId },
+            { $set: {
+                giftAmount: grossAmount,
+                baseAmount: gst.baseAmount,
+                gstAmount: gst.gstAmount,
+                platformFee: gst.platformFee,
+                creatorEarning: gst.creatorEarning,
+            }},
+            { upsert: false }
+        );
+
         await Earnings.findOneAndUpdate(
             { creatorId },
             { $inc: { totalEarned: gst.creatorEarning, pendingAmount: gst.creatorEarning } },

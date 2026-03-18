@@ -493,23 +493,46 @@ const verifyGift = async (req, res, next) => {
             cfPaymentId = payments?.[0]?.cf_payment_id?.toString() || null;
         } catch { /* cfPaymentId is optional */ }
 
-        // ── Idempotency: check if ChatMessage already exists ─────────────────────
-        const existingMsg = await ChatMessage.findOne({ chatId, content: { $regex: orderId } })
-            || (cfPaymentId ? await ChatMessage.findOne({ chatId, type: 'gift', giftPaymentId: cfPaymentId }) : null)
-            || await ChatMessage.findOne({ chatId, type: 'gift', giftAmount: amount, senderId: userId });
+        // ── Pre-calculate the correct GST split ──────────────────────────────────
+        const base = Math.round(amount / 1.18 * 100) / 100;
+        const creatorEarning = Math.round(base * 0.8 * 100) / 100;
+        const platformFee    = Math.round(base * 0.2 * 100) / 100;
+        const gstAmount      = Math.round((amount - base) * 100) / 100;
+
+        // ── ALWAYS patch the Payment doc with correct fields ─────────────────────
+        // The Payment doc may have been pre-created by createGiftOrder with
+        // creatorEarning=0 (default). Fix it unconditionally so Earning History
+        // always shows the correct amount, even on idempotent / retry calls.
+        await Payment.findOneAndUpdate(
+            { cfOrderId: orderId },
+            {
+                $set: {
+                    status: 'captured',
+                    cfPaymentId: cfPaymentId || null,
+                    giftAmount: amount,
+                    baseAmount: base,
+                    gstAmount,
+                    platformFee,
+                    creatorEarning,
+                },
+            },
+            { upsert: false }
+        );
+
+        // ── Idempotency: check if ChatMessage already exists for THIS order ───────
+        // IMPORTANT: Only match by orderId (in content) or cfPaymentId.
+        // DO NOT use giftAmount+senderId as a fallback — that incorrectly matches
+        // a DIFFERENT gift of the same amount, causing the 2nd gift to never appear.
+        const existingMsg =
+            await ChatMessage.findOne({ chatId, content: { $regex: orderId } }) ||
+            (cfPaymentId ? await ChatMessage.findOne({ chatId, type: 'gift', giftPaymentId: cfPaymentId }) : null);
 
         if (existingMsg) {
             return res.json({ success: true, data: existingMsg });
         }
 
         // ── BULLETPROOF IDEMPOTENCY: claim earnings exactly once ─────────────────
-        // Step 1: calculate correct split
-        const base = Math.round(amount / 1.18 * 100) / 100;
-        const creatorEarning = Math.round(base * 0.8 * 100) / 100;
-        const platformFee    = Math.round(base * 0.2 * 100) / 100;
-        const gstAmount      = Math.round((amount - base) * 100) / 100;
-
-        // Step 2: atomically claim — only first caller sets sideEffectsDone false→true
+        // Step 1: atomically claim — only first caller sets sideEffectsDone false→true
         const claimed = await Payment.findOneAndUpdate(
             { cfOrderId: orderId, sideEffectsDone: false },
             {
@@ -547,25 +570,6 @@ const verifyGift = async (req, res, next) => {
                     },
                 },
                 { upsert: true }
-            );
-
-            // CRITICAL FIX: ALWAYS write the correct amounts into the doc.
-            // If webhook ran first it set sideEffectsDone=true but LEFT creatorEarning=0.
-            // This $set ensures the doc always has correct fields for Earning History display.
-            await Payment.findOneAndUpdate(
-                { cfOrderId: orderId },
-                {
-                    $set: {
-                        status: 'captured',
-                        cfPaymentId: cfPaymentId || null,
-                        giftAmount: amount,
-                        baseAmount: base,
-                        gstAmount,
-                        platformFee,
-                        creatorEarning,
-                    },
-                },
-                { upsert: false }
             );
         }
 
