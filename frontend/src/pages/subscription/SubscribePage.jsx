@@ -241,36 +241,39 @@ export default function SubscribePage() {
                 }}>
 
                     {/* ── Cover image ───────────────────────────────────────── */}
-                    <div style={{ height: 180, position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg,#3a0060,#1a0040)' }}>
+                    <div style={{ height: 180, position: 'relative', overflow: 'visible', background: 'linear-gradient(135deg,#3a0060,#1a0040)', borderRadius: '24px 24px 0 0', overflow: 'hidden' }}>
                         {creator.coverImage ? (
                             <img src={creator.coverImage} alt=""
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${creator.coverImagePosition ?? 50}%`, display: 'block' }}/>
                         ) : (
                             <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #3a0060 0%, #7c3aed 50%, #ec4899 100%)' }} />
                         )}
-                        {/* Gradient overlay */}
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 40%, rgba(8,5,16,0.9) 100%)' }} />
-                    </div>
+                        {/* Gradient overlay at bottom */}
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 35%, rgba(8,5,16,0.85) 100%)' }} />
 
-                    {/* ── Avatar + name ─────────────────────────────────────── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: -46, paddingBottom: 6 }}>
-                        {/* Avatar ring */}
-                        <div style={{
-                            padding: 3, borderRadius: '50%',
-                            background: 'linear-gradient(135deg,#7c3aed,#ec4899,#f59e0b)',
-                            boxShadow: '0 4px 24px rgba(124,58,237,0.5)',
-                        }}>
-                            <div style={{ padding: 3, borderRadius: '50%', background: '#080510' }}>
-                                {creator.profileImage ? (
-                                    <img src={creator.profileImage} alt={creator.displayName}
-                                        style={{ width: 82, height: 82, borderRadius: '50%', objectFit: 'cover', objectPosition: `center ${creator.profileImagePosition ?? 50}%`, display: 'block' }}/>
-                                ) : (
-                                    <div style={{ width: 82, height: 82, borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 900, color: '#fff' }}>
-                                        {creator.displayName?.charAt(0)?.toUpperCase() || '?'}
-                                    </div>
-                                )}
+                        {/* Avatar — half-overlapping the cover */}
+                        <div style={{ position: 'absolute', bottom: -46, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+                            <div style={{
+                                padding: 3, borderRadius: '50%',
+                                background: 'linear-gradient(135deg,#7c3aed,#ec4899,#f59e0b)',
+                                boxShadow: '0 4px 28px rgba(124,58,237,0.55)',
+                            }}>
+                                <div style={{ padding: 3, borderRadius: '50%', background: '#080510' }}>
+                                    {creator.profileImage ? (
+                                        <img src={creator.profileImage} alt={creator.displayName}
+                                            style={{ width: 82, height: 82, borderRadius: '50%', objectFit: 'cover', objectPosition: `center ${creator.profileImagePosition ?? 50}%`, display: 'block' }}/>
+                                    ) : (
+                                        <div style={{ width: 82, height: 82, borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, fontWeight: 900, color: '#fff' }}>
+                                            {creator.displayName?.charAt(0)?.toUpperCase() || '?'}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* ── Name + stats ─────────────────────────────────────── */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 56, paddingBottom: 6 }}>
 
                         {/* Name */}
                         <div style={{ textAlign: 'center', marginTop: 12, paddingLeft: 20, paddingRight: 20 }}>
@@ -282,15 +285,18 @@ export default function SubscribePage() {
                             </div>
                             <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, margin: '3px 0 10px' }}>@{creator.username}</p>
 
-                            {/* Stats */}
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginBottom: 20 }}>
+                            {/* Stats — use actual API fields: totalPosts and totalSubscribers */}
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 20 }}>
                                 {[
-                                    { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>, val: creator.postsCount ?? 0 },
-                                    { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>, val: creator.videosCount ?? 0 },
+                                    { label: 'posts', val: creator.totalPosts ?? 0, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> },
+                                    { label: 'subscribers', val: creator.totalSubscribers ?? 0, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
                                 ].map((s, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.45)' }}>
-                                        {s.icon}
-                                        <span style={{ fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.65)' }}>{s.val}</span>
+                                    <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.45)' }}>
+                                            {s.icon}
+                                            <span style={{ fontWeight: 800, fontSize: 15, color: '#fff' }}>{s.val}</span>
+                                        </div>
+                                        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>{s.label}</span>
                                     </div>
                                 ))}
                             </div>
