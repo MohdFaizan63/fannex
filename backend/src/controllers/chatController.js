@@ -119,10 +119,15 @@ const createChatUnlockOrder = async (req, res, next) => {
         }
 
         const chatPrice = profile.chatPrice || 299;
+
+        // Apply 18% GST — fan pays chatPrice + GST, creator gets 80% of chatPrice only
+        const { calcGST } = require('../utils/gstHelper');
+        const gst = calcGST(chatPrice);
+
         const orderId = `cu_${String(user._id).slice(-8)}_${Date.now()}`;
 
         const order = await paymentService.createOrder({
-            amount: chatPrice,
+            amount: gst.totalPaid,   // fan pays chatPrice + 18% GST
             orderId,
             customerId: user._id.toString(),
             customerName: user.name || 'Fannex User',
@@ -133,22 +138,28 @@ const createChatUnlockOrder = async (req, res, next) => {
                 userId: user._id.toString(),
                 creatorId: creatorId.toString(),
                 type: 'chat_unlock',
+                baseAmount: gst.baseAmount.toString(), // stored for correct 80/20 split on verify
             },
         });
 
-        // Save payment record
+        // Save payment record with full GST breakdown
         await Payment.create({
             userId: user._id,
             creatorId,
-            amount: chatPrice,
+            amount: gst.totalPaid,           // total fan paid (base + GST)
+            baseAmount: gst.baseAmount,
+            gstAmount: gst.gstAmount,
+            platformFee: gst.platformFee,
+            creatorEarning: gst.creatorEarning,  // 80% of base (pre-filled, not zero)
             type: 'chat_unlock',
             cfOrderId: order.orderId,
             status: 'created',
         });
 
-        res.json({ success: true, order, chatPrice: profile.chatPrice, creatorName: profile.displayName });
+        res.json({ success: true, order, chatPrice: gst.baseAmount, creatorName: profile.displayName });
     } catch (err) { next(err); }
 };
+
 
 // @desc  Verify Cashfree payment and unlock chat room
 // @route POST /api/v1/chat/unlock/verify
@@ -212,29 +223,37 @@ const verifyChatUnlock = async (req, res, next) => {
         );
 
         if (claimed) {
-            // Only the FIRST caller credits earnings — 80/20 GST split
-            const grossAmount = Number(claimed.amount || orderData.order_amount || 0);
-            const base = Math.round(grossAmount / 1.18 * 100) / 100;
-            const creatorEarning = Math.round(base * 0.8 * 100) / 100;
-            const platformFee = Math.round(base * 0.2 * 100) / 100;
-            const gstAmount = Math.round((grossAmount - base) * 100) / 100;
+            // Only the FIRST caller credits earnings — creator gets 80% of BASE (excl. GST)
+            const grossAmount = Number(orderData.order_amount);
+            const metaBase = tags.baseAmount ? Number(tags.baseAmount) : null;
+
+            const { calcGST } = require('../utils/gstHelper');
+            const baseAmt = metaBase ?? Math.round(grossAmount / 1.18 * 100) / 100;
+            const gstCalc = calcGST(baseAmt);
 
             // Write correct amounts back to Payment doc
             await Payment.findOneAndUpdate(
                 { cfOrderId: orderId },
-                { $set: { baseAmount: base, gstAmount, platformFee, creatorEarning } },
+                { $set: {
+                    amount: grossAmount,
+                    baseAmount: gstCalc.baseAmount,
+                    gstAmount: gstCalc.gstAmount,
+                    platformFee: gstCalc.platformFee,
+                    creatorEarning: gstCalc.creatorEarning,   // 80% of base
+                }},
                 { upsert: false }
             );
 
             await Earnings.findOneAndUpdate(
                 { creatorId },
-                { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
+                { $inc: { totalEarned: gstCalc.creatorEarning, pendingAmount: gstCalc.creatorEarning } },
                 { upsert: true }
             );
-            console.log(`[verifyChatUnlock] ✅ Earnings credited creatorId=${creatorId} amount=₹${creatorEarning}`);
+            console.log(`[verifyChatUnlock] ✅ Earnings credited creatorId=${creatorId} earning=₹${gstCalc.creatorEarning} (base=₹${gstCalc.baseAmount}, fan paid=₹${grossAmount})`);
         } else {
             console.log(`[verifyChatUnlock] ℹ️ Already processed, skipping orderId=${orderId}`);
         }
+
 
         res.json({ success: true, chatId: room._id });
     } catch (err) {
