@@ -6,6 +6,7 @@ const {
     getAnalytics,
     getVerifications, approveVerification, rejectVerification,
     listAllPayouts, approvePayout, rejectPayout, markPaid,
+    getCreators, getCreatorDetail, adminDirectPayout,
     repairStats,
     dedupSubscriptions,
     repairGiftEarnings,
@@ -41,6 +42,12 @@ router.get('/payouts', listAllPayouts);
 router.patch('/payouts/:id/approve', approvePayout);
 router.patch('/payouts/:id/reject', rejectPayout);
 router.patch('/payouts/:id/mark-paid', markPaid);
+
+// ── Creator Payout Management ──────────────────────────────────────────────────
+router.get('/creators', getCreators);
+router.get('/creators/:id', getCreatorDetail);
+router.post('/creators/:id/payout', adminDirectPayout);
+
 
 // ── One-time data repair ─────────────────────────────────────────────────────
 // POST /api/admin/repair-stats — recalculates totalPosts and totalSubscribers

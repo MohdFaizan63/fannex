@@ -1,0 +1,354 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { adminService } from '../../services/adminService';
+import { formatCurrency, formatDate, getErrorMessage } from '../../utils/helpers';
+import CreatorDetailDrawer from './CreatorDetailDrawer';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const LIMIT = 20;
+const DEBOUNCE_MS = 400;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function useDebounce(value, delay) {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const t = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(t);
+    }, [value, delay]);
+    return debounced;
+}
+
+// ── Skeleton row ──────────────────────────────────────────────────────────────
+function SkeletonRow() {
+    return (
+        <tr>
+            <td className="px-5 py-4">
+                <div className="flex items-center gap-3">
+                    <div className="skeleton w-9 h-9 rounded-full flex-shrink-0" />
+                    <div>
+                        <div className="skeleton h-3.5 w-28 mb-1.5 rounded" />
+                        <div className="skeleton h-3 w-36 rounded" />
+                    </div>
+                </div>
+            </td>
+            {[1, 2, 3, 4].map((i) => (
+                <td key={i} className="px-5 py-4"><div className="skeleton h-3.5 w-20 rounded" /></td>
+            ))}
+            <td className="px-5 py-4"><div className="skeleton h-6 w-16 rounded-full" /></td>
+            <td className="px-5 py-4"><div className="skeleton h-7 w-7 rounded-lg" /></td>
+        </tr>
+    );
+}
+
+// ── Status Badge ──────────────────────────────────────────────────────────────
+function StatusBadge({ isBanned }) {
+    return isBanned ? (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border bg-red-500/10 text-red-400 border-red-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            Suspended
+        </span>
+    ) : (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            Active
+        </span>
+    );
+}
+
+// ── Filter tabs ───────────────────────────────────────────────────────────────
+function FilterTab({ active, label, onClick }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all capitalize ${
+                active
+                    ? 'btn-brand'
+                    : 'glass border border-white/10 text-surface-300 hover:text-white hover:border-brand-500/30'
+            }`}
+        >
+            {label}
+        </button>
+    );
+}
+
+// ── Sort column header ────────────────────────────────────────────────────────
+function SortTh({ label, field, currentSort, onSort }) {
+    const active = currentSort === field || currentSort === `-${field}`;
+    const isDesc = currentSort === `-${field}`;
+    return (
+        <th
+            onClick={() => onSort(active && !isDesc ? `-${field}` : field)}
+            className="px-5 py-3 text-xs uppercase tracking-widest text-surface-500 font-semibold text-left cursor-pointer select-none hover:text-white transition-colors"
+        >
+            <span className="inline-flex items-center gap-1">
+                {label}
+                {active && (
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        {isDesc
+                            ? <path d="M7 14l5-5 5 5H7z" />
+                            : <path d="M7 10l5 5 5-5H7z" />}
+                    </svg>
+                )}
+            </span>
+        </th>
+    );
+}
+
+// ── Creator Row ───────────────────────────────────────────────────────────────
+function CreatorRow({ creator, onClick }) {
+    const initials = (creator.displayName || creator.name || '?')[0].toUpperCase();
+    const hasPending = creator.pendingAmount > 0;
+
+    return (
+        <tr
+            onClick={() => onClick(creator)}
+            className="hover:bg-white/[0.025] transition-colors cursor-pointer group"
+        >
+            {/* Creator identity */}
+            <td className="px-5 py-4">
+                <div className="flex items-center gap-3">
+                    {creator.profileImage ? (
+                        <img
+                            src={creator.profileImage}
+                            alt={creator.displayName}
+                            className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-1 ring-white/10"
+                        />
+                    ) : (
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                            {initials}
+                        </div>
+                    )}
+                    <div className="min-w-0">
+                        <p className="text-white font-semibold text-sm truncate max-w-[160px] group-hover:text-brand-300 transition-colors">
+                            {creator.displayName || creator.name}
+                        </p>
+                        <p className="text-surface-500 text-xs truncate max-w-[160px]">{creator.email}</p>
+                        {creator.username && (
+                            <p className="text-surface-600 text-[11px]">@{creator.username}</p>
+                        )}
+                    </div>
+                </div>
+            </td>
+
+            {/* Subscribers */}
+            <td className="px-5 py-4 text-surface-300 text-sm font-medium">
+                {creator.totalSubscribers.toLocaleString('en-IN')}
+            </td>
+
+            {/* Total Earned */}
+            <td className="px-5 py-4 text-white text-sm font-bold">
+                {formatCurrency(creator.totalEarned)}
+            </td>
+
+            {/* Pending Balance */}
+            <td className="px-5 py-4">
+                <span className={`text-sm font-bold ${hasPending ? 'text-amber-400' : 'text-surface-600'}`}>
+                    {formatCurrency(creator.pendingAmount)}
+                </span>
+            </td>
+
+            {/* Total Paid */}
+            <td className="px-5 py-4 text-emerald-400 text-sm font-medium">
+                {formatCurrency(creator.withdrawnAmount)}
+            </td>
+
+            {/* Status */}
+            <td className="px-5 py-4"><StatusBadge isBanned={creator.isBanned} /></td>
+
+            {/* Arrow */}
+            <td className="px-5 py-4 text-surface-600 group-hover:text-brand-400 transition-colors">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+            </td>
+        </tr>
+    );
+}
+
+// ── Pagination ────────────────────────────────────────────────────────────────
+function Pagination({ page, totalPages, onPageChange }) {
+    if (totalPages <= 1) return null;
+    return (
+        <div className="flex items-center justify-between mt-6 px-1">
+            <span className="text-xs text-surface-500">Page {page} of {totalPages}</span>
+            <div className="flex gap-2">
+                <button
+                    disabled={page <= 1}
+                    onClick={() => onPageChange(page - 1)}
+                    className="btn-outline text-xs px-3 py-1.5 disabled:opacity-30"
+                >← Prev</button>
+                <button
+                    disabled={page >= totalPages}
+                    onClick={() => onPageChange(page + 1)}
+                    className="btn-outline text-xs px-3 py-1.5 disabled:opacity-30"
+                >Next →</button>
+            </div>
+        </div>
+    );
+}
+
+// ── Main AdminCreators Page ───────────────────────────────────────────────────
+const FILTER_TABS = [
+    { label: 'All', value: '' },
+    { label: 'Active', value: 'active' },
+    { label: 'Suspended', value: 'suspended' },
+];
+
+export default function AdminCreators() {
+    const [creators, setCreators] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [search, setSearch] = useState('');
+    const [status, setStatus] = useState('');
+    const [sort, setSort] = useState('-createdAt');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalResults, setTotalResults] = useState(0);
+    const [selectedCreator, setSelectedCreator] = useState(null); // drawer
+
+    const debouncedSearch = useDebounce(search, DEBOUNCE_MS);
+
+    const load = useCallback(async (params) => {
+        setLoading(true);
+        setError('');
+        try {
+            const { data } = await adminService.getCreators(params);
+            setCreators(data.results ?? []);
+            setTotalPages(data.totalPages ?? 1);
+            setTotalResults(data.totalResults ?? 0);
+        } catch (err) {
+            setError(getErrorMessage(err));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        load({ search: debouncedSearch, status, sort, page, limit: LIMIT });
+    }, [debouncedSearch, status, sort, page, load]);
+
+    const handleStatusChange = (s) => { setStatus(s); setPage(1); };
+    const handleSort = (s) => { setSort(s); setPage(1); };
+    const handleSearch = (e) => { setSearch(e.target.value); setPage(1); };
+
+    // Called from drawer when a payout succeeds — refresh the list row in place
+    const handlePayoutSuccess = (updatedCreator) => {
+        setCreators((prev) =>
+            prev.map((c) =>
+                c._id === updatedCreator._id ? { ...c, ...updatedCreator } : c
+            )
+        );
+    };
+
+    return (
+        <div className="p-4 sm:p-6 max-w-7xl">
+
+            {/* ── Header ─────────────────────────────────────────────────── */}
+            <div className="mb-8">
+                <h1 className="text-2xl sm:text-3xl font-black text-white">👩‍🎨 Creators</h1>
+                <p className="text-surface-400 mt-1 text-sm">
+                    View all creators, their earnings, and manage payouts directly.
+                </p>
+            </div>
+
+            {/* ── Controls ───────────────────────────────────────────────── */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+                {/* Search */}
+                <div className="relative flex-1 max-w-sm">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+                    </svg>
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={handleSearch}
+                        placeholder="Search by name or email…"
+                        className="input-dark w-full pl-9 text-sm"
+                    />
+                </div>
+
+                {/* Status filter tabs */}
+                <div className="flex gap-2 flex-wrap">
+                    {FILTER_TABS.map((f) => (
+                        <FilterTab
+                            key={f.value}
+                            label={f.label}
+                            active={status === f.value}
+                            onClick={() => handleStatusChange(f.value)}
+                        />
+                    ))}
+                </div>
+
+                {/* Total count */}
+                {!loading && (
+                    <span className="text-xs text-surface-500 ml-auto whitespace-nowrap">
+                        {totalResults.toLocaleString('en-IN')} creator{totalResults !== 1 ? 's' : ''}
+                    </span>
+                )}
+            </div>
+
+            {/* ── Error ──────────────────────────────────────────────────── */}
+            {error && (
+                <div className="mb-5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                    {error}
+                </div>
+            )}
+
+            {/* ── Table ──────────────────────────────────────────────────── */}
+            <div className="glass rounded-2xl border border-white/5 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-white/5">
+                                <th className="px-5 py-3 text-xs uppercase tracking-widest text-surface-500 font-semibold text-left">Creator</th>
+                                <SortTh label="Subscribers" field="totalSubscribers" currentSort={sort} onSort={handleSort} />
+                                <SortTh label="Total Earned" field="totalEarned" currentSort={sort} onSort={handleSort} />
+                                <SortTh label="Pending" field="pendingAmount" currentSort={sort} onSort={handleSort} />
+                                <SortTh label="Total Paid" field="withdrawnAmount" currentSort={sort} onSort={handleSort} />
+                                <th className="px-5 py-3 text-xs uppercase tracking-widest text-surface-500 font-semibold text-left">Status</th>
+                                <th className="px-5 py-3 w-10" />
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.04]">
+                            {loading
+                                ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+                                : creators.length === 0
+                                    ? (
+                                        <tr>
+                                            <td colSpan={7} className="py-20 text-center text-surface-500">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <svg className="w-12 h-12 opacity-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                                                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
+                                                        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                                                    </svg>
+                                                    <p className="text-sm">No creators found</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                    : creators.map((c) => (
+                                        <CreatorRow
+                                            key={c._id}
+                                            creator={c}
+                                            onClick={setSelectedCreator}
+                                        />
+                                    ))
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* ── Pagination ─────────────────────────────────────────────── */}
+            {!loading && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />}
+
+            {/* ── Creator Detail Drawer ───────────────────────────────────── */}
+            {selectedCreator && (
+                <CreatorDetailDrawer
+                    creatorId={selectedCreator._id}
+                    onClose={() => setSelectedCreator(null)}
+                    onPayoutSuccess={handlePayoutSuccess}
+                />
+            )}
+        </div>
+    );
+}

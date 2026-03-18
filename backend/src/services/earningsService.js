@@ -327,6 +327,81 @@ const listPayoutsService = async (creatorId, page = 1, limit = 20) => {
     return { payouts, total, page, pages: Math.ceil(total / limit) };
 };
 
+/**
+ * Admin: directly pay out a creator's full pending balance in one atomic step.
+ * This bypasses the creator-request flow — useful for admin-initiated payouts.
+ *
+ * Flow:
+ *  1. Validate pendingAmount > 0 (and no other pending/approved payout in-flight)
+ *  2. Atomically decrement pendingAmount and increment withdrawnAmount
+ *  3. Create a PayoutRequest doc with status='paid' immediately
+ *
+ * @param {string|ObjectId} creatorId
+ * @param {string|ObjectId} adminId
+ * @returns {Promise<PayoutRequest>}
+ */
+const adminDirectPayoutService = async (creatorId, adminId) => {
+    return withTransaction(async (session) => {
+        const opts = session ? { session } : {};
+
+        // Lock the earnings doc (or fetch without lock on standalone)
+        const earnings = session
+            ? await Earnings.findOne({ creatorId }).session(session)
+            : await Earnings.findOne({ creatorId });
+
+        if (!earnings) {
+            const err = new Error('No earnings record found for this creator.');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const amount = Math.round(earnings.pendingAmount * 100) / 100;
+
+        if (amount <= 0) {
+            const err = new Error('Creator has no pending balance to pay out.');
+            err.statusCode = 400;
+            throw err;
+        }
+
+        // Idempotency guard: reject if there is already an in-flight payout
+        const inFlight = await PayoutRequest.findOne(
+            { creatorId, status: { $in: ['pending', 'approved'] } },
+            null,
+            opts
+        );
+        if (inFlight) {
+            const err = new Error(
+                'A payout request is already pending or approved for this creator. Resolve it before initiating a new one.'
+            );
+            err.statusCode = 409;
+            throw err;
+        }
+
+        // Atomically deduct pendingAmount and credit withdrawnAmount
+        await Earnings.findOneAndUpdate(
+            { creatorId },
+            { $inc: { pendingAmount: -amount, withdrawnAmount: amount } },
+            opts
+        );
+
+        // Create a completed PayoutRequest record for audit trail
+        const [payoutRequest] = await PayoutRequest.create(
+            [{
+                creatorId,
+                amount,
+                status: 'paid',
+                processedBy: adminId,
+                processedAt: new Date(),
+                requestedAt: new Date(),
+                notes: 'Admin direct payout',
+            }],
+            opts
+        );
+
+        return payoutRequest;
+    });
+};
+
 module.exports = {
     PLATFORM_FEE_PERCENT,
     creditEarningsOnPayment,
@@ -336,4 +411,5 @@ module.exports = {
     rejectPayoutService,
     getMyEarningsService,
     listPayoutsService,
+    adminDirectPayoutService,
 };

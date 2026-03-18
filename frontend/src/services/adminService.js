@@ -15,4 +15,8 @@ export const adminService = {
     approvePayout: (id) => api.patch(`/admin/payouts/${id}/approve`),
     rejectPayout: (id, notes) => api.patch(`/admin/payouts/${id}/reject`, { notes }),
     markPaid: (id) => api.patch(`/admin/payouts/${id}/mark-paid`),
+    // Creator payout management
+    getCreators: (params) => api.get('/admin/creators', { params }),
+    getCreatorDetail: (id) => api.get(`/admin/creators/${id}`),
+    directPayout: (id) => api.post(`/admin/creators/${id}/payout`),
 };

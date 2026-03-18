@@ -15,8 +15,10 @@ const CREATOR_NAV = [
 const ADMIN_NAV = [
     { to: '/admin', icon: '🛡️', label: 'Overview' },
     { to: '/admin/users', icon: '👥', label: 'Users' },
+    { to: '/admin/creators', icon: '👩‍🎨', label: 'Creators' },
     { to: '/admin/verifications', icon: '🪪', label: 'Verifications' },
     { to: '/admin/payouts', icon: '💸', label: 'Payouts' },
+    { to: '/admin/issues', icon: '🛟', label: 'Issues' },
 ];
 
 export default function DashboardLayout() {

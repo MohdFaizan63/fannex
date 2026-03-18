@@ -5,11 +5,13 @@ const Payment = require('../models/Payment');
 const CreatorProfile = require('../models/CreatorProfile');
 const CreatorVerification = require('../models/CreatorVerification');
 const PayoutRequest = require('../models/PayoutRequest');
+const Earnings = require('../models/Earnings');
 const paginate = require('../utils/paginate');
 const {
     approvePayoutService,
     markPayoutPaidService,
     rejectPayoutService,
+    adminDirectPayoutService,
 } = require('../services/earningsService');
 const cloudinary = require('../config/cloudinary');
 const { maskVerificationData } = require('../utils/maskData');
@@ -449,6 +451,182 @@ const markPaid = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CREATOR MANAGEMENT (Payout Admin)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @desc    Get all creators with earnings summary (paginated, searchable, filterable)
+ * @route   GET /api/admin/creators
+ * @access  Admin
+ */
+const getCreators = async (req, res, next) => {
+    try {
+        const { page = 1, limit = 20, search = '', status, sort = '-createdAt' } = req.query;
+
+        // Build user filter
+        const userFilter = { role: 'creator' };
+        if (status === 'suspended') userFilter.isBanned = true;
+        if (status === 'active') userFilter.isBanned = false;
+
+        // Search by name or email
+        let userIds = null;
+        if (search.trim()) {
+            const regex = new RegExp(search.trim(), 'i');
+            const matchedUsers = await User.find(
+                { role: 'creator', $or: [{ name: regex }, { email: regex }] },
+                '_id'
+            ).lean();
+            userIds = matchedUsers.map((u) => u._id);
+            if (userIds.length === 0) {
+                return res.status(200).json({ success: true, results: [], totalResults: 0, totalPages: 0, page: 1 });
+            }
+            userFilter._id = { $in: userIds };
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const [creators, totalResults] = await Promise.all([
+            User.find(userFilter, '-password')
+                .sort(sort)
+                .skip(skip)
+                .limit(parseInt(limit))
+                .lean(),
+            User.countDocuments(userFilter),
+        ]);
+
+        if (creators.length === 0) {
+            return res.status(200).json({ success: true, results: [], totalResults: 0, totalPages: 0, page: 1 });
+        }
+
+        const cids = creators.map((c) => c._id);
+
+        // Fetch related data in parallel
+        const [profiles, earningsDocs] = await Promise.all([
+            CreatorProfile.find({ userId: { $in: cids } })
+                .select('userId totalSubscribers genre verificationStatus profileImage displayName username')
+                .lean(),
+            Earnings.find({ creatorId: { $in: cids } }).lean(),
+        ]);
+
+        const profileMap = {};
+        profiles.forEach((p) => { profileMap[p.userId.toString()] = p; });
+
+        const earningsMap = {};
+        earningsDocs.forEach((e) => { earningsMap[e.creatorId.toString()] = e; });
+
+        const results = creators.map((creator) => {
+            const cid = creator._id.toString();
+            const profile = profileMap[cid] ?? {};
+            const earning = earningsMap[cid] ?? { totalEarned: 0, pendingAmount: 0, withdrawnAmount: 0 };
+
+            return {
+                _id: creator._id,
+                name: creator.name,
+                email: creator.email,
+                isBanned: creator.isBanned,
+                createdAt: creator.createdAt,
+                displayName: profile.displayName || creator.name,
+                username: profile.username || '',
+                profileImage: profile.profileImage || '',
+                genre: profile.genre || '',
+                totalSubscribers: profile.totalSubscribers ?? 0,
+                verificationStatus: profile.verificationStatus || 'pending',
+                totalEarned: earning.totalEarned ?? 0,
+                pendingAmount: earning.pendingAmount ?? 0,
+                withdrawnAmount: earning.withdrawnAmount ?? 0,
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            results,
+            totalResults,
+            totalPages: Math.ceil(totalResults / parseInt(limit)),
+            page: parseInt(page),
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Get full detail for a single creator (profile + bank + earnings)
+ * @route   GET /api/admin/creators/:id
+ * @access  Admin
+ */
+const getCreatorDetail = async (req, res, next) => {
+    try {
+        const creatorId = req.params.id;
+
+        const [creator, profile, verification, earnings, recentPayouts] = await Promise.all([
+            User.findById(creatorId, '-password').lean(),
+            CreatorProfile.findOne({ userId: creatorId }).lean(),
+            CreatorVerification.findOne({ userId: creatorId })
+                .select('userId accountHolderName bankName bankAccountNumber ifscCode bankProofImageUrl status'),
+            Earnings.findOne({ creatorId }).lean(),
+            PayoutRequest.find({ creatorId })
+                .sort({ requestedAt: -1 })
+                .limit(10)
+                .lean(),
+        ]);
+
+        if (!creator) {
+            return res.status(404).json({ success: false, message: 'Creator not found' });
+        }
+
+        // Safely build bank details (run Mongoose getter for AES decryption)
+        let bankDetails = null;
+        if (verification) {
+            const acctNum = verification.bankAccountNumber || '';
+            bankDetails = {
+                accountHolderName: verification.accountHolderName || creator.name || '',
+                bankName: verification.bankName || '',
+                accountNumber: acctNum,
+                last4: acctNum ? acctNum.slice(-4) : '',
+                ifscCode: verification.ifscCode || '',
+                bankProofImageUrl: verification.bankProofImageUrl || '',
+                verificationStatus: verification.status || 'pending',
+            };
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                user: creator,
+                profile: profile ?? {},
+                bankDetails,
+                financials: {
+                    totalEarned: earnings?.totalEarned ?? 0,
+                    pendingAmount: earnings?.pendingAmount ?? 0,
+                    withdrawnAmount: earnings?.withdrawnAmount ?? 0,
+                },
+                recentPayouts,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Admin initiates a direct payout for a creator's full pending balance
+ * @route   POST /api/admin/creators/:id/payout
+ * @access  Admin
+ */
+const adminDirectPayout = async (req, res, next) => {
+    try {
+        const payout = await adminDirectPayoutService(req.params.id, req.user._id);
+        res.status(200).json({
+            success: true,
+            message: `₹${payout.amount.toLocaleString('en-IN')} paid out successfully.`,
+            data: payout,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ONE-TIME DATA REPAIR
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -631,6 +809,10 @@ module.exports = {
     approvePayout,
     rejectPayout,
     markPaid,
+    // Creator Payout Management
+    getCreators,
+    getCreatorDetail,
+    adminDirectPayout,
     // One-time repairs
     repairStats,
     dedupSubscriptions,
