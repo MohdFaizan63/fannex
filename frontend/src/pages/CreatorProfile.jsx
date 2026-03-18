@@ -412,6 +412,14 @@ export default function CreatorProfile() {
     const { displayName, username, bio, profileImage, coverImage, coverImagePosition, profileImagePosition, subscriptionPrice = 0, totalSubscribers = 0 } = creator;
     const lockedCount = posts.filter((p) => p.isLocked && !isSubscribed).length;
 
+    // True only when the logged-in user is viewing their own creator profile.
+    // Creator-role users CAN subscribe to OTHER creators — only self-subscription is blocked.
+    const isOwnProfile = isAuthenticated && user && (
+        user.username === username ||
+        user._id === creator?.userId ||
+        user._id === creator?._id
+    );
+
     return (
         <>
             {/* ── Preview mode banner ─────────────────────────────────────────── */}
@@ -618,8 +626,20 @@ export default function CreatorProfile() {
                                 `}</style>
                                 <div className="creator-btn-stack">
 
-                                    {/* 1. Subscribe / Subscribed — full-width hero button */}
-                                    {isSubscribed ? (
+                                    {/* 1. Subscribe / Subscribed / Own Profile — full-width hero button */}
+                                    {isOwnProfile && !isPreview ? (
+                                        // Creator viewing their own profile — no subscribe button
+                                        <div className="creator-btn-primary" style={{
+                                            width: '100%', height: 54, borderRadius: 16,
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1.5px solid rgba(255,255,255,0.1)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            gap: 8, userSelect: 'none',
+                                        }}>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: 15 }}>Your Profile</span>
+                                        </div>
+                                    ) : isSubscribed ? (
                                         <div className="creator-btn-primary" style={{
                                             width: '100%', height: 54, borderRadius: 16,
                                             background: 'linear-gradient(135deg, rgba(74,222,128,0.06), rgba(74,222,128,0.02))',

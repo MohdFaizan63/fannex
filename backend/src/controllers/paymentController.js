@@ -33,6 +33,15 @@ const createOrder = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Creator not found' });
         }
 
+        // ── GUARD 0: Block self-subscription ─────────────────────────────────────
+        // Any user (including creator-role) must not subscribe to their own profile.
+        if (user._id.toString() === creatorId.toString()) {
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot subscribe to your own profile.',
+            });
+        }
+
         // ── GUARD 1: Block duplicate subscription ────────────────────────────────
         // If the user already has a non-expired active subscription, refuse to
         // create another Cashfree order, preventing accidental double charges.
