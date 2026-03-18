@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import subscriptionService from '../services/subscriptionService';
@@ -16,6 +16,7 @@ import GiftModal from '../components/GiftModal';
 function timeAgo(date) {
     const diff = Date.now() - new Date(date).getTime();
     const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
@@ -357,31 +358,29 @@ export default function CreatorProfile() {
                 .catch(() => { });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.state?.subscribed]);
+    }, [location.state?.subscribed, creator]);
 
     // ── Subscribe ────────────────────────────────────────────────────────────
-    const handleSubscribe = () => {
+    const handleSubscribe = useCallback(() => {
         if (isSubscribed) return;
         const username = creator?.username;
         if (!username) return;
         if (!isAuthenticated) {
-            // Persist fan intent — survives page load, logout, existing accounts
             localStorage.setItem('fannex_fan_intent', 'true');
-            // Smart signup intent tracking — fan account flow
             navigate(
                 `/register?from=creator&creator=${encodeURIComponent(username)}&redirect=${encodeURIComponent(`/creator/${username}/subscribe`)}`
             );
         } else {
             navigate(`/creator/${username}/subscribe`);
         }
-    };
+    }, [isSubscribed, creator?.username, isAuthenticated, navigate]);
 
-    const handleShare = async () => {
+    const handleShare = useCallback(async () => {
         const url = window.location.href;
         try { await navigator.clipboard.writeText(url); } catch { }
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-    };
+    }, []);
 
     // ── Filtered posts by tab ────────────────────────────────────────────────
     const filteredPosts = activeTab === 'Media'
@@ -590,7 +589,7 @@ export default function CreatorProfile() {
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                                             </svg>
-                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType !== 'video').length || posts.length}</strong>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType !== 'video' && p.mediaType !== 'album').length}</strong>
                                         </span>
                                         {/* Videos */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
@@ -710,9 +709,10 @@ export default function CreatorProfile() {
                                         </button>
                                     )}
 
-                                    {/* 2. Secondary buttons row: Gift + Chat — always side by side */}
+                                    {/* 2. Secondary buttons row: Gift + Chat — only for non-own profiles */}
                                     <div className="creator-btn-row">
-                                        {/* Gift button */}
+                                        {/* Gift button — hidden on own profile */}
+                                        {!isOwnProfile && (
                                         <button
                                             onClick={() => setShowGift(true)}
                                             className="creator-btn-secondary"
@@ -745,6 +745,7 @@ export default function CreatorProfile() {
                                             <span style={{ fontSize: 18, flexShrink: 0 }}>🎁</span>
                                             <span>Send Gift</span>
                                         </button>
+                                        )}
 
                                         {/* Chat button */}
                                         <ChatButton

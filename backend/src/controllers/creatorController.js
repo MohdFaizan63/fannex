@@ -336,6 +336,41 @@ const applyForCreator = async (req, res, next) => {
         const taken = await CreatorProfile.findOne({ username: username.toLowerCase(), userId: { $ne: userId } });
         if (taken) return res.status(400).json({ success: false, message: 'Username is already taken.' });
 
+        // ── Upload KYC document images to Cloudinary (from memory buffer) ────────
+        // applyUpload uses memoryStorage, so files are in req.files[field][0].buffer.
+        // We push them to Cloudinary here so the admin panel can view the documents.
+        const cloudinary = require('../config/cloudinary');
+        const uploadToCloudinary = (buffer, publicId) =>
+            new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    {
+                        folder: 'fannex/kyc-documents',
+                        public_id: publicId,
+                        resource_type: 'image',
+                        access_mode: 'authenticated', // private — requires signed URL
+                    },
+                    (err, result) => (err ? reject(err) : resolve(result.secure_url))
+                );
+                stream.end(buffer);
+            });
+
+        const getImageUrl = async (fieldname) => {
+            const file = req.files?.[fieldname]?.[0];
+            if (!file?.buffer) return '';
+            try {
+                return await uploadToCloudinary(file.buffer, `${userId}_${fieldname}_${Date.now()}`);
+            } catch (uploadErr) {
+                console.error(`[applyForCreator] Cloudinary upload failed for ${fieldname}:`, uploadErr.message);
+                return ''; // non-fatal — image upload failure shouldn't block application
+            }
+        };
+
+        const [aadhaarImageUrl, panImageUrl, bankProofImageUrl] = await Promise.all([
+            getImageUrl('aadhaarImage'),
+            getImageUrl('panImage'),
+            getImageUrl('bankProofImage'),
+        ]);
+
         // Upsert creator profile (handles first-time and reapply)
         const profile = await CreatorProfile.findOneAndUpdate(
             { userId },
@@ -347,13 +382,11 @@ const applyForCreator = async (req, res, next) => {
                 countryOfResidency,
                 creatorType,
                 verificationStatus: 'pending',
-                // NOTE: PAN/Aadhaar/bank details are stored ONLY in CreatorVerification (encrypted)
-                // and NOT in CreatorProfile.verificationData (removed — was plain text).
             },
             { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         );
 
-        // ── Also upsert a CreatorVerification record so admin panel can see it ──
+        // ── Upsert CreatorVerification so admin panel can review KYC docs ──────
         const CreatorVerification = require('../models/CreatorVerification');
         await CreatorVerification.findOneAndUpdate(
             { userId },
@@ -362,6 +395,10 @@ const applyForCreator = async (req, res, next) => {
                 panNumber,
                 bankAccountNumber,
                 ifscCode: (ifscCode || '').toUpperCase(),
+                accountHolderName: (fullName || '').trim(), // fullName → accountHolderName
+                aadhaarImageUrl,
+                panImageUrl,
+                bankProofImageUrl,
                 status: 'pending',
                 rejectionReason: null,
                 approvedBy: null,
@@ -384,6 +421,7 @@ const applyForCreator = async (req, res, next) => {
         });
     } catch (err) { next(err); }
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // @desc    Admin: approve or reject a creator application
