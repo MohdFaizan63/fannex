@@ -319,7 +319,8 @@ const getCreatorChatStats = async (req, res, next) => {
             ]),
             Payment.aggregate([
                 { $match: { creatorId, type: 'chat_unlock', status: 'captured' } },
-                { $group: { _id: null, total: { $sum: '$amount' } } },
+                // Sum creatorEarning (80% of base), NOT amount (full fan payment with GST)
+                { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
             ]),
         ]);
 
