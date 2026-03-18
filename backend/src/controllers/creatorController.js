@@ -481,8 +481,16 @@ const updateCreatorProfile = async (req, res, next) => {
         if (bio !== undefined) updates.bio = bio;
         if (displayName !== undefined) updates.displayName = displayName;
         if (instagramUrl !== undefined) {
-            // Accept full URL or just the username; strip trailing slashes
-            updates.instagramUrl = instagramUrl.trim().replace(/\/+$/, '');
+            let ig = instagramUrl.trim();
+            if (ig) {
+                // Extract just the username from any Instagram URL format
+                // Handles: handle, @handle, https://instagram.com/handle, https://instagram.com/handle?igsh=...
+                const m = ig.match(/instagram\.com\/([^/?#\s]+)/);
+                const handle = m ? m[1] : ig.replace(/^@/, '').split(/[/?#\s]/)[0];
+                updates.instagramUrl = handle ? `https://www.instagram.com/${handle}` : '';
+            } else {
+                updates.instagramUrl = '';
+            }
         }
         if (coverImagePosition !== undefined) updates.coverImagePosition = Number(coverImagePosition);
         if (profileImagePosition !== undefined) updates.profileImagePosition = Number(profileImagePosition);

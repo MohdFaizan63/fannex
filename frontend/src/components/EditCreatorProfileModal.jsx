@@ -263,11 +263,16 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500 text-xs select-none pointer-events-none">instagram.com/</span>
                             <input
-                                value={instagramUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//, '')}
+                                value={instagramUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//, '').split('?')[0]}
                                 onChange={(e) => {
-                                    const val = e.target.value.trim();
-                                    // Store as full URL if it looks like a username, else store as-is
-                                    setInstagramUrl(val ? `https://www.instagram.com/${val.replace(/^@/, '')}` : '');
+                                    let val = e.target.value.trim();
+                                    // If user pasted a full Instagram URL, extract just the username
+                                    if (val.includes('instagram.com/')) {
+                                        const m = val.match(/instagram\.com\/([^/?#\s]+)/);
+                                        val = m ? m[1] : val;
+                                    }
+                                    val = val.replace(/^@/, '');
+                                    setInstagramUrl(val ? `https://www.instagram.com/${val}` : '');
                                 }}
                                 placeholder="yourhandle"
                                 maxLength={80}
