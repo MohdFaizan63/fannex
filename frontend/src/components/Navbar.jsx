@@ -16,6 +16,8 @@ export default function Navbar() {
     const [searchOpen, setSearchOpen] = useState(false);
     const [onboardingOpen, setOnboardingOpen] = useState(false);
     const [reportOpen, setReportOpen] = useState(false);
+    const [installPrompt, setInstallPrompt] = useState(null);
+    const [installable, setInstallable] = useState(false);
 
     const searchRef = useRef(null);
     const searchContainerRef = useRef(null);
@@ -51,6 +53,32 @@ export default function Navbar() {
         window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
+
+    // ── PWA install prompt ───────────────────────────────────────────────────
+    useEffect(() => {
+        const handler = (e) => {
+            e.preventDefault();
+            setInstallPrompt(e);
+            setInstallable(true);
+        };
+        const installed = () => setInstallable(false);
+        window.addEventListener('beforeinstallprompt', handler);
+        window.addEventListener('appinstalled', installed);
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handler);
+            window.removeEventListener('appinstalled', installed);
+        };
+    }, []);
+
+    const handleInstall = async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        const { outcome } = await installPrompt.userChoice;
+        if (outcome === 'accepted') {
+            setInstallable(false);
+            setInstallPrompt(null);
+        }
+    };
 
     // ── Close desktop dropdown on outside click ───────────────────────────────
     useEffect(() => {
@@ -154,6 +182,27 @@ export default function Navbar() {
 
                         {/* ── Desktop right side ─────────────────────────────────── */}
                         <div className="hidden md:flex items-center gap-2">
+                            {/* PWA Install button — desktop */}
+                            {installable && (
+                                <button
+                                    onClick={handleInstall}
+                                    title="Install Fannex App"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-all"
+                                    style={{
+                                        background: 'linear-gradient(135deg, rgba(124,58,237,0.18), rgba(168,85,247,0.1))',
+                                        border: '1px solid rgba(168,85,247,0.35)',
+                                        color: '#c084fc',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(168,85,247,0.2))'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.6)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(124,58,237,0.18), rgba(168,85,247,0.1))'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.35)'; }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 16l-4-4h3V4h2v8h3l-4 4z"/>
+                                        <path d="M20 18H4"/>
+                                    </svg>
+                                    Install App
+                                </button>
+                            )}
                             {isAuthenticated ? (
                                 <>
                                     <NotificationBell />
@@ -319,6 +368,25 @@ export default function Navbar() {
 
                         {/* Divider */}
                         <div className="my-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+
+                        {/* PWA Install button — mobile */}
+                        {installable && (
+                            <button
+                                onClick={() => { handleInstall(); closeMobile(); }}
+                                className="w-full flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold mb-1"
+                                style={{
+                                    background: 'linear-gradient(135deg, rgba(124,58,237,0.22), rgba(168,85,247,0.14))',
+                                    border: '1px solid rgba(168,85,247,0.4)',
+                                    color: '#c084fc',
+                                }}
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 16l-4-4h3V4h2v8h3l-4 4z"/>
+                                    <path d="M20 18H4"/>
+                                </svg>
+                                Install Fannex App
+                            </button>
+                        )}
 
                         {/* Auth section */}
                         <div className="flex flex-col gap-3 mt-1">
