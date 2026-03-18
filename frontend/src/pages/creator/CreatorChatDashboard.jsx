@@ -63,23 +63,6 @@ export default function CreatorChatDashboard() {
                     <p>Manage conversations and earn from fans</p>
                 </div>
 
-                {/* ── Stats row ─────────────────────────────────────────────── */}
-                {stats && (
-                    <div className="chat-stats-grid">
-                        {[
-                            { label: 'Total Chats', value: stats.totalChats, icon: '💬', highlight: false },
-                            { label: 'Unread', value: stats.unreadMessages, icon: '🔔', highlight: stats.unreadMessages > 0 },
-                            { label: 'Gift Earnings', value: `₹${stats.giftEarnings?.toLocaleString('en-IN')}`, icon: '🎁', highlight: false },
-                            { label: 'Chat Earnings', value: `₹${stats.totalChatEarnings?.toLocaleString('en-IN')}`, icon: '💰', highlight: false },
-                        ].map((s) => (
-                            <div key={s.label} className={`chat-stat-card ${s.highlight ? 'chat-stat-card--highlight' : ''}`}>
-                                <div className="chat-stat-icon">{s.icon}</div>
-                                <div className="chat-stat-value">{s.value}</div>
-                                <div className="chat-stat-label">{s.label}</div>
-                            </div>
-                        ))}
-                    </div>
-                )}
 
                 {/* ── Tabs ──────────────────────────────────────────────────── */}
                 <div className="chat-tabs">

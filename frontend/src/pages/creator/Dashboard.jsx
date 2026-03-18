@@ -278,7 +278,7 @@ export default function Dashboard() {
                             ✏️ Edit Profile
                         </button>
                         <Link to="/payout-settings" className="btn-outline text-sm px-4 py-2 rounded-xl flex items-center gap-1.5">
-                            💳 Payout Settings
+                            🏦 Bank Details
                         </Link>
                     </div>
                 </div>
@@ -289,7 +289,7 @@ export default function Dashboard() {
                         ✏️ Edit Profile
                     </button>
                     <Link to="/payout-settings" className="flex-1 btn-outline text-sm py-2 rounded-xl min-w-[120px] text-center">
-                        💳 Payout
+                        🏦 Bank Details
                     </Link>
                 </div>
 

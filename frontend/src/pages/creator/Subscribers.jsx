@@ -18,7 +18,7 @@ export default function Subscribers() {
             const { data } = await creatorService.mySubscribers({ page: p, limit: LIMIT, sort: '-createdAt' });
             setSubs(data.results ?? []);
             setTotalPages(data.totalPages ?? 1);
-            setTotal(data.total ?? 0);
+            setTotal(data.totalResults ?? 0);
         } catch (_) { }
         setLoading(false);
     }, []);
