@@ -160,7 +160,7 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
                                     label="banner"
                                 />
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs text-surface-400">↕ Drag image to reposition</span>
+                                    <span className="text-[10px] text-surface-500">↕ Drag image to reposition</span>
                                     <button
                                         type="button"
                                         onClick={() => bannerRef.current?.click()}
@@ -244,7 +244,7 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
                             placeholder="Tell your fans about yourself…"
                             className="input-dark w-full resize-none"
                         />
-                        <p className="text-xs text-surface-400 mt-1 text-right">{bio.length}/300</p>
+                        <p className="text-xs text-surface-600 mt-1 text-right">{bio.length}/300</p>
                     </div>
 
                     {/* ── Subscription Price ───────────────────────────────────── */}
@@ -280,9 +280,9 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
                                     placeholder="Enter price"
                                 />
                             </div>
-                            <span className="text-surface-300 text-xs">/month</span>
+                            <span className="text-surface-500 text-xs">/month</span>
                         </div>
-                        <p className="text-xs text-surface-400 mt-1.5">
+                        <p className="text-[10px] text-surface-600 mt-1.5">
                             Current: ₹{profile?.subscriptionPrice ?? 199}/mo · Existing subscribers keep their current rate.
                         </p>
                     </div>
