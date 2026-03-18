@@ -9,7 +9,7 @@ const subscriptionService = {
      * Backend returns { orderId, paymentSessionId, cfMode, amount, gstBreakdown }
      * The caller should pass paymentSessionId to the Cashfree JS SDK.
      */
-    createOrder: (creatorId) => api.post('/payment/create-order', { creatorId }),
+    createOrder: (creatorId, planDuration = 1) => api.post('/payment/create-order', { creatorId, planDuration }),
 
     /** POST /payment/verify — verify a Cashfree payment after the redirect back to our site */
     verifyPayment: (data) => api.post('/payment/verify', data),

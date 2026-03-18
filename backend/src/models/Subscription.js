@@ -26,6 +26,13 @@ const subscriptionSchema = new mongoose.Schema(
         // Legacy Razorpay/Stripe fields kept as sparse index for old records
         // (no longer created for new subscriptions)
         cfOrderId: { type: String, default: null },
+        // ── Multi-plan subscription fields ────────────────────────────────────
+        planDuration:        { type: Number, enum: [1, 3, 6, 12], default: 1 },
+        discountPercentage:  { type: Number, default: 0 },
+        discountedPrice:     { type: Number, default: 0 },
+        taxAmount:           { type: Number, default: 0 },
+        totalPaid:           { type: Number, default: 0 },
+        baseMonthlyPrice:    { type: Number, default: 0 },
     },
     { timestamps: true }
 );

@@ -532,33 +532,23 @@ export default function CreatorProfile() {
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 title="Instagram"
-                                                style={{
-                                                    lineHeight: 0,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    width: 38,
-                                                    height: 38,
-                                                    borderRadius: 12,
-                                                    background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)',
-                                                    boxShadow: '0 4px 16px rgba(214,36,159,0.45)',
-                                                    transition: 'transform 0.18s ease, box-shadow 0.18s ease',
-                                                    flexShrink: 0,
-                                                }}
-                                                onMouseEnter={e => {
-                                                    e.currentTarget.style.transform = 'scale(1.1)';
-                                                    e.currentTarget.style.boxShadow = '0 6px 22px rgba(214,36,159,0.6)';
-                                                }}
-                                                onMouseLeave={e => {
-                                                    e.currentTarget.style.transform = 'scale(1)';
-                                                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(214,36,159,0.45)';
-                                                }}
+                                                className="p-2.5 rounded-full glass border border-white/10 hover:border-white/20 transition-all flex items-center justify-center"
+                                                style={{ lineHeight: 0 }}
+                                                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                                             >
-                                                {/* Instagram camera icon — white on gradient bg */}
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <rect x="2" y="2" width="20" height="20" rx="6" ry="6" fill="none" stroke="white" strokeWidth="2"/>
-                                                    <circle cx="12" cy="12" r="4.5" fill="none" stroke="white" strokeWidth="2"/>
-                                                    <circle cx="17.5" cy="6.5" r="1.4" fill="white"/>
+                                                {/* Instagram logo — gradient outline on dark bg to match Image 2 */}
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <defs>
+                                                        <linearGradient id="igOutline" x1="0" y1="24" x2="24" y2="0" gradientUnits="userSpaceOnUse">
+                                                            <stop offset="0%" stopColor="#f9ed32"/>
+                                                            <stop offset="25%" stopColor="#ee2a7b"/>
+                                                            <stop offset="75%" stopColor="#002aff"/>
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <rect x="2" y="2" width="20" height="20" rx="6" ry="6" fill="none" stroke="url(#igOutline)" strokeWidth="2.2"/>
+                                                    <circle cx="12" cy="12" r="4.5" fill="none" stroke="url(#igOutline)" strokeWidth="2.2"/>
+                                                    <circle cx="17.5" cy="6.5" r="1.5" fill="url(#igOutline)"/>
                                                 </svg>
                                             </a>
                                         )}

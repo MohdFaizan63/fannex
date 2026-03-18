@@ -15,12 +15,17 @@ const { calcGST } = require('../utils/gstHelper');
 // SUBSCRIPTION
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Multi-plan discount map (server-authoritative) ──────────────────────────
+// Discount % keyed by plan duration (months). Never trust frontend prices.
+const PLAN_DISCOUNTS = { 1: 0, 3: 10, 6: 20, 12: 30 };
+
 // @desc  Create Cashfree order for a subscription payment
 // @route POST /api/payment/create-order
 // @access Private (user)
 const createOrder = async (req, res, next) => {
     try {
-        const { creatorId } = req.body;
+        const { creatorId, planDuration: rawDuration } = req.body;
+        const planDuration = [1, 3, 6, 12].includes(Number(rawDuration)) ? Number(rawDuration) : 1;
         const user = req.user;
 
         const creatorProfile = await CreatorProfile.findOne({ userId: creatorId });
@@ -92,13 +97,19 @@ const createOrder = async (req, res, next) => {
             }
         }
 
-        // Apply 18% GST on top of the creator-set subscription price
-        const gst = calcGST(creatorProfile.subscriptionPrice);
+        // ── Server-side multi-plan pricing (NEVER trust frontend amounts) ────────
+        const discountPct    = PLAN_DISCOUNTS[planDuration] ?? 0;
+        const discountFactor = 1 - (discountPct / 100);
+        const baseMonthly    = creatorProfile.subscriptionPrice;         // e.g. ₹199
+        const discountedBase = Math.round(baseMonthly * planDuration * discountFactor * 100) / 100;
+        // Apply 18% GST on the discounted total (not monthly price)
+        const gst = calcGST(discountedBase);
+        const savingsAmount  = Math.round((baseMonthly * planDuration - discountedBase) * 100) / 100;
 
         const orderId = `sub_${user._id.toString().slice(-6)}_${Date.now()}`;
 
         const order = await paymentService.createOrder({
-            amount: gst.totalPaid,          // fan pays base + 18% GST
+            amount: gst.totalPaid,          // fan pays discounted base + 18% GST
             orderId,
             customerId: user._id.toString(),
             customerName: user.name || 'Fannex User',
@@ -106,10 +117,13 @@ const createOrder = async (req, res, next) => {
             customerPhone: user.phone || '9000000000',
             returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/subscription-success?order_id={order_id}`,
             meta: {
-                userId: user._id.toString(),
-                creatorId: creatorId.toString(),
-                type: 'subscription',
-                baseAmount: gst.baseAmount.toString(), // stored for GST split on verify/webhook
+                userId:             user._id.toString(),
+                creatorId:          creatorId.toString(),
+                type:               'subscription',
+                baseAmount:         discountedBase.toString(),   // discounted total before GST
+                planDuration:       planDuration.toString(),
+                discountPct:        discountPct.toString(),
+                baseMonthlyPrice:   baseMonthly.toString(),
             },
         });
 
@@ -144,12 +158,18 @@ const createOrder = async (req, res, next) => {
             success: true,
             data: {
                 ...order,
+                planDuration,
+                discountPct,
+                savingsAmount,
                 gstBreakdown: {
-                    baseAmount:     gst.baseAmount,
-                    gstAmount:      gst.gstAmount,
-                    totalPaid:      gst.totalPaid,
-                    platformFee:    gst.platformFee,
-                    creatorEarning: gst.creatorEarning,
+                    baseAmount:      discountedBase,
+                    gstAmount:       gst.gstAmount,
+                    totalPaid:       gst.totalPaid,
+                    platformFee:     gst.platformFee,
+                    creatorEarning:  gst.creatorEarning,
+                    discountPct,
+                    savingsAmount,
+                    baseMonthly,
                 },
             },
         });

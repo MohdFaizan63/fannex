@@ -195,7 +195,8 @@ const verifyWebhookSignature = (rawBody, signature, timestamp) => {
  *   This prevents double-counting even if webhook and verify race each other.
  */
 const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => {
-    const { userId, creatorId, type = 'subscription', baseAmount: metaBase } = meta;
+    const { userId, creatorId, type = 'subscription', baseAmount: metaBase,
+             planDuration: metaDuration, discountPct: metaDiscountPct, baseMonthlyPrice: metaBaseMonthly } = meta;
 
     if (!userId) return;
 
@@ -322,8 +323,15 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
     // ── Side effects run exactly once for this orderId ────────────────────────
 
     if (type === 'subscription') {
+        const planDuration = Number(metaDuration) || 1;
         const expiresAt = new Date();
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
+        expiresAt.setMonth(expiresAt.getMonth() + planDuration);
+
+        const discountPercentage = Number(metaDiscountPct) || 0;
+        const discountedPrice    = gst.baseAmount;   // total after discount, before GST
+        const taxAmount          = gst.gstAmount;
+        const totalPaid          = gst.totalPaid;
+        const baseMonthlyPrice   = metaBaseMonthly ? Number(metaBaseMonthly) : gst.baseAmount;
 
         // Check if subscriber existed BEFORE this payment
         const existingSub = await Subscription.findOne({ userId, creatorId }).select('_id').lean();
@@ -331,7 +339,10 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
 
         await Subscription.findOneAndUpdate(
             { userId, creatorId },
-            { userId, creatorId, status: 'active', expiresAt, cfOrderId: orderId },
+            {
+                userId, creatorId, status: 'active', expiresAt, cfOrderId: orderId,
+                planDuration, discountPercentage, discountedPrice, taxAmount, totalPaid, baseMonthlyPrice,
+            },
             { upsert: true }
         );
 
