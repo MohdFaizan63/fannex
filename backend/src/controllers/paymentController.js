@@ -28,6 +28,70 @@ const createOrder = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Creator not found' });
         }
 
+        // ── GUARD 1: Block duplicate subscription ────────────────────────────────
+        // If the user already has a non-expired active subscription, refuse to
+        // create another Cashfree order, preventing accidental double charges.
+        const activeSub = await Subscription.findOne({
+            userId: user._id,
+            creatorId,
+            status: 'active',
+            expiresAt: { $gt: new Date() },
+        }).select('_id expiresAt').lean();
+
+        if (activeSub) {
+            console.log(`[createOrder] Blocked duplicate sub userId=${user._id} creatorId=${creatorId}`);
+            return res.status(409).json({
+                success: false,
+                alreadySubscribed: true,
+                message: 'You already have an active subscription to this creator.',
+                expiresAt: activeSub.expiresAt,
+            });
+        }
+
+        // ── GUARD 2: Re-use an existing PENDING order (idempotent creation) ──────
+        // If the same user+creator has an un-captured Payment doc created in the
+        // last 10 minutes, re-fetch the Cashfree paymentSessionId instead of
+        // creating a brand-new order. Prevents orphan orders on page refresh.
+        const TEN_MIN_AGO = new Date(Date.now() - 10 * 60 * 1000);
+        const pendingPayment = await PaymentModel.findOne({
+            userId: user._id,
+            creatorId,
+            type: 'subscription',
+            status: 'created',
+            sideEffectsDone: false,
+            createdAt: { $gte: TEN_MIN_AGO },
+        }).select('cfOrderId').lean();
+
+        if (pendingPayment?.cfOrderId) {
+            try {
+                const existingOrder = await paymentService.getOrderStatus(pendingPayment.cfOrderId);
+                if (existingOrder.order_status === 'ACTIVE') {
+                    // Re-use the existing session — do NOT create a new order
+                    console.log(`[createOrder] Reusing existing order cfOrderId=${pendingPayment.cfOrderId}`);
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            orderId: existingOrder.order_id,
+                            paymentSessionId: existingOrder.payment_session_id,
+                            amount: existingOrder.order_amount,
+                            currency: existingOrder.order_currency,
+                            cfMode: process.env.CASHFREE_ENV || 'production',
+                            gstBreakdown: {
+                                baseAmount:     calcGST(creatorProfile.subscriptionPrice).baseAmount,
+                                gstAmount:      calcGST(creatorProfile.subscriptionPrice).gstAmount,
+                                totalPaid:      calcGST(creatorProfile.subscriptionPrice).totalPaid,
+                                platformFee:    calcGST(creatorProfile.subscriptionPrice).platformFee,
+                                creatorEarning: calcGST(creatorProfile.subscriptionPrice).creatorEarning,
+                            },
+                        },
+                    });
+                }
+            } catch (e) {
+                // If re-fetch fails, fall through and create a fresh order
+                console.warn(`[createOrder] Could not re-fetch existing order, creating new one: ${e.message}`);
+            }
+        }
+
         // Apply 18% GST on top of the creator-set subscription price
         const gst = calcGST(creatorProfile.subscriptionPrice);
 
@@ -48,6 +112,32 @@ const createOrder = async (req, res, next) => {
                 baseAmount: gst.baseAmount.toString(), // stored for GST split on verify/webhook
             },
         });
+
+        // ── Persist a Payment doc immediately after Cashfree creates the order ──
+        // This allows Guard 2 (pending-order idempotency) in future createOrder
+        // calls to find this doc and re-use the same Cashfree session, instead of
+        // creating a brand-new orphan order if the user clicks Pay twice.
+        // sideEffectsDone stays false — handlePaymentCaptured will flip it once paid.
+        try {
+            await PaymentModel.create({
+                userId:         user._id,
+                creatorId,
+                amount:         gst.totalPaid,
+                baseAmount:     gst.baseAmount,
+                gstAmount:      gst.gstAmount,
+                platformFee:    gst.platformFee,
+                creatorEarning: gst.creatorEarning,
+                currency:       'INR',
+                type:           'subscription',
+                status:         'created',
+                cfOrderId:      order.orderId,
+                sideEffectsDone: false,
+            });
+        } catch (dbErr) {
+            // Non-fatal: if this insert fails (e.g. duplicate key), it's fine —
+            // handlePaymentCaptured uses upsert and will create it on verify/webhook.
+            console.warn('[createOrder] Payment doc pre-create failed (non-fatal):', dbErr.message);
+        }
 
         // Return GST breakdown so the frontend can display it
         res.status(200).json({

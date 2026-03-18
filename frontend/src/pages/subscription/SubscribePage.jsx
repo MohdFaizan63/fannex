@@ -70,6 +70,10 @@ export default function SubscribePage() {
                 throw new Error('Invalid order response from server');
             }
 
+            // ── Save return URL before handing control to Cashfree ────────────
+            // PaymentFailed's "Try Again" reads this to navigate back here.
+            sessionStorage.setItem('fannex_subscribe_return', window.location.pathname);
+
             // Load Cashfree.js SDK dynamically
             if (!window.Cashfree) {
                 await new Promise((resolve, reject) => {
@@ -89,6 +93,12 @@ export default function SubscribePage() {
             // After redirect back, SubscriptionSuccess page will call /api/payment/verify
         } catch (err) {
             console.error('Payment initiation error:', err);
+            // Handle 409 from axios (throws on 4xx with default config)
+            if (err?.response?.status === 409 && err?.response?.data?.alreadySubscribed) {
+                setAlreadySubscribed(true);
+                setSubscribing(false);
+                return;
+            }
             setError(err?.response?.data?.message || err.message || 'Unable to initiate payment. Please try again.');
             setSubscribing(false);
         }

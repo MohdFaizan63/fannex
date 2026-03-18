@@ -8,7 +8,11 @@ import { Link, useNavigate } from 'react-router-dom';
  *   • Payment verification fails on /subscription-success
  *
  * Back-button is intercepted so the user cannot navigate back to the
- * Cashfree payment page; instead they are sent to the Home page.
+ * Cashfree payment page; instead they are sent to /.
+ *
+ * "Try Again" reads the subscribe-page URL saved by SubscribePage in
+ * sessionStorage BEFORE opening Cashfree, so it navigates the user back
+ * correctly regardless of how many history guard entries have been pushed.
  */
 export default function PaymentFailed() {
     const navigate = useNavigate();
@@ -19,10 +23,18 @@ export default function PaymentFailed() {
         for (let i = 0; i < 5; i++) {
             window.history.pushState({ paymentGuard: true, i }, '', cleanPath);
         }
-        const handleBack = () => { window.location.replace('/'); };
+        // Use navigate so React Router state stays in sync
+        const handleBack = () => { navigate('/', { replace: true }); };
         window.addEventListener('popstate', handleBack);
         return () => window.removeEventListener('popstate', handleBack);
-    }, []);
+    }, [navigate]);
+
+    // SubscribePage stores this key before calling cashfree.checkout()
+    const handleTryAgain = () => {
+        const returnUrl = sessionStorage.getItem('fannex_subscribe_return');
+        sessionStorage.removeItem('fannex_subscribe_return');
+        navigate(returnUrl || '/explore', { replace: true });
+    };
 
     return (
         <div style={pageStyle}>
@@ -80,7 +92,7 @@ export default function PaymentFailed() {
                 {/* Actions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <button
-                        onClick={() => navigate(-2)}
+                        onClick={handleTryAgain}
                         style={btnPrimary}
                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(124,58,237,0.55)'; }}
                         onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(124,58,237,0.4)'; }}
