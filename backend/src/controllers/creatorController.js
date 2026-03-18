@@ -538,7 +538,7 @@ const getEarningsHistory = async (req, res, next) => {
                     { $skip:  skip },
                     { $limit: limit },
                     { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'userId', pipeline: [{ $project: { name: 1, username: 1, profileImage: 1 } }] } },
-                    { $unwind: { path: '$userId', preserveNullAndEmpty: true } },
+                    { $unwind: { path: '$userId', preserveNullAndEmptyArrays: true } },
                 ],
                 // Total count (for pagination bar)
                 totalCount: [
