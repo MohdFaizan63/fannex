@@ -332,7 +332,7 @@ export default function Earnings() {
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Earnings</h1>
-                    <p className="text-surface-400 mt-1 text-sm sm:text-base">Track your income and request payouts.</p>
+                    <p style={{ color: 'rgba(255,255,255,0.42)' }} className="mt-1 text-sm sm:text-base">Track your income and request payouts.</p>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}

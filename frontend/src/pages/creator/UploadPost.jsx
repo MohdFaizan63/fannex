@@ -166,7 +166,7 @@ export default function UploadPost() {
     return (
         <div className="p-6 max-w-2xl">
             <h1 className="text-3xl font-black text-white mb-2">Upload Post</h1>
-            <p className="text-surface-400 mb-6">Share exclusive content with your subscribers.</p>
+            <p style={{ color: 'rgba(255,255,255,0.42)' }} className="mb-6">Share exclusive content with your subscribers.</p>
 
             {/* Size limits info */}
             <div className="flex items-center gap-4 text-xs text-surface-500 mb-6">
