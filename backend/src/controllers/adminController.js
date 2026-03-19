@@ -774,6 +774,52 @@ const dedupSubscriptions = async (req, res, next) => {
     }
 };
 
+
+/**
+ * @desc    Admin updates a creator's profile fields
+ * @route   PATCH /api/admin/creators/:id/profile
+ * @access  Admin
+ */
+const adminUpdateCreatorProfile = async (req, res, next) => {
+    try {
+        const { displayName, bio, subscriptionPrice, genre } = req.body;
+        const updates = {};
+        if (displayName !== undefined) updates.displayName = displayName.trim();
+        if (bio !== undefined) updates.bio = bio.trim();
+        if (genre !== undefined) updates.genre = genre.trim().toLowerCase();
+        if (subscriptionPrice !== undefined && !isNaN(Number(subscriptionPrice))) {
+            updates.subscriptionPrice = Math.max(1, Number(subscriptionPrice));
+        }
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ success: false, message: 'No fields to update.' });
+        }
+        const profile = await CreatorProfile.findOneAndUpdate(
+            { userId: req.params.id },
+            { $set: updates },
+            { returnDocument: 'after' }
+        );
+        if (!profile) return res.status(404).json({ success: false, message: 'Creator profile not found.' });
+        res.json({ success: true, message: 'Profile updated.', data: profile });
+    } catch (error) { next(error); }
+};
+
+/**
+ * @desc    Admin ban or unban a creator
+ * @route   PUT /api/admin/creators/:id/ban  |  PUT /api/admin/creators/:id/unban
+ * @access  Admin
+ */
+const adminToggleBan = async (req, res, next) => {
+    try {
+        const shouldBan = req.path.endsWith('/ban');
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ success: false, message: 'Creator not found.' });
+        if (user.role === 'admin') return res.status(400).json({ success: false, message: 'Cannot ban an admin account.' });
+        user.isBanned = shouldBan;
+        await user.save({ validateBeforeSave: false });
+        res.json({ success: true, message: `Creator ${shouldBan ? 'banned' : 'unbanned'} successfully.`, isBanned: shouldBan });
+    } catch (error) { next(error); }
+};
+
 // One-time repair: backfill creatorEarning=0 gift Payment docs
 // POST /api/v1/admin/repair-gift-earnings
 const repairGiftEarnings = async (req, res, next) => {
@@ -843,6 +889,8 @@ module.exports = {
     getCreators,
     getCreatorDetail,
     adminDirectPayout,
+    adminUpdateCreatorProfile,
+    adminToggleBan,
     // One-time repairs
     repairStats,
     dedupSubscriptions,

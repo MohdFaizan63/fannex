@@ -7,6 +7,7 @@ const {
     getVerifications, approveVerification, rejectVerification,
     listAllPayouts, approvePayout, rejectPayout, markPaid,
     getCreators, getCreatorDetail, adminDirectPayout,
+    adminUpdateCreatorProfile, adminToggleBan,
     repairStats,
     dedupSubscriptions,
     repairGiftEarnings,
@@ -47,6 +48,9 @@ router.patch('/payouts/:id/mark-paid', markPaid);
 router.get('/creators', getCreators);
 router.get('/creators/:id', getCreatorDetail);
 router.post('/creators/:id/payout', adminDirectPayout);
+router.patch('/creators/:id/profile', adminUpdateCreatorProfile);
+router.put('/creators/:id/ban', adminToggleBan);
+router.put('/creators/:id/unban', adminToggleBan);
 
 
 // ── One-time data repair ─────────────────────────────────────────────────────

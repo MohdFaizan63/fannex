@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminService } from '../../services/adminService';
 import { formatCurrency, formatDate, getErrorMessage } from '../../utils/helpers';
-import CreatorDetailDrawer from './CreatorDetailDrawer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const LIMIT = 20;
@@ -154,7 +154,7 @@ function CreatorRow({ creator, onClick }) {
             {/* Status */}
             <td className="px-5 py-4"><StatusBadge isBanned={creator.isBanned} /></td>
 
-            {/* Arrow */}
+        {/* Open arrow — hint that this row is clickable */}
             <td className="px-5 py-4 text-surface-600 group-hover:text-brand-400 transition-colors">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -194,6 +194,7 @@ const FILTER_TABS = [
 ];
 
 export default function AdminCreators() {
+    const navigate = useNavigate();
     const [creators, setCreators] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -203,7 +204,6 @@ export default function AdminCreators() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalResults, setTotalResults] = useState(0);
-    const [selectedCreator, setSelectedCreator] = useState(null); // drawer
 
     const debouncedSearch = useDebounce(search, DEBOUNCE_MS);
 
@@ -229,15 +229,6 @@ export default function AdminCreators() {
     const handleStatusChange = (s) => { setStatus(s); setPage(1); };
     const handleSort = (s) => { setSort(s); setPage(1); };
     const handleSearch = (e) => { setSearch(e.target.value); setPage(1); };
-
-    // Called from drawer when a payout succeeds — refresh the list row in place
-    const handlePayoutSuccess = (updatedCreator) => {
-        setCreators((prev) =>
-            prev.map((c) =>
-                c._id === updatedCreator._id ? { ...c, ...updatedCreator } : c
-            )
-        );
-    };
 
     return (
         <div className="p-4 sm:p-6 max-w-7xl">
@@ -329,7 +320,7 @@ export default function AdminCreators() {
                                         <CreatorRow
                                             key={c._id}
                                             creator={c}
-                                            onClick={setSelectedCreator}
+                                            onClick={(cr) => navigate(`/admin/creators/${cr._id}`)}
                                         />
                                     ))
                             }
@@ -340,15 +331,6 @@ export default function AdminCreators() {
 
             {/* ── Pagination ─────────────────────────────────────────────── */}
             {!loading && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />}
-
-            {/* ── Creator Detail Drawer ───────────────────────────────────── */}
-            {selectedCreator && (
-                <CreatorDetailDrawer
-                    creatorId={selectedCreator._id}
-                    onClose={() => setSelectedCreator(null)}
-                    onPayoutSuccess={handlePayoutSuccess}
-                />
-            )}
         </div>
     );
 }

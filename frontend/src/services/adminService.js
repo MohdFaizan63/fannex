@@ -19,4 +19,7 @@ export const adminService = {
     getCreators: (params) => api.get('/admin/creators', { params }),
     getCreatorDetail: (id) => api.get(`/admin/creators/${id}`),
     directPayout: (id) => api.post(`/admin/creators/${id}/payout`),
+    updateCreatorProfile: (id, data) => api.patch(`/admin/creators/${id}/profile`, data),
+    banCreator: (id) => api.put(`/admin/creators/${id}/ban`),
+    unbanCreator: (id) => api.put(`/admin/creators/${id}/unban`),
 };
