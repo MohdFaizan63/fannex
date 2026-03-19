@@ -558,7 +558,20 @@ const getCreatorDetail = async (req, res, next) => {
     try {
         const creatorId = req.params.id;
 
-        const [creator, profile, verification, earnings, recentPayouts] = await Promise.all([
+        // ── Compute current week window: Sunday 00:00:00 → Saturday 23:59:59 ──
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - dayOfWeek);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const mongoose = require('mongoose');
+        const objectCreatorId = new mongoose.Types.ObjectId(String(creatorId));
+
+        const [creator, profile, verification, earnings, recentPayouts, weeklyAgg] = await Promise.all([
             User.findById(creatorId, '-password').lean(),
             CreatorProfile.findOne({ userId: creatorId }).lean(),
             CreatorVerification.findOne({ userId: creatorId })
@@ -568,6 +581,18 @@ const getCreatorDetail = async (req, res, next) => {
                 .sort({ requestedAt: -1 })
                 .limit(10)
                 .lean(),
+            // Weekly earnings: sum of creatorEarning for captured payments this week
+            Payment.aggregate([
+                {
+                    $match: {
+                        creatorId: objectCreatorId,
+                        status: 'captured',
+                        type: { $in: ['subscription', 'gift', 'chat_unlock'] },
+                        createdAt: { $gte: weekStart, $lte: weekEnd },
+                    },
+                },
+                { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
+            ]),
         ]);
 
         if (!creator) {
@@ -589,6 +614,8 @@ const getCreatorDetail = async (req, res, next) => {
             };
         }
 
+        const weeklyEarnings = Math.round((weeklyAgg[0]?.total ?? 0) * 100) / 100;
+
         res.status(200).json({
             success: true,
             data: {
@@ -599,6 +626,9 @@ const getCreatorDetail = async (req, res, next) => {
                     totalEarned: earnings?.totalEarned ?? 0,
                     pendingAmount: earnings?.pendingAmount ?? 0,
                     withdrawnAmount: earnings?.withdrawnAmount ?? 0,
+                    weeklyEarnings,
+                    weekStart: weekStart.toISOString(),
+                    weekEnd: weekEnd.toISOString(),
                 },
                 recentPayouts,
             },

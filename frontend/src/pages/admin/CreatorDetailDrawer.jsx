@@ -195,11 +195,63 @@ export default function CreatorDetailDrawer({ creatorId, onClose, onPayoutSucces
                                 {[0,1,2].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
                             </div>
                         ) : (
-                            <div className="grid grid-cols-3 gap-3">
-                                <FinancialCard label="Total Earned" value={fin.totalEarned ?? 0} color="text-white" accent />
-                                <FinancialCard label="Pending" value={fin.pendingAmount ?? 0} color={(fin.pendingAmount ?? 0) > 0 ? 'text-amber-400' : 'text-surface-600'} />
-                                <FinancialCard label="Total Paid" value={fin.withdrawnAmount ?? 0} color="text-emerald-400" />
-                            </div>
+                            <>
+                                <div className="grid grid-cols-3 gap-3 mb-3">
+                                    <FinancialCard label="Total Earned" value={fin.totalEarned ?? 0} color="text-white" accent />
+                                    <FinancialCard label="Pending" value={fin.pendingAmount ?? 0} color={(fin.pendingAmount ?? 0) > 0 ? 'text-amber-400' : 'text-surface-600'} />
+                                    <FinancialCard label="Total Paid" value={fin.withdrawnAmount ?? 0} color="text-emerald-400" />
+                                </div>
+
+                                {/* ── This Week Card ──────────────────────────── */}
+                                {(() => {
+                                    const weekStart = fin.weekStart ? new Date(fin.weekStart) : null;
+                                    const weekEnd   = fin.weekEnd   ? new Date(fin.weekEnd)   : null;
+                                    const fmt = (d) => d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
+                                    const weekLabel = weekStart && weekEnd
+                                        ? `${fmt(weekStart)} – ${fmt(weekEnd)}`
+                                        : '';
+                                    return (
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04))',
+                                            border: '1px solid rgba(16,185,129,0.2)',
+                                            borderRadius: 14,
+                                            padding: '14px 16px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: 12,
+                                        }}>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                    <span style={{ fontSize: 13 }}>📅</span>
+                                                    <p style={{ fontSize: 10, fontWeight: 800, color: 'rgba(16,185,129,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+                                                        This Week
+                                                    </p>
+                                                    {weekLabel && (
+                                                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
+                                                            ({weekLabel})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p style={{ fontSize: 20, fontWeight: 900, color: '#34d399', margin: 0 }}>
+                                                    {formatCurrency(fin.weeklyEarnings ?? 0)}
+                                                </p>
+                                                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+                                                    Sun 12:00 AM → Sat 11:59 PM
+                                                </p>
+                                            </div>
+                                            <div style={{
+                                                width: 40, height: 40, borderRadius: 12,
+                                                background: 'rgba(16,185,129,0.15)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: 18, flexShrink: 0,
+                                            }}>
+                                                📈
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </>
                         )}
                     </div>
 

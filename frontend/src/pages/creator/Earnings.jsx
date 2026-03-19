@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import payoutService from '../../services/payoutService';
-import { formatCurrency, formatDate, getErrorMessage } from '../../utils/helpers';
+import { formatCurrency, formatDate, formatDateTime, getErrorMessage } from '../../utils/helpers';
 
 // ── Icons (inline SVG for zero dependency) ───────────────────────────────────
 const Icon = {
@@ -66,7 +66,7 @@ function Skeleton({ className = '' }) {
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
-function StatCard({ icon, label, value, accent, gradient, loading, chip }) {
+function StatCard({ icon, label, value, accent, gradient, loading, chip, subLabel }) {
     return (
         <div className={`
             relative overflow-hidden glass rounded-2xl p-5 border transition-all duration-300
@@ -102,6 +102,9 @@ function StatCard({ icon, label, value, accent, gradient, loading, chip }) {
                         {formatCurrency(value)}
                     </p>
                     <p className="text-xs uppercase tracking-widest text-surface-500 font-medium">{label}</p>
+                    {subLabel && (
+                        <p className="text-[10px] text-emerald-400/70 mt-1 font-medium">{subLabel}</p>
+                    )}
                 </>
             )}
         </div>
@@ -342,10 +345,17 @@ export default function Earnings() {
 
     // Breakdown always comes from dedicated `breakdown` state — never from `history.breakdown`
     // so stat cards show correct values even on the Overview tab
+
+    // Find the most recent paid payout for the Paid Amount card subLabel
+    const lastPaidPayout = payouts.find((p) => p.status === 'paid');
+    const paidSubLabel = lastPaidPayout?.processedAt
+        ? `Paid on: ${formatDateTime(lastPaidPayout.processedAt)}`
+        : null;
+
     const statCards = [
         { icon: Icon.wallet, label: 'Total Earned',      value: earnings?.totalEarned ?? 0,    accent: true, chip: 'lifetime' },
         { icon: Icon.clock,  label: 'Pending Balance',   value: earnings?.pendingAmount ?? 0,   accent: false },
-        { icon: Icon.check,  label: 'Withdrawn',         value: earnings?.withdrawnAmount ?? 0, accent: false },
+        { icon: Icon.check,  label: 'Paid Amount',       value: earnings?.withdrawnAmount ?? 0, accent: false, subLabel: paidSubLabel },
         { icon: Icon.sub,    label: 'Subscription Earn', value: breakdown.subscription ?? 0,    gradient: 'bg-violet-500/15 text-violet-400', accent: false },
         { icon: Icon.gift,   label: 'Gift Earnings',     value: breakdown.gift ?? 0,            gradient: 'bg-rose-500/15 text-rose-400',   accent: false },
         { icon: Icon.chat,   label: 'Chat Earnings',     value: breakdown.chat_unlock ?? 0,     gradient: 'bg-sky-500/15 text-sky-400',     accent: false },

@@ -16,6 +16,16 @@ export const formatDate = (date, options = {}) =>
     }).format(new Date(date));
 
 /**
+ * Format a date string or Date object with both date AND time.
+ * e.g. "20 Mar 2026, 02:45 PM"
+ */
+export const formatDateTime = (date) =>
+    new Intl.DateTimeFormat('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+    }).format(new Date(date));
+
+/**
  * Truncate a string to maxLength, appending ellipsis if needed.
  */
 export const truncate = (str, maxLength = 80) =>
