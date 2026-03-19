@@ -315,7 +315,7 @@ const getMyEarningsService = async (creatorId) => {
 const listPayoutsService = async (creatorId, page = 1, limit = 20) => {
     const skip = (page - 1) * limit;
 
-    const [payouts, total] = await Promise.all([
+    const [results, total] = await Promise.all([
         PayoutRequest.find({ creatorId })
             .sort({ requestedAt: -1 })
             .skip(skip)
@@ -324,7 +324,7 @@ const listPayoutsService = async (creatorId, page = 1, limit = 20) => {
         PayoutRequest.countDocuments({ creatorId }),
     ]);
 
-    return { payouts, total, page, pages: Math.ceil(total / limit) };
+    return { results, total, page, pages: Math.ceil(total / limit) };
 };
 
 /**
