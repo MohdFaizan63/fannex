@@ -23,4 +23,6 @@ export const adminService = {
     updateCreatorFinancials: (id, data) => api.patch(`/admin/creators/${id}/financials`, data),
     banCreator: (id) => api.put(`/admin/creators/${id}/ban`),
     unbanCreator: (id) => api.put(`/admin/creators/${id}/unban`),
+    getCreatorMedia: (id, params) => api.get(`/admin/creators/${id}/media`, { params }),
+    deleteCreatorPost: (creatorId, postId) => api.delete(`/admin/creators/${creatorId}/media/${postId}`),
 };

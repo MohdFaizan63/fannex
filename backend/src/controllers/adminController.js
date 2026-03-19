@@ -571,7 +571,7 @@ const getCreatorDetail = async (req, res, next) => {
         const mongoose = require('mongoose');
         const objectCreatorId = new mongoose.Types.ObjectId(String(creatorId));
 
-        const [creator, profile, verification, earnings, recentPayouts, weeklyAgg] = await Promise.all([
+        const [creator, profile, verification, earnings, recentPayouts, weeklyAgg, overviewAgg] = await Promise.all([
             User.findById(creatorId, '-password').lean(),
             CreatorProfile.findOne({ userId: creatorId }).lean(),
             CreatorVerification.findOne({ userId: creatorId })
@@ -579,9 +579,9 @@ const getCreatorDetail = async (req, res, next) => {
             Earnings.findOne({ creatorId }).lean(),
             PayoutRequest.find({ creatorId })
                 .sort({ requestedAt: -1 })
-                .limit(10)
+                .limit(20)
                 .lean(),
-            // Weekly earnings: sum of creatorEarning for captured payments this week
+            // Weekly earnings
             Payment.aggregate([
                 {
                     $match: {
@@ -592,6 +592,12 @@ const getCreatorDetail = async (req, res, next) => {
                     },
                 },
                 { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
+            ]),
+            // Overview: total payments count, paid payouts count, active subscribers
+            Promise.all([
+                Payment.countDocuments({ creatorId: objectCreatorId, status: 'captured' }),
+                PayoutRequest.countDocuments({ creatorId, status: 'paid' }),
+                Subscription.countDocuments({ creatorId, status: 'active' }),
             ]),
         ]);
 
@@ -615,6 +621,7 @@ const getCreatorDetail = async (req, res, next) => {
         }
 
         const weeklyEarnings = Math.round((weeklyAgg[0]?.total ?? 0) * 100) / 100;
+        const [totalPayments, totalPaidPayouts, activeSubscribers] = overviewAgg;
 
         res.status(200).json({
             success: true,
@@ -630,6 +637,14 @@ const getCreatorDetail = async (req, res, next) => {
                     weekStart: weekStart.toISOString(),
                     weekEnd: weekEnd.toISOString(),
                 },
+                overview: {
+                    totalSubscribers: profile?.totalSubscribers ?? activeSubscribers ?? 0,
+                    totalPosts: profile?.totalPosts ?? 0,
+                    totalPayments,
+                    totalPaidPayouts,
+                    activeSubscribers,
+                    joinedAt: creator.createdAt,
+                },
                 recentPayouts,
             },
         });
@@ -637,6 +652,75 @@ const getCreatorDetail = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * @desc    Get a creator's posts/media for admin view (paginated)
+ * @route   GET /api/admin/creators/:id/media?page=1&limit=20
+ * @access  Admin
+ */
+const getCreatorMedia = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const page  = Math.max(1, parseInt(req.query.page  ?? 1));
+        const limit = Math.min(50, parseInt(req.query.limit ?? 20));
+        const skip  = (page - 1) * limit;
+
+        const [posts, total] = await Promise.all([
+            Post.find({ creatorId: id })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Post.countDocuments({ creatorId: id }),
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                posts,
+                total,
+                page,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) { next(error); }
+};
+
+/**
+ * @desc    Admin deletes a creator's post (also removes from Cloudinary)
+ * @route   DELETE /api/admin/creators/:id/media/:postId
+ * @access  Admin
+ */
+const adminDeleteCreatorPost = async (req, res, next) => {
+    try {
+        const { id, postId } = req.params;
+        const post = await Post.findOne({ _id: postId, creatorId: id });
+        if (!post) return res.status(404).json({ success: false, message: 'Post not found.' });
+
+        // Delete media from Cloudinary
+        if (post.mediaPublicIds?.length) {
+            await Promise.allSettled(
+                post.mediaPublicIds
+                    .filter(Boolean)
+                    .map(pid => cloudinary.uploader.destroy(pid, {
+                        resource_type: post.mediaType === 'video' ? 'video' : 'image',
+                    }))
+            );
+        }
+
+        await Post.findByIdAndDelete(postId);
+
+        // Decrement totalPosts on CreatorProfile
+        await CreatorProfile.findOneAndUpdate(
+            { userId: id },
+            { $inc: { totalPosts: -1 } }
+        );
+
+        res.json({ success: true, message: 'Post deleted successfully.' });
+    } catch (error) { next(error); }
+};
+
+
 
 /**
  * @desc    Admin initiates a direct payout for a creator's full pending balance
@@ -917,6 +1001,8 @@ module.exports = {
     adminUpdateCreatorProfile,
     adminUpdateCreatorFinancials,
     adminToggleBan,
+    getCreatorMedia,
+    adminDeleteCreatorPost,
     // One-time repairs
     repairStats,
     dedupSubscriptions,
