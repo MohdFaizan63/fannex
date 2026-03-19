@@ -7,7 +7,7 @@ const {
     getVerifications, approveVerification, rejectVerification,
     listAllPayouts, approvePayout, rejectPayout, markPaid,
     getCreators, getCreatorDetail, adminDirectPayout,
-    adminUpdateCreatorProfile, adminToggleBan,
+    adminUpdateCreatorProfile, adminUpdateCreatorFinancials, adminToggleBan,
     repairStats,
     dedupSubscriptions,
     repairGiftEarnings,
@@ -49,6 +49,7 @@ router.get('/creators', getCreators);
 router.get('/creators/:id', getCreatorDetail);
 router.post('/creators/:id/payout', adminDirectPayout);
 router.patch('/creators/:id/profile', adminUpdateCreatorProfile);
+router.patch('/creators/:id/financials', adminUpdateCreatorFinancials);
 router.put('/creators/:id/ban', adminToggleBan);
 router.put('/creators/:id/unban', adminToggleBan);
 

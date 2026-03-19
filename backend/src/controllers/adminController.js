@@ -820,6 +820,31 @@ const adminToggleBan = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+/**
+ * @desc    Admin manually adjusts a creator's financial balances
+ * @route   PATCH /api/admin/creators/:id/financials
+ * @access  Admin
+ */
+const adminUpdateCreatorFinancials = async (req, res, next) => {
+    try {
+        const Earnings = require('../models/Earnings');
+        const { totalEarned, pendingAmount, withdrawnAmount } = req.body;
+        const updates = {};
+        if (totalEarned    !== undefined && !isNaN(Number(totalEarned)))    updates.totalEarned    = Math.max(0, Number(totalEarned));
+        if (pendingAmount  !== undefined && !isNaN(Number(pendingAmount)))  updates.pendingAmount  = Math.max(0, Number(pendingAmount));
+        if (withdrawnAmount !== undefined && !isNaN(Number(withdrawnAmount))) updates.withdrawnAmount = Math.max(0, Number(withdrawnAmount));
+        if (Object.keys(updates).length === 0)
+            return res.status(400).json({ success: false, message: 'No financial fields to update.' });
+        const earnings = await Earnings.findOneAndUpdate(
+            { creatorId: req.params.id },
+            { $set: updates },
+            { returnDocument: 'after', upsert: false }
+        );
+        if (!earnings) return res.status(404).json({ success: false, message: 'Earnings record not found.' });
+        res.json({ success: true, message: 'Financials updated.', data: earnings });
+    } catch (error) { next(error); }
+};
+
 // One-time repair: backfill creatorEarning=0 gift Payment docs
 // POST /api/v1/admin/repair-gift-earnings
 const repairGiftEarnings = async (req, res, next) => {
@@ -890,6 +915,7 @@ module.exports = {
     getCreatorDetail,
     adminDirectPayout,
     adminUpdateCreatorProfile,
+    adminUpdateCreatorFinancials,
     adminToggleBan,
     // One-time repairs
     repairStats,
