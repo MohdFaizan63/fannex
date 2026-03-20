@@ -18,6 +18,8 @@ const chatRoutes = require('./routes/chatRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const issueRoutes = require('./routes/issueRoutes');
 const securityRoutes = require('./routes/securityRoutes');
+const pricingRoutes = require('./routes/pricingRoutes');
+const dreamFundRoutes = require('./routes/dreamFundRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const xssSanitize = require('./middleware/xssSanitize');
 const hppProtect = require('./middleware/hppProtect');
@@ -153,6 +155,8 @@ app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/issues', issueRoutes);
 app.use('/api/v1/security', securityRoutes);
+app.use('/api/v1/pricing', pricingRoutes);
+app.use('/api/v1/dream-fund', dreamFundRoutes);
 
 
 // ─── 7. Health Check ─────────────────────────────────────────────────────────

@@ -13,6 +13,13 @@ const {
     dedupSubscriptions,
     repairGiftEarnings,
 } = require('../controllers/adminController');
+const {
+    adminListDreamFunds,
+    adminApproveGoal,
+    adminRejectGoal,
+    adminVerifyProof,
+    adminRejectProof,
+} = require('../controllers/dreamFundController');
 
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -66,6 +73,13 @@ router.post('/repair-stats', repairStats);
 router.post('/dedup-subscriptions', dedupSubscriptions);
 // POST /api/admin/repair-gift-earnings — backfills creatorEarning=0 gift Payment docs
 router.post('/repair-gift-earnings', repairGiftEarnings);
+
+// ── Dream Fund Management ─────────────────────────────────────────────────────
+router.get('/dream-funds', adminListDreamFunds);
+router.patch('/dream-funds/:id/approve', adminApproveGoal);
+router.patch('/dream-funds/:id/reject', adminRejectGoal);
+router.patch('/dream-funds/:id/verify-proof', adminVerifyProof);
+router.patch('/dream-funds/:id/reject-proof', adminRejectProof);
 
 module.exports = router;
 

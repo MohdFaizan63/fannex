@@ -19,6 +19,7 @@ const ADMIN_NAV = [
     { to: '/admin/verifications', icon: '🪪', label: 'Verifications' },
     { to: '/admin/payouts', icon: '💸', label: 'Payouts' },
     { to: '/admin/issues', icon: '🛟', label: 'Issues' },
+    { to: '/admin/dream-funds', icon: '🌟', label: 'Dream Funds' },
 ];
 
 export default function DashboardLayout() {

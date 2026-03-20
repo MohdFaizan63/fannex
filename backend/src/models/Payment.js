@@ -23,12 +23,18 @@ const paymentSchema = new mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ['subscription', 'chat_unlock', 'gift', 'wallet'],
+            enum: ['subscription', 'chat_unlock', 'gift', 'wallet', 'dream_fund'],
             default: 'subscription',
         },
         chatId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'ChatRoom',
+            default: null,
+        },
+        // Dream Fund: reference to the DreamFund goal
+        goalId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'DreamFund',
             default: null,
         },
         giftAmount: { type: Number, default: 0 },

@@ -15,7 +15,12 @@ const notificationSchema = new mongoose.Schema(
         type: {
             type: String,
             required: true,
-            enum: ['new_post', 'comment_reply', 'subscription_expiring', 'new_message'],
+            enum: [
+                'new_post', 'comment_reply', 'subscription_expiring', 'new_message',
+                // Dream Fund lifecycle events
+                'dream_fund_approved', 'dream_fund_rejected',
+                'dream_fund_completed', 'dream_fund_proof_approved', 'dream_fund_proof_rejected',
+            ],
         },
         title: {
             type: String,
@@ -33,7 +38,7 @@ const notificationSchema = new mongoose.Schema(
         },
         referenceModel: {
             type: String,
-            enum: ['Post', 'PostComment', 'ChatRoom', 'Subscription'],
+            enum: ['Post', 'PostComment', 'ChatRoom', 'Subscription', 'DreamFund'],
         },
         isRead: {
             type: Boolean,

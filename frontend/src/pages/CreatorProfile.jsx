@@ -11,6 +11,10 @@ import CommentSection from '../components/CommentSection';
 import SubscribeGateModal from '../components/SubscribeGateModal';
 import AlbumCarousel from '../components/AlbumCarousel';
 import GiftModal from '../components/GiftModal';
+import usePricing from '../hooks/usePricing';
+import PriceDisplay from '../components/PriceDisplay';
+import DreamFundTab from '../components/DreamFundTab';
+import DreamFundManagerModal from '../components/DreamFundManagerModal';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function timeAgo(date) {
@@ -183,6 +187,9 @@ function PostCard({ post, creator, isSubscribed, onSubscribe, onClick, currentUs
 
 // ─── Suggested creator card (Fanvue style) ───────────────────────────────────
 function SuggestedCard({ creator }) {
+    // Fetch geo price for this specific suggested creator
+    const { price: geoPrice, currency: geoCurrency, loading: priceLoading } = usePricing(creator.username);
+
     return (
         <Link
             to={`/creator/${creator.username}`}
@@ -220,7 +227,7 @@ function SuggestedCard({ creator }) {
                     background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.1) 100%)',
                 }} />
 
-                {/* Price badge top-right */}
+                {/* Price badge top-right — geo-localised */}
                 <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2 }}>
                     <span style={{
                         background: 'rgba(0,0,0,0.55)',
@@ -233,7 +240,12 @@ function SuggestedCard({ creator }) {
                         borderRadius: 999,
                         letterSpacing: '-0.01em',
                     }}>
-                        {creator.subscriptionPrice ? `₹${creator.subscriptionPrice}/mo` : 'Free'}
+                        {priceLoading ? (
+                            // Skeleton while loading
+                            <span style={{ opacity: 0.4 }}>···</span>
+                        ) : creator.subscriptionPrice ? (
+                            <PriceDisplay price={geoPrice ?? creator.subscriptionPrice} currency={geoCurrency} suffix="/mo" />
+                        ) : 'Free'}
                     </span>
                 </div>
 
@@ -309,7 +321,7 @@ function SuggestedCard({ creator }) {
 }
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
-const TABS = ['Posts', 'Media', 'Store'];
+const TABS = ['Posts', 'Media', 'Dream Fund'];
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CreatorProfile() {
@@ -337,9 +349,14 @@ export default function CreatorProfile() {
     const [showGate, setShowGate] = useState(false);
     const [showGift, setShowGift] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
+    const [showDreamFundManager, setShowDreamFundManager] = useState(false);
     const [sugIdx, setSugIdx] = useState(0); // suggested creators carousel index
     // Tracks if user just paid — prevents profile re-fetch from overwriting isSubscribed=true
     const subscribedFromPaymentRef = useRef(false);
+
+    // ── Geo-based pricing for the subscribe button ───────────────────────────
+    // usernameParam drives the lookup; resolves after creator profile loads
+    const { price: geoPrice, currency: geoCurrency, loading: geoPriceLoading } = usePricing(usernameParam);
 
     // ── Load creator profile ─────────────────────────────────────────────────
     useEffect(() => {
@@ -754,7 +771,15 @@ export default function CreatorProfile() {
                                                     border: '1px solid rgba(255,255,255,0.1)',
                                                     whiteSpace: 'nowrap', flexShrink: 0,
                                                 }}>
-                                                    ₹{subscriptionPrice}/mo
+                                                    {geoPriceLoading ? (
+                                                        <span style={{ opacity: 0.5 }}>···</span>
+                                                    ) : (
+                                                        <PriceDisplay
+                                                            price={geoPrice ?? subscriptionPrice}
+                                                            currency={geoCurrency}
+                                                            suffix="/mo"
+                                                        />
+                                                    )}
                                                 </span>
                                             )}
                                         </button>
@@ -842,11 +867,12 @@ export default function CreatorProfile() {
 
                             {/* ── Post feed / Media grid ───────────────────────── */}
                             <div className="px-4 sm:px-6 mt-4">
-                                {activeTab === 'Store' ? (
-                                    <div className="text-center py-16 text-surface-500">
-                                        <div className="text-4xl mb-3">🛍️</div>
-                                        <p>Store coming soon.</p>
-                                    </div>
+                                {activeTab === 'Dream Fund' ? (
+                                    <DreamFundTab
+                                        creatorId={creator?.userId || creator?._id}
+                                        isOwnProfile={isOwnProfile && !isPreview}
+                                        onOpenManager={() => setShowDreamFundManager(true)}
+                                    />
                                 ) : activeTab === 'Media' ? (
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                         {filteredPosts.length === 0 && !loadingPosts && (
@@ -1088,6 +1114,13 @@ export default function CreatorProfile() {
                     creatorName={creator?.displayName}
                     onClose={() => setShowGift(false)}
                     onSuccess={() => setShowGift(false)}
+                />
+            )}
+
+            {/* ── Dream Fund Manager Modal ──────────────────────────────────────── */}
+            {showDreamFundManager && (
+                <DreamFundManagerModal
+                    onClose={() => setShowDreamFundManager(false)}
                 />
             )}
         </>

@@ -158,6 +158,7 @@ const AdminIssues = lazyRetry(() => import('../pages/admin/AdminIssues'));
 const AdminCreators = lazyRetry(() => import('../pages/admin/AdminCreators'));
 const AdminCreatorManage = lazyRetry(() => import('../pages/admin/AdminCreatorManage'));
 const AdminGate = lazy(() => import('../pages/admin/AdminGate'));
+const AdminDreamFunds = lazyRetry(() => import('../pages/admin/AdminDreamFunds'));
 
 // ── Route tree ────────────────────────────────────────────────────────────────
 const router = createBrowserRouter([
@@ -230,6 +231,7 @@ const router = createBrowserRouter([
                         { path: '/admin/payouts',       element: wrap(AdminPayouts) },
                         { path: '/admin/verifications', element: wrap(AdminVerifications) },
                         { path: '/admin/issues',        element: wrap(AdminIssues) },
+                        { path: '/admin/dream-funds',   element: wrap(AdminDreamFunds) },
                     ],
                 }],
             },
