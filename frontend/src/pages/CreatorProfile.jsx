@@ -1004,27 +1004,26 @@ export default function CreatorProfile() {
                                             </div>
                                         </div>
 
-                                        {/* Page dots — Instagram style: small uniform circles, active is slightly bigger + white */}
+                                        {/* Page dots — Instagram style */}
                                         {suggested.length > 2 && (
-                                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 14 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 14, height: 10 }}>
                                                 {Array.from({ length: Math.ceil(suggested.length / 2) }).map((_, i) => {
                                                     const active = Math.floor(sugIdx / 2) === i;
                                                     return (
-                                                        <button
+                                                        <span
                                                             key={i}
                                                             onClick={() => setSugIdx(i * 2)}
+                                                            role="button"
                                                             style={{
+                                                                display: 'inline-block',
                                                                 width: active ? 8 : 6,
                                                                 height: active ? 8 : 6,
                                                                 borderRadius: '50%',
-                                                                border: 'none',
-                                                                padding: 0,
+                                                                background: active ? '#3897f0' : 'rgba(255,255,255,0.35)',
                                                                 cursor: 'pointer',
-                                                                background: active ? '#fff' : 'rgba(255,255,255,0.3)',
                                                                 transition: 'all 0.2s ease',
                                                                 flexShrink: 0,
                                                             }}
-                                                            aria-label={`Page ${i + 1}`}
                                                         />
                                                     );
                                                 })}
