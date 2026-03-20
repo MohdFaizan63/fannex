@@ -115,7 +115,6 @@ export default function SubscriptionPriceStep({ register, errors, watch, setValu
                             {...register('subscriptionPrice', {
                                 required: 'Price is required',
                                 min: { value: 1, message: 'Minimum price is ₹1' },
-                                max: { value: 9999, message: 'Maximum price is ₹9,999' },
                                 valueAsNumber: true,
                             })}
                         />

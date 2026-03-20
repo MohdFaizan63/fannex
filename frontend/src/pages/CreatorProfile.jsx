@@ -299,6 +299,7 @@ export default function CreatorProfile() {
     const [showGate, setShowGate] = useState(false);
     const [showGift, setShowGift] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
+    const [sugIdx, setSugIdx] = useState(0); // suggested creators carousel index
     // Tracks if user just paid — prevents profile re-fetch from overwriting isSubscribed=true
     const subscribedFromPaymentRef = useRef(false);
 
@@ -331,8 +332,13 @@ export default function CreatorProfile() {
     // ── Load suggested creators ──────────────────────────────────────────
     useEffect(() => {
         if (!creator?.username) return;
-        api.get('/creator/suggested')
-            .then(({ data }) => setSuggested(data.data ?? []))
+        api.get('/creator/suggested', { params: { exclude: creator.username } })
+            .then(({ data }) => {
+                // Also filter out the current creator on the client side as a safety net
+                const filtered = (data.data ?? []).filter(c => c.username !== creator.username);
+                setSuggested(filtered);
+                setSugIdx(0);
+            })
             .catch(() => { });
     }, [creator?.username]);
 
@@ -584,12 +590,12 @@ export default function CreatorProfile() {
 
                                     {/* Stats row — icon + number only */}
                                     <div className="flex items-center gap-4 mt-2.5" style={{ fontSize: 13 }}>
-                                        {/* Photo posts */}
+                                        {/* Photo posts — use backend totalPosts */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                                             </svg>
-                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType !== 'video' && p.mediaType !== 'album').length}</strong>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{(creator.totalPosts ?? posts.filter(p => p.mediaType !== 'video' && p.mediaType !== 'album').length).toLocaleString('en-IN')}</strong>
                                         </span>
                                         {/* Videos */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
@@ -598,7 +604,7 @@ export default function CreatorProfile() {
                                             </svg>
                                             <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType === 'video').length}</strong>
                                         </span>
-                                        {/* Subscribers — person icon */}
+                                        {/* Subscribers — uses totalSubscribers from backend */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
@@ -907,15 +913,37 @@ export default function CreatorProfile() {
                             </div>
                         </div>
 
-                        {/* ── RIGHT: Suggested creators sidebar ─────────────────── */}
+                        {/* ── RIGHT: Suggested creators sidebar (2 visible + swipe) ──── */}
                         <div className="w-full lg:w-72 xl:w-80 shrink-0 px-4 lg:px-0 pt-4 lg:pt-[4.5rem]">
                             <div className="glass rounded-2xl border border-white/5 p-4 sticky top-20">
-                                <h3 className="text-sm font-bold text-white mb-3">Suggested Creators</h3>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-bold text-white">Suggested Creators</h3>
+                                    {suggested.length > 2 && (
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => setSugIdx(i => Math.max(0, i - 2))}
+                                                disabled={sugIdx <= 0}
+                                                className="w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                                                style={{ background: 'rgba(255,255,255,0.06)' }}
+                                            >
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => setSugIdx(i => Math.min(suggested.length - 2, i + 2))}
+                                                disabled={sugIdx >= suggested.length - 2}
+                                                className="w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                                                style={{ background: 'rgba(255,255,255,0.06)' }}
+                                            >
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                                 {suggested.length === 0 ? (
                                     <p className="text-surface-600 text-xs">No suggestions yet.</p>
                                 ) : (
-                                    <div className="flex flex-col gap-2">
-                                        {suggested.map((c) => <SuggestedCard key={c._id} creator={c} />)}
+                                    <div className="flex flex-col gap-2 overflow-hidden">
+                                        {suggested.slice(sugIdx, sugIdx + 2).map((c) => <SuggestedCard key={c._id} creator={c} />)}
                                     </div>
                                 )}
                                 <Link to="/explore" className="block text-center text-xs text-brand-400 hover:text-brand-300 mt-4 transition-colors">

@@ -35,6 +35,8 @@ const maskVerificationData = (verification) => {
         approvedAt: verification.approvedAt,
         approvedBy: verification.approvedBy,
         ifscCode: verification.ifscCode,
+        accountHolderName: verification.accountHolderName || '',
+        bankName: verification.bankName || '',
 
         // Masked sensitive fields
         aadhaarNumber: maskAadhaar(verification.aadhaarNumber),

@@ -111,7 +111,6 @@ function VerificationCard({ v, onApprove, onReject, actionLoading }) {
     const isBusy = actionLoading === v._id;
 
     const creator = v.userId ?? {};
-    const docs = v.documents ?? v; // handle both schemas
 
     return (
         <>
@@ -139,14 +138,24 @@ function VerificationCard({ v, onApprove, onReject, actionLoading }) {
                             className="text-xs px-3 py-1.5 rounded-lg glass border border-white/10 text-surface-300 hover:text-white hover:border-brand-500/40 transition-all">
                             {expanded ? 'Hide docs' : 'View docs'}
                         </button>
-                        <button onClick={() => onApprove(v._id)} disabled={isBusy}
-                            className="btn-brand text-xs px-4 py-1.5 disabled:opacity-50">
-                            {isBusy ? '…' : 'Approve'}
-                        </button>
-                        <button onClick={() => setRejectModal(true)} disabled={isBusy}
-                            className="text-xs px-4 py-1.5 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50">
-                            Reject
-                        </button>
+                        {v.status === 'pending' && (
+                            <>
+                                <button onClick={() => onApprove(v._id)} disabled={isBusy}
+                                    className="btn-brand text-xs px-4 py-1.5 disabled:opacity-50">
+                                    {isBusy ? '…' : 'Approve'}
+                                </button>
+                                <button onClick={() => setRejectModal(true)} disabled={isBusy}
+                                    className="text-xs px-4 py-1.5 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50">
+                                    Reject
+                                </button>
+                            </>
+                        )}
+                        {v.status === 'approved' && (
+                            <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-semibold">✓ Approved</span>
+                        )}
+                        {v.status === 'rejected' && (
+                            <span className="text-xs px-3 py-1.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/25 font-semibold">✗ Rejected</span>
+                        )}
                     </div>
                 </div>
 
@@ -157,27 +166,30 @@ function VerificationCard({ v, onApprove, onReject, actionLoading }) {
                         <div>
                             <p className="text-xs uppercase tracking-widest text-surface-600 font-semibold mb-3">KYC Details</p>
                             {[
-                                { label: 'Full Name', value: v.fullName },
-                                { label: 'Date of Birth', value: v.dateOfBirth ? new Date(v.dateOfBirth).toLocaleDateString('en-IN') : undefined },
+                                { label: 'Full Name', value: v.accountHolderName || creator.name },
                                 { label: 'Aadhaar Number', value: v.aadhaarNumber },
-                                { label: 'PAN', value: v.pan },
-                                { label: 'Bank Account', value: v.bankAccount },
-                                { label: 'IFSC Code', value: v.ifsc },
-                                { label: 'Address', value: v.address ? `${v.address.street}, ${v.address.city}, ${v.address.state} ${v.address.postalCode}` : undefined },
+                                { label: 'PAN Number', value: v.panNumber },
+                                { label: 'Bank Account', value: v.bankAccountNumber },
+                                { label: 'IFSC Code', value: v.ifscCode },
                             ].map(({ label, value }) => (
                                 <div key={label} className="flex gap-3 mb-1.5">
                                     <span className="text-xs text-surface-500 w-28 flex-shrink-0">{label}</span>
                                     <span className="text-xs text-surface-200">{value ?? '—'}</span>
                                 </div>
                             ))}
+                            {v.rejectionReason && (
+                                <div className="mt-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                                    <strong>Rejection reason:</strong> {v.rejectionReason}
+                                </div>
+                            )}
                         </div>
 
                         {/* Documents */}
                         <div>
                             <p className="text-xs uppercase tracking-widest text-surface-600 font-semibold mb-3">Documents</p>
-                            <DocRow label="Aadhaar Card" url={docs.aadhaarImage ?? docs.govIdFront} />
-                            <DocRow label="PAN Card" url={docs.panImage ?? docs.govIdBack} />
-                            <DocRow label="Bank Proof" url={docs.bankProof ?? docs.selfie} />
+                            <DocRow label="Aadhaar Card" url={v.aadhaarImageUrl} />
+                            <DocRow label="PAN Card" url={v.panImageUrl} />
+                            <DocRow label="Bank Proof" url={v.bankProofImageUrl} />
                         </div>
                     </div>
                 )}

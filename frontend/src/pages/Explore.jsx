@@ -232,7 +232,8 @@ export default function Explore() {
                 </form>
             </div>
 
-            {/* ── Category filter pills ──────────────────────────────────────────── */}
+            {/* Category filters hidden for now */}
+            {/*
             <div className="flex flex-wrap gap-2 mb-8">
                 {CATEGORIES.map((cat) => (
                     <button key={cat} onClick={() => handleCategory(cat)}
@@ -244,6 +245,7 @@ export default function Explore() {
                     </button>
                 ))}
             </div>
+            */}
 
             {/* ── Error ──────────────────────────────────────────────────────────── */}
             {error && (
