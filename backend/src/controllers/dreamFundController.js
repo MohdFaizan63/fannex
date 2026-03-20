@@ -82,8 +82,8 @@ const createGoal = async (req, res, next) => {
         }
 
         const amount = Number(targetAmount);
-        if (isNaN(amount) || amount < 100) {
-            return res.status(400).json({ success: false, message: 'targetAmount must be at least ₹100' });
+        if (isNaN(amount) || amount < 1) {
+            return res.status(400).json({ success: false, message: 'targetAmount must be at least ₹1' });
         }
 
         // Enforce max 3 active goals (pending + approved + completed)
