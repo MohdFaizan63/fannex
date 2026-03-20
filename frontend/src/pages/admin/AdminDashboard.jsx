@@ -20,11 +20,12 @@ function StatCard({ icon, label, value, to, accent }) {
 
 // ── Quick action row ──────────────────────────────────────────────────────────
 const QUICK_LINKS = [
-    { to: '/admin/users',        label: '👥 Manage Users',  desc: 'Ban, unban, delete accounts' },
-    { to: '/admin/creators',     label: '👩\u200d🎨 Creators Payout', desc: 'View earnings & pay creators' },
-    { to: '/admin/verifications',label: '🪪 Verifications', desc: 'Review pending KYC requests' },
-    { to: '/admin/payouts',      label: '💸 Payouts',       desc: 'Approve & process payouts' },
-    { to: '/admin/issues',       label: '🛟 Issue Reports',  desc: 'Review user-submitted reports' },
+    { to: '/admin/users',        label: '👥 Manage Users',    desc: 'Ban, unban, delete accounts' },
+    { to: '/admin/creators',     label: '👩‍🎨 Creators Payout', desc: 'View earnings & pay creators' },
+    { to: '/admin/verifications',label: '🪪 Verifications',   desc: 'Review pending KYC requests' },
+    { to: '/admin/payouts',      label: '💸 Payouts',          desc: 'Approve & process payouts' },
+    { to: '/admin/issues',       label: '🛟 Issue Reports',    desc: 'Review user-submitted reports' },
+    { to: '/admin/dream-funds',  label: '🌟 Dream Funds',      desc: 'Approve goals & verify proofs' },
 ];
 
 // ── Main AdminDashboard ───────────────────────────────────────────────────────
