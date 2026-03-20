@@ -23,7 +23,7 @@ const dreamFundSchema = new mongoose.Schema(
         targetAmount: {
             type: Number,
             required: true,
-            min: 100,
+            min: 1,
             max: 5000000,
         },
         currentAmount: {
