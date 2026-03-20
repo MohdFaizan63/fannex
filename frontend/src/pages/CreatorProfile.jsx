@@ -181,88 +181,126 @@ function PostCard({ post, creator, isSubscribed, onSubscribe, onClick, currentUs
     );
 }
 
-// ─── Suggested creator card (Fanvue-style full-bleed cover) ──────────────────
+// ─── Suggested creator card (Fanvue style) ───────────────────────────────────
 function SuggestedCard({ creator }) {
     return (
-        <Link to={`/creator/${creator.username}`} className="block" style={{ textDecoration: 'none' }}>
+        <Link
+            to={`/creator/${creator.username}`}
+            style={{ textDecoration: 'none', display: 'block' }}
+        >
             <div style={{
                 position: 'relative',
-                height: 140,
-                borderRadius: 14,
+                height: 130,
+                borderRadius: 16,
                 overflow: 'hidden',
-                background: 'linear-gradient(135deg,#2d0050,#0d0020)',
+                background: 'linear-gradient(135deg,#1a0035,#0d0020)',
                 cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
             }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,0,0,0.45)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.35)'; }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
             >
-                {/* Cover photo */}
+                {/* Cover image — full bleed */}
                 {creator.coverImage ? (
-                    <img src={creator.coverImage} alt="" loading="lazy"
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img
+                        src={creator.coverImage}
+                        alt=""
+                        loading="lazy"
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
                 ) : (
-                    <div style={{ position: 'absolute', inset: 0, opacity: 0.3, background: 'radial-gradient(circle at 30% 50%, #cc52b8, transparent 60%)' }} />
+                    <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'linear-gradient(135deg,#3a0060 0%,#1a0035 50%,#0d001a 100%)',
+                    }} />
                 )}
 
-                {/* Dark gradient overlay */}
+                {/* Dark scrim for legibility */}
                 <div style={{
                     position: 'absolute', inset: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.05) 100%)',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.1) 100%)',
                 }} />
 
-                {/* Top-right: price pill */}
-                <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                {/* Price badge top-right */}
+                <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2 }}>
                     <span style={{
-                        background: 'rgba(255,255,255,0.15)',
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(255,255,255,0.25)',
+                        background: 'rgba(0,0,0,0.55)',
+                        backdropFilter: 'blur(10px)',
+                        WebkitBackdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.18)',
                         color: '#fff',
-                        fontSize: 11, fontWeight: 700,
-                        padding: '4px 10px', borderRadius: 999,
+                        fontSize: 12, fontWeight: 700,
+                        padding: '4px 11px',
+                        borderRadius: 999,
+                        letterSpacing: '-0.01em',
                     }}>
                         {creator.subscriptionPrice ? `₹${creator.subscriptionPrice}/mo` : 'Free'}
                     </span>
                 </div>
 
-                {/* Bottom: avatar + name overlaid */}
+                {/* Bottom-left: avatar + name/handle */}
                 <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0,
-                    padding: '10px 12px',
-                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 12px',
+                    display: 'flex', alignItems: 'center', gap: 10, zIndex: 2,
                 }}>
                     {/* Avatar */}
                     {creator.profileImage ? (
-                        <img src={creator.profileImage} alt={creator.displayName} loading="lazy"
+                        <img
+                            src={creator.profileImage}
+                            alt={creator.displayName}
+                            loading="lazy"
                             style={{
-                                width: 42, height: 42, borderRadius: '50%',
+                                width: 44, height: 44, borderRadius: '50%',
                                 objectFit: 'cover', flexShrink: 0,
-                                border: '2.5px solid rgba(255,255,255,0.85)',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                            }} />
+                                border: '2.5px solid rgba(255,255,255,0.9)',
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.6)',
+                            }}
+                        />
                     ) : (
                         <div style={{
-                            width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                            width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                             background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontWeight: 700, fontSize: 14,
-                            border: '2.5px solid rgba(255,255,255,0.85)',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                            color: '#fff', fontWeight: 800, fontSize: 16,
+                            border: '2.5px solid rgba(255,255,255,0.9)',
+                            boxShadow: '0 2px 12px rgba(0,0,0,0.6)',
                         }}>
                             {creator.displayName?.charAt(0)?.toUpperCase() ?? '?'}
                         </div>
                     )}
 
                     {/* Name + handle */}
-                    <div style={{ minWidth: 0 }}>
-                        <p style={{ color: '#fff', fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{
+                            color: '#fff', fontWeight: 800, fontSize: 14, margin: 0,
+                            lineHeight: 1.25,
+                            textShadow: '0 1px 6px rgba(0,0,0,0.7)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
                             {creator.displayName}
                         </p>
-                        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, margin: 0, lineHeight: 1.4 }}>
+                        <p style={{
+                            color: 'rgba(255,255,255,0.58)', fontSize: 11, margin: 0, lineHeight: 1.4,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
                             @{creator.username}
                         </p>
+                    </div>
+
+                    {/* Subscribe CTA */}
+                    <div style={{
+                        flexShrink: 0,
+                        background: 'rgba(255,255,255,0.18)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        color: '#fff',
+                        fontSize: 11, fontWeight: 700,
+                        padding: '5px 12px',
+                        borderRadius: 999,
+                        whiteSpace: 'nowrap',
+                    }}>
+                        Subscribe
                     </div>
                 </div>
             </div>
@@ -590,14 +628,14 @@ export default function CreatorProfile() {
 
                                     {/* Stats row — icon + number only */}
                                     <div className="flex items-center gap-4 mt-2.5" style={{ fontSize: 13 }}>
-                                        {/* Photo posts — only count photo/image type posts */}
+                                        {/* Photo posts — image + album (all non-video) */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                                             </svg>
-                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType === 'image' || (!p.mediaType && p.mediaUrl) || p.mediaType === 'photo').length}</strong>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType !== 'video').length}</strong>
                                         </span>
-                                        {/* Videos — only count video type posts */}
+                                        {/* Videos only */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" />
@@ -913,90 +951,132 @@ export default function CreatorProfile() {
                             </div>
                         </div>
 
-                        {/* ── RIGHT: Suggested creators sidebar (swipeable + dots) ──── */}
+                        {/* ── RIGHT: Suggested creators sidebar (Fanvue style, 2 per page) ──── */}
                         <div className="w-full lg:w-72 xl:w-80 shrink-0 px-4 lg:px-0 pt-4 lg:pt-[4.5rem]">
-                            <div className="glass rounded-2xl border border-white/5 p-4 sticky top-20">
-                                <h3 className="text-sm font-bold text-white mb-3">Suggested Creators</h3>
+                            <div
+                                style={{
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    borderRadius: 20,
+                                    padding: 16,
+                                    position: 'sticky',
+                                    top: 80,
+                                }}
+                            >
+                                {/* Header row with nav arrows */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                                    <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: 0, letterSpacing: '-0.02em' }}>
+                                        Suggested Creators
+                                    </h3>
+                                    {suggested.length > 2 && (
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <button
+                                                onClick={() => setSugIdx(i => Math.max(0, i - 2))}
+                                                disabled={sugIdx <= 0}
+                                                style={{
+                                                    width: 30, height: 30, borderRadius: 8,
+                                                    border: '1px solid rgba(255,255,255,0.12)',
+                                                    background: 'rgba(255,255,255,0.06)',
+                                                    color: sugIdx <= 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    cursor: sugIdx <= 0 ? 'not-allowed' : 'pointer',
+                                                    transition: 'all 0.2s',
+                                                }}
+                                                aria-label="Previous"
+                                            >
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => setSugIdx(i => Math.min(suggested.length % 2 === 0 ? suggested.length - 2 : suggested.length - 1, i + 2))}
+                                                disabled={sugIdx + 2 >= suggested.length}
+                                                style={{
+                                                    width: 30, height: 30, borderRadius: 8,
+                                                    border: '1px solid rgba(255,255,255,0.12)',
+                                                    background: 'rgba(255,255,255,0.06)',
+                                                    color: sugIdx + 2 >= suggested.length ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    cursor: sugIdx + 2 >= suggested.length ? 'not-allowed' : 'pointer',
+                                                    transition: 'all 0.2s',
+                                                }}
+                                                aria-label="Next"
+                                            >
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Cards: 2 per page, touch swipeable */}
                                 {suggested.length === 0 ? (
-                                    <p className="text-surface-600 text-xs">No suggestions yet.</p>
+                                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>No suggestions yet.</p>
                                 ) : (
                                     <>
                                         <div
-                                            style={{
-                                                overflow: 'hidden',
-                                                position: 'relative',
-                                                touchAction: 'pan-y',
-                                            }}
+                                            style={{ overflow: 'hidden', touchAction: 'pan-y' }}
                                             onTouchStart={(e) => {
-                                                const touch = e.touches[0];
-                                                e.currentTarget._touchStartX = touch.clientX;
-                                                e.currentTarget._touchStartY = touch.clientY;
+                                                e.currentTarget._tx = e.touches[0].clientX;
+                                                e.currentTarget._ty = e.touches[0].clientY;
                                             }}
                                             onTouchEnd={(e) => {
-                                                const startX = e.currentTarget._touchStartX;
-                                                const startY = e.currentTarget._touchStartY;
-                                                if (startX == null) return;
-                                                const endX = e.changedTouches[0].clientX;
-                                                const endY = e.changedTouches[0].clientY;
-                                                const dx = endX - startX;
-                                                const dy = endY - startY;
-                                                // Only trigger swipe if horizontal movement > vertical and > 40px
+                                                const dx = e.changedTouches[0].clientX - (e.currentTarget._tx ?? 0);
+                                                const dy = e.changedTouches[0].clientY - (e.currentTarget._ty ?? 0);
                                                 if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
-                                                    if (dx < 0 && sugIdx < suggested.length - 1) {
-                                                        setSugIdx(i => i + 1);
-                                                    } else if (dx > 0 && sugIdx > 0) {
-                                                        setSugIdx(i => i - 1);
-                                                    }
+                                                    if (dx < 0 && sugIdx + 2 < suggested.length) setSugIdx(i => i + 2);
+                                                    else if (dx > 0 && sugIdx > 0) setSugIdx(i => Math.max(0, i - 2));
                                                 }
                                             }}
                                         >
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                    transform: `translateX(-${sugIdx * 100}%)`,
-                                                }}
-                                            >
-                                                {suggested.map((c) => (
-                                                    <div key={c._id} style={{ flex: '0 0 100%', minWidth: 0 }}>
-                                                        <SuggestedCard creator={c} />
-                                                    </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                {suggested.slice(sugIdx, sugIdx + 2).map((c) => (
+                                                    <SuggestedCard key={c._id} creator={c} />
                                                 ))}
                                             </div>
                                         </div>
 
-                                        {/* Instagram-style dots */}
-                                        {suggested.length > 1 && (
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'center',
-                                                gap: 6,
-                                                marginTop: 12,
-                                            }}>
-                                                {suggested.map((_, i) => (
-                                                    <button
-                                                        key={i}
-                                                        onClick={() => setSugIdx(i)}
-                                                        style={{
-                                                            width: sugIdx === i ? 18 : 6,
-                                                            height: 6,
-                                                            borderRadius: 3,
-                                                            border: 'none',
-                                                            cursor: 'pointer',
-                                                            background: sugIdx === i
-                                                                ? 'linear-gradient(135deg, #a855f7, #ec4899)'
-                                                                : 'rgba(255,255,255,0.2)',
-                                                            transition: 'all 0.3s ease',
-                                                            padding: 0,
-                                                        }}
-                                                        aria-label={`Show creator ${i + 1}`}
-                                                    />
-                                                ))}
+                                        {/* Page dots — only if more than one page */}
+                                        {suggested.length > 2 && (
+                                            <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginTop: 14 }}>
+                                                {Array.from({ length: Math.ceil(suggested.length / 2) }).map((_, i) => {
+                                                    const active = Math.floor(sugIdx / 2) === i;
+                                                    return (
+                                                        <button
+                                                            key={i}
+                                                            onClick={() => setSugIdx(i * 2)}
+                                                            style={{
+                                                                width: active ? 16 : 6,
+                                                                height: 6,
+                                                                borderRadius: 3,
+                                                                border: 'none',
+                                                                padding: 0,
+                                                                cursor: 'pointer',
+                                                                background: active
+                                                                    ? 'linear-gradient(90deg,#a855f7,#ec4899)'
+                                                                    : 'rgba(255,255,255,0.18)',
+                                                                transition: 'all 0.25s ease',
+                                                            }}
+                                                            aria-label={`Page ${i + 1}`}
+                                                        />
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </>
                                 )}
-                                <Link to="/explore" className="block text-center text-xs text-brand-400 hover:text-brand-300 mt-4 transition-colors">
+
+                                <Link
+                                    to="/explore"
+                                    style={{
+                                        display: 'block', textAlign: 'center',
+                                        fontSize: 12, fontWeight: 600,
+                                        color: '#a855f7',
+                                        marginTop: 14,
+                                        textDecoration: 'none',
+                                        opacity: 0.8,
+                                        transition: 'opacity 0.2s',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.opacity = '0.8'; }}
+                                >
                                     Browse all creators →
                                 </Link>
                             </div>
