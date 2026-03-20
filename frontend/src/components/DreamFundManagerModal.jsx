@@ -42,8 +42,8 @@ export default function DreamFundManagerModal({ onClose }) {
             setError('Title and target amount are required');
             return;
         }
-        if (Number(targetAmount) < 100) {
-            setError('Minimum target amount is ₹100');
+        if (Number(targetAmount) < 1) {
+            setError('Minimum target amount is ₹1');
             return;
         }
         if (goals.filter(g => ['pending','approved','completed','awaiting_verification'].includes(g.status)).length >= 3) {
@@ -239,7 +239,7 @@ export default function DreamFundManagerModal({ onClose }) {
                         <label style={labelStyle}>Target Amount (₹) *</label>
                         <input
                             type="number" value={targetAmount} onChange={e => setTargetAmount(e.target.value)}
-                            placeholder="e.g. 50000" min={100} max={5000000} style={inputStyle}
+                            placeholder="e.g. 50000" min={1} max={5000000} style={inputStyle}
                             onFocus={e => { e.target.style.borderColor = 'rgba(168,85,247,0.6)'; }}
                             onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; }}
                         />
