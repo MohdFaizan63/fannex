@@ -590,14 +590,14 @@ export default function CreatorProfile() {
 
                                     {/* Stats row — icon + number only */}
                                     <div className="flex items-center gap-4 mt-2.5" style={{ fontSize: 13 }}>
-                                        {/* Photo posts — use backend totalPosts */}
+                                        {/* Photo posts — only count photo/image type posts */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                                             </svg>
-                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{(creator.totalPosts ?? posts.filter(p => p.mediaType !== 'video' && p.mediaType !== 'album').length).toLocaleString('en-IN')}</strong>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType === 'image' || (!p.mediaType && p.mediaUrl) || p.mediaType === 'photo').length}</strong>
                                         </span>
-                                        {/* Videos */}
+                                        {/* Videos — only count video type posts */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" />
@@ -913,38 +913,88 @@ export default function CreatorProfile() {
                             </div>
                         </div>
 
-                        {/* ── RIGHT: Suggested creators sidebar (2 visible + swipe) ──── */}
+                        {/* ── RIGHT: Suggested creators sidebar (swipeable + dots) ──── */}
                         <div className="w-full lg:w-72 xl:w-80 shrink-0 px-4 lg:px-0 pt-4 lg:pt-[4.5rem]">
                             <div className="glass rounded-2xl border border-white/5 p-4 sticky top-20">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-sm font-bold text-white">Suggested Creators</h3>
-                                    {suggested.length > 2 && (
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                onClick={() => setSugIdx(i => Math.max(0, i - 2))}
-                                                disabled={sugIdx <= 0}
-                                                className="w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
-                                                style={{ background: 'rgba(255,255,255,0.06)' }}
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                                            </button>
-                                            <button
-                                                onClick={() => setSugIdx(i => Math.min(suggested.length - 2, i + 2))}
-                                                disabled={sugIdx >= suggested.length - 2}
-                                                className="w-7 h-7 rounded-lg flex items-center justify-center text-surface-400 hover:text-white transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
-                                                style={{ background: 'rgba(255,255,255,0.06)' }}
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                <h3 className="text-sm font-bold text-white mb-3">Suggested Creators</h3>
                                 {suggested.length === 0 ? (
                                     <p className="text-surface-600 text-xs">No suggestions yet.</p>
                                 ) : (
-                                    <div className="flex flex-col gap-2 overflow-hidden">
-                                        {suggested.slice(sugIdx, sugIdx + 2).map((c) => <SuggestedCard key={c._id} creator={c} />)}
-                                    </div>
+                                    <>
+                                        <div
+                                            style={{
+                                                overflow: 'hidden',
+                                                position: 'relative',
+                                                touchAction: 'pan-y',
+                                            }}
+                                            onTouchStart={(e) => {
+                                                const touch = e.touches[0];
+                                                e.currentTarget._touchStartX = touch.clientX;
+                                                e.currentTarget._touchStartY = touch.clientY;
+                                            }}
+                                            onTouchEnd={(e) => {
+                                                const startX = e.currentTarget._touchStartX;
+                                                const startY = e.currentTarget._touchStartY;
+                                                if (startX == null) return;
+                                                const endX = e.changedTouches[0].clientX;
+                                                const endY = e.changedTouches[0].clientY;
+                                                const dx = endX - startX;
+                                                const dy = endY - startY;
+                                                // Only trigger swipe if horizontal movement > vertical and > 40px
+                                                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+                                                    if (dx < 0 && sugIdx < suggested.length - 1) {
+                                                        setSugIdx(i => i + 1);
+                                                    } else if (dx > 0 && sugIdx > 0) {
+                                                        setSugIdx(i => i - 1);
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    display: 'flex',
+                                                    transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    transform: `translateX(-${sugIdx * 100}%)`,
+                                                }}
+                                            >
+                                                {suggested.map((c) => (
+                                                    <div key={c._id} style={{ flex: '0 0 100%', minWidth: 0 }}>
+                                                        <SuggestedCard creator={c} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Instagram-style dots */}
+                                        {suggested.length > 1 && (
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                gap: 6,
+                                                marginTop: 12,
+                                            }}>
+                                                {suggested.map((_, i) => (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => setSugIdx(i)}
+                                                        style={{
+                                                            width: sugIdx === i ? 18 : 6,
+                                                            height: 6,
+                                                            borderRadius: 3,
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            background: sugIdx === i
+                                                                ? 'linear-gradient(135deg, #a855f7, #ec4899)'
+                                                                : 'rgba(255,255,255,0.2)',
+                                                            transition: 'all 0.3s ease',
+                                                            padding: 0,
+                                                        }}
+                                                        aria-label={`Show creator ${i + 1}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                                 <Link to="/explore" className="block text-center text-xs text-brand-400 hover:text-brand-300 mt-4 transition-colors">
                                     Browse all creators →

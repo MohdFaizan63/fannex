@@ -447,9 +447,7 @@ export default function Dashboard() {
                         <div className="flex-1 min-w-0">
                             <p className="text-white font-bold text-sm">Chat Settings</p>
                             <p className="text-surface-400 text-xs mt-0.5">
-                                {chatSettings.chatEnabled
-                                    ? `₹${chatSettings.chatPrice} unlock · ₹${chatSettings.messagePrice ?? 20}/msg`
-                                    : 'Chat disabled'}
+                                {chatSettings.chatEnabled ? 'Chat is active' : 'Chat disabled'}
                             </p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
