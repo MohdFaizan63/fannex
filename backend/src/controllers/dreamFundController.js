@@ -53,11 +53,16 @@ async function sendNotification({ recipientId, type, title, body, referenceId })
     }
 }
 
-// ── Helper: get base URL for serving uploads ──────────────────────────────────
+// ── Helper: get absolute URL for serving uploads ──────────────────────────────
+// Returns a full URL so images load from the API server, not the frontend domain.
 function getUploadUrl(filePath) {
     if (!filePath) return null;
     const filename = path.basename(filePath);
-    return `/uploads/dream-fund/${filename}`;
+    // Use API_URL env var (e.g. https://api.fannex.in) or fall back to CLIENT_URL API subdomain
+    const apiBase = process.env.API_URL
+        || (process.env.CLIENT_URL || '').split(',')[0].trim().replace('https://fannex.in', 'https://api.fannex.in').replace('https://www.fannex.in', 'https://api.fannex.in')
+        || '';
+    return `${apiBase}/uploads/dream-fund/${filename}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -343,7 +348,7 @@ const createContributionOrder = async (req, res, next) => {
             customerName: user.name || 'Fannex User',
             customerEmail: user.email || 'user@fannex.in',
             customerPhone: user.phone || '9000000000',
-            returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/subscription-success?order_id={order_id}`,
+            returnUrl: `${(process.env.CLIENT_URL || '').split(',')[0].trim()}/dream-fund-success?order_id={order_id}`,
             meta: {
                 userId: user._id.toString(),
                 creatorId: goal.creatorId.toString(),

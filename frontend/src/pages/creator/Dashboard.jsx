@@ -9,6 +9,8 @@ import { formatCurrency, formatDate } from '../../utils/helpers';
 import api from '../../services/api';
 import EditCreatorProfileModal from '../../components/EditCreatorProfileModal';
 import PostLightbox from '../../components/PostLightbox';
+import DreamFundManagerModal from '../../components/DreamFundManagerModal';
+import dreamFundService from '../../services/dreamFundService';
 
 const RECENT_LIMIT = 10; // show 10 items, then "View All" link
 
@@ -163,6 +165,10 @@ export default function Dashboard() {
     const [chatSaving, setChatSaving] = useState(false);
     const [chatSaved, setChatSaved] = useState(false);
 
+    // Dream Fund state
+    const [showDreamFundManager, setShowDreamFundManager] = useState(false);
+    const [dreamFundStats, setDreamFundStats] = useState({ count: 0, totalRaised: 0, activeCount: 0 });
+
     useEffect(() => {
         const loadAll = async () => {
             setLoading(true);
@@ -188,6 +194,15 @@ export default function Dashboard() {
                     const s = data.data;
                     setChatSettings({ chatEnabled: s.chatEnabled, chatPrice: s.chatPrice, messagePrice: s.messagePrice ?? 20 });
                     setMsgPriceInput(String(s.messagePrice ?? 20));
+                } catch (_) { }
+
+                // Load Dream Fund stats
+                try {
+                    const { data: dfData } = await dreamFundService.getMyGoals();
+                    const goals = dfData.data || [];
+                    const activeGoals = goals.filter(g => ['approved', 'completed', 'awaiting_verification', 'verified'].includes(g.status));
+                    const totalRaised = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
+                    setDreamFundStats({ count: goals.length, totalRaised, activeCount: activeGoals.length });
                 } catch (_) { }
             } finally {
                 setLoading(false);
@@ -262,6 +277,20 @@ export default function Dashboard() {
                         onClose={() => setShowEditProfile(false)}
                         onSaved={(updated) => setProfile(prev => ({ ...prev, ...updated }))}
                     />
+                )}
+
+                {/* Dream Fund Manager Modal */}
+                {showDreamFundManager && (
+                    <DreamFundManagerModal onClose={() => {
+                        setShowDreamFundManager(false);
+                        // Refresh dream fund stats after modal closes
+                        dreamFundService.getMyGoals().then(r => {
+                            const goals = r.data.data || [];
+                            const activeGoals = goals.filter(g => ['approved', 'completed', 'awaiting_verification', 'verified'].includes(g.status));
+                            const totalRaised = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
+                            setDreamFundStats({ count: goals.length, totalRaised, activeCount: activeGoals.length });
+                        }).catch(() => {});
+                    }} />
                 )}
 
                 {/* ── Header ────────────────────────────────────────────────── */}
@@ -440,6 +469,28 @@ export default function Dashboard() {
                     </div>
                 </Link>
 
+                {/* ── Dream Fund card ──────────────────────────────────────────── */}
+                <div
+                    className="glass rounded-2xl border border-purple-500/20 p-4 sm:p-5 mb-6 flex items-center gap-3 group hover:border-purple-500/40 transition-all cursor-pointer"
+                    onClick={() => setShowDreamFundManager(true)}
+                    style={{ userSelect: 'none' }}
+                >
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-600/30 border border-purple-500/20 flex items-center justify-center text-lg flex-shrink-0">
+                        🌟
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm group-hover:text-purple-300 transition-colors">Dream Fund</p>
+                        <p className="text-surface-400 text-xs mt-0.5">
+                            {dreamFundStats.count === 0
+                                ? 'Create goals & let fans support you'
+                                : `${dreamFundStats.activeCount} active goal${dreamFundStats.activeCount !== 1 ? 's' : ''} · ₹${dreamFundStats.totalRaised.toLocaleString('en-IN')} raised`}
+                        </p>
+                    </div>
+                    <div className="flex-shrink-0 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-purple-500/40 text-purple-300 group-hover:bg-purple-500/10 transition-all">
+                        ✨ <span className="hidden sm:inline">Manage</span><span className="sm:hidden">Open</span>
+                    </div>
+                </div>
+
                 {/* ── Chat Settings card ────────────────────────────────────── */}
                 <div className="glass rounded-2xl border border-violet-500/20 p-4 sm:p-5 mb-6">
                     <div className="flex items-center gap-3 mb-4">
@@ -580,6 +631,24 @@ export default function Dashboard() {
                     creator={profile}
                     onClose={() => setLightboxIdx(-1)}
                     onChange={setLightboxIdx}
+                />
+            )}
+
+            {/* ── Dream Fund Manager Modal ──────────────────────────────── */}
+            {showDreamFundManager && (
+                <DreamFundManagerModal
+                    onClose={() => {
+                        setShowDreamFundManager(false);
+                        // Refresh dream fund stats after closing
+                        dreamFundService.getMyGoals()
+                            .then(r => {
+                                const goals = r.data.data || [];
+                                const activeGoals = goals.filter(g => ['approved', 'completed', 'awaiting_verification', 'verified'].includes(g.status));
+                                const totalRaised = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
+                                setDreamFundStats({ count: goals.length, totalRaised, activeCount: activeGoals.length });
+                            })
+                            .catch(() => {});
+                    }}
                 />
             )}
 

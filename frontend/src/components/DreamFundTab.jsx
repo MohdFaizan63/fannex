@@ -4,6 +4,18 @@ import dreamFundService from '../services/dreamFundService';
 import ContributeModal from './ContributeModal';
 import { useAuth } from '../context/AuthContext';
 
+// ── Image URL helper ────────────────────────────────────────────────
+// Images stored on the API server need an absolute URL to load from the frontend domain.
+const API_ORIGIN = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace('/api/v1', '')
+    : 'https://api.fannex.in';
+
+function getImageUrl(url) {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${API_ORIGIN}${url}`;
+}
+
 // ── Status-to-UI badge map ────────────────────────────────────────────────────
 const STATUS_BADGE = {
     approved: { label: 'Active', color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
@@ -65,6 +77,8 @@ function GoalCard({ goal: initialGoal, onContribute }) {
     const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
     const isCompleted = ['completed', 'awaiting_verification', 'verified'].includes(goal.status);
     const badge = STATUS_BADGE[goal.status];
+    const goalImageUrl = getImageUrl(goal.image);
+    const proofImageUrl = getImageUrl(goal.proof?.url);
 
     return (
         <div style={{
@@ -79,12 +93,13 @@ function GoalCard({ goal: initialGoal, onContribute }) {
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
         >
             {/* Goal image */}
-            {goal.image && (
+            {goalImageUrl && (
                 <div style={{ height: 160, overflow: 'hidden', position: 'relative' }}>
                     <img
-                        src={goal.image}
+                        src={goalImageUrl}
                         alt={goal.title}
                         loading="lazy"
+                        onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                     <div style={{
@@ -111,7 +126,7 @@ function GoalCard({ goal: initialGoal, onContribute }) {
                     <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.3 }}>
                         {goal.title}
                     </h3>
-                    {!goal.image && badge && (
+                    {!goalImageUrl && badge && (
                         <span style={{
                             background: badge.bg, border: `1px solid ${badge.color}40`,
                             color: badge.color, fontWeight: 700, fontSize: 11,
@@ -232,7 +247,7 @@ function GoalCard({ goal: initialGoal, onContribute }) {
                                             fontSize: 12, color: '#fff', fontWeight: 800, overflow: 'hidden',
                                         }}>
                                             {c.profileImage
-                                                ? <img src={c.profileImage} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ? <img src={getImageUrl(c.profileImage)} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 : (c.name?.[0]?.toUpperCase() || '?')
                                             }
                                         </div>
@@ -266,7 +281,7 @@ function GoalCard({ goal: initialGoal, onContribute }) {
                                             fontSize: 10, color: '#fff', fontWeight: 800, overflow: 'hidden',
                                         }}>
                                             {f.user?.profileImage
-                                                ? <img src={f.user.profileImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ? <img src={getImageUrl(f.user.profileImage)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 : (f.isAnonymous ? '?' : f.user?.name?.[0]?.toUpperCase() || '?')
                                             }
                                         </div>
@@ -286,6 +301,20 @@ function GoalCard({ goal: initialGoal, onContribute }) {
                                         </span>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+
+                        {/* Proof image (verified goals show public proof) */}
+                        {(goal.status === 'verified' || goal.status === 'awaiting_verification') && proofImageUrl && (
+                            <div style={{ marginTop: 12, borderRadius: 14, overflow: 'hidden' }}>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                                    📎 {goal.status === 'verified' ? 'Verified Proof' : 'Proof Pending'}
+                                </p>
+                                {goal.proof?.type === 'video' ? (
+                                    <video src={proofImageUrl} controls style={{ width: '100%', borderRadius: 12 }} />
+                                ) : (
+                                    <img src={proofImageUrl} alt="Proof" style={{ width: '100%', borderRadius: 12, objectFit: 'cover' }} />
+                                )}
                             </div>
                         )}
                     </div>

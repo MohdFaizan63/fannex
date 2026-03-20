@@ -126,6 +126,7 @@ const SubscriptionCancel = lazyRetry(() => import('../pages/subscription/Subscri
 const SubscribePage = lazyRetry(() => import('../pages/subscription/SubscribePage'));
 const Subscriptions = lazyRetry(() => import('../pages/Subscriptions'));
 const PaymentFailed = lazyRetry(() => import('../pages/subscription/PaymentFailed'));
+const DreamFundSuccess = lazyRetry(() => import('../pages/subscription/DreamFundSuccess'));
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 const Login = lazyRetry(() => import('../pages/auth/Login'));
@@ -185,6 +186,8 @@ const router = createBrowserRouter([
             { path: '/subscription-success', element: wrap(SubscriptionSuccess) },
             { path: '/subscription-cancel', element: wrap(SubscriptionCancel) },
             { path: '/payment-failed', element: wrap(PaymentFailed) },
+            { path: '/dream-fund-success', element: wrap(DreamFundSuccess) },
+
 
             // Any logged-in user
             {
