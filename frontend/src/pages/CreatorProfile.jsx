@@ -628,12 +628,19 @@ export default function CreatorProfile() {
 
                                     {/* Stats row — icon + number only */}
                                     <div className="flex items-center gap-4 mt-2.5" style={{ fontSize: 13 }}>
-                                        {/* Photo posts — image + album (all non-video) */}
+                                        {/* Photo posts — count each image individually; expand album mediaUrls */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
                                             </svg>
-                                            <strong style={{ color: '#fff', fontWeight: 700 }}>{posts.filter(p => p.mediaType !== 'video').length}</strong>
+                                            <strong style={{ color: '#fff', fontWeight: 700 }}>
+                                                {posts.filter(p => p.mediaType !== 'video').reduce((acc, p) => {
+                                                    if (p.mediaType === 'album' && Array.isArray(p.mediaUrls)) {
+                                                        return acc + p.mediaUrls.length;
+                                                    }
+                                                    return acc + 1;
+                                                }, 0)}
+                                            </strong>
                                         </span>
                                         {/* Videos only */}
                                         <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
@@ -963,47 +970,11 @@ export default function CreatorProfile() {
                                     top: 80,
                                 }}
                             >
-                                {/* Header row with nav arrows */}
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                                {/* Header — title only, no arrows */}
+                                <div style={{ marginBottom: 14 }}>
                                     <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: 0, letterSpacing: '-0.02em' }}>
                                         Suggested Creators
                                     </h3>
-                                    {suggested.length > 2 && (
-                                        <div style={{ display: 'flex', gap: 6 }}>
-                                            <button
-                                                onClick={() => setSugIdx(i => Math.max(0, i - 2))}
-                                                disabled={sugIdx <= 0}
-                                                style={{
-                                                    width: 30, height: 30, borderRadius: 8,
-                                                    border: '1px solid rgba(255,255,255,0.12)',
-                                                    background: 'rgba(255,255,255,0.06)',
-                                                    color: sugIdx <= 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    cursor: sugIdx <= 0 ? 'not-allowed' : 'pointer',
-                                                    transition: 'all 0.2s',
-                                                }}
-                                                aria-label="Previous"
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                                            </button>
-                                            <button
-                                                onClick={() => setSugIdx(i => Math.min(suggested.length % 2 === 0 ? suggested.length - 2 : suggested.length - 1, i + 2))}
-                                                disabled={sugIdx + 2 >= suggested.length}
-                                                style={{
-                                                    width: 30, height: 30, borderRadius: 8,
-                                                    border: '1px solid rgba(255,255,255,0.12)',
-                                                    background: 'rgba(255,255,255,0.06)',
-                                                    color: sugIdx + 2 >= suggested.length ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    cursor: sugIdx + 2 >= suggested.length ? 'not-allowed' : 'pointer',
-                                                    transition: 'all 0.2s',
-                                                }}
-                                                aria-label="Next"
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* Cards: 2 per page, touch swipeable */}
@@ -1033,9 +1004,9 @@ export default function CreatorProfile() {
                                             </div>
                                         </div>
 
-                                        {/* Page dots — only if more than one page */}
+                                        {/* Page dots — Instagram style: small uniform circles, active is slightly bigger + white */}
                                         {suggested.length > 2 && (
-                                            <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginTop: 14 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 14 }}>
                                                 {Array.from({ length: Math.ceil(suggested.length / 2) }).map((_, i) => {
                                                     const active = Math.floor(sugIdx / 2) === i;
                                                     return (
@@ -1043,16 +1014,15 @@ export default function CreatorProfile() {
                                                             key={i}
                                                             onClick={() => setSugIdx(i * 2)}
                                                             style={{
-                                                                width: active ? 16 : 6,
-                                                                height: 6,
-                                                                borderRadius: 3,
+                                                                width: active ? 8 : 6,
+                                                                height: active ? 8 : 6,
+                                                                borderRadius: '50%',
                                                                 border: 'none',
                                                                 padding: 0,
                                                                 cursor: 'pointer',
-                                                                background: active
-                                                                    ? 'linear-gradient(90deg,#a855f7,#ec4899)'
-                                                                    : 'rgba(255,255,255,0.18)',
-                                                                transition: 'all 0.25s ease',
+                                                                background: active ? '#fff' : 'rgba(255,255,255,0.3)',
+                                                                transition: 'all 0.2s ease',
+                                                                flexShrink: 0,
                                                             }}
                                                             aria-label={`Page ${i + 1}`}
                                                         />
