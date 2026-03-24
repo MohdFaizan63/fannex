@@ -871,6 +871,7 @@ export default function CreatorProfile() {
                                     <DreamFundTab
                                         creatorId={creator?.userId || creator?._id}
                                         isOwnProfile={isOwnProfile && !isPreview}
+                                        isSubscribed={isSubscribed}
                                         onOpenManager={() => setShowDreamFundManager(true)}
                                     />
                                 ) : activeTab === 'Media' ? (
