@@ -4,19 +4,25 @@
  * Caches JSON responses in Redis with a configurable TTL.
  * If Redis is unavailable the middleware is a no-op (pass-through).
  *
+ * Bug 18 Fix: Cache key includes the authenticated user's ID when available,
+ * so private / personalized responses are never served across different users.
+ * For truly public routes (no auth) the key prefix is 'public'.
+ *
  * Usage:
  *   router.get('/list', redisCache(60), listCreators);
  */
 const { getRedis } = require('../config/redis');
 
 /**
- * @param {number} ttlSeconds  cache time-to-live (default 60)
+ * @param {number} ttlSeconds  cache time-to-live (default 60 s)
  */
 const redisCache = (ttlSeconds = 60) => async (req, res, next) => {
     const client = getRedis();
     if (!client) return next(); // Redis not available — skip
 
-    const key = `cache:${req.originalUrl}`;
+    // Namespace key by user ID to prevent cross-user cache poisoning
+    const userId = req.user?._id?.toString() || 'public';
+    const key = `cache:${userId}:${req.originalUrl}`;
 
     try {
         const cached = await client.get(key);

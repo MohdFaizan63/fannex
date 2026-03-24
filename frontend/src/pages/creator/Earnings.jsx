@@ -259,9 +259,8 @@ function Tab({ active, onClick, children, count }) {
 export default function Earnings() {
     const [earnings, setEarnings]           = useState(null);
     const [payouts, setPayouts]             = useState([]);
-    // breakdown is fetched on mount — SEPARATE from history transactions
+    // Bug 5 Fix: breakdown comes from getEarnings() response — no separate API call needed
     const [breakdown, setBreakdown]         = useState({ subscription: 0, gift: 0, chat_unlock: 0 });
-    const [breakdownLoading, setBreakdownLoading] = useState(true);
     const [history, setHistory]             = useState({ transactions: [], pagination: null });
     const [historyLoading, setHistoryLoading] = useState(false);
     const [loading, setLoading]             = useState(true);
@@ -271,7 +270,10 @@ export default function Earnings() {
     const [historyFilter, setHistoryFilter] = useState('all');
     const [historyPage, setHistoryPage]     = useState(1);
 
-    /** Fetch earnings summary + payout history */
+    // Bug 10 Fix: store timeout ID in a ref so we can clear it before setting a new one
+    const toastTimerRef = useRef(null);
+
+    /** Fetch earnings summary (now also returns breakdown — Bug 5 fix) */
     const loadEarnings = useCallback(async () => {
         setLoading(true);
         try {
@@ -279,72 +281,87 @@ export default function Earnings() {
                 payoutService.getEarnings(),
                 payoutService.listMyPayouts({ limit: 50, sort: '-requestedAt' }),
             ]);
-            if (eRes.status === 'fulfilled') setEarnings(eRes.value.data?.data ?? eRes.value.data);
+            if (eRes.status === 'fulfilled') {
+                const data = eRes.value.data?.data ?? eRes.value.data;
+                setEarnings(data);
+                // Bug 5 Fix: breakdown is now embedded in the earnings response
+                if (data?.breakdown) setBreakdown(data.breakdown);
+            }
             if (pRes.status === 'fulfilled') setPayouts(pRes.value.data?.results ?? []);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    /**
-     * Fetch ONLY the per-type breakdown totals (no transactions).
-     * Called on mount so stat cards always show correct values.
-     */
-    const loadBreakdown = useCallback(async () => {
-        setBreakdownLoading(true);
-        try {
-            const res = await payoutService.getEarningsHistory({ type: 'all', page: 1, limit: 1 });
-            const bd  = res.data?.data?.breakdown;
-            if (bd) setBreakdown(bd);
-        } catch {
-            // leave at zeros — non-blocking
-        } finally {
-            setBreakdownLoading(false);
-        }
-    }, []);
-
-    /** Fetch paginated transaction list (only when History tab is active) */
-    const loadHistory = useCallback(async (type = historyFilter, page = historyPage) => {
+    // Bug 6 Fix: stable loadHistory — deps do NOT include historyFilter/historyPage.
+    // Instead, callers pass the values explicitly so useCallback identity stays stable.
+    const loadHistory = useCallback(async (type, page) => {
         setHistoryLoading(true);
         try {
             const res = await payoutService.getEarningsHistory({ type, page, limit: 20 });
             const data = res.data?.data ?? {};
             setHistory({ transactions: data.transactions ?? [], pagination: data.pagination ?? null });
-            // Also refresh breakdown totals in case new payments came in
+            // Refresh breakdown totals in case new payments came in
             if (data.breakdown) setBreakdown(data.breakdown);
         } catch {
             setHistory({ transactions: [], pagination: null });
         } finally {
             setHistoryLoading(false);
         }
-    }, [historyFilter, historyPage]);
+    }, []); // stable — no state deps
 
-    // Mount: load earnings summary + breakdown in parallel
+    // Mount: load earnings summary (includes breakdown via Bug 5 fix)
     useEffect(() => {
         loadEarnings();
-        loadBreakdown();
-    }, [loadEarnings, loadBreakdown]);
+    }, [loadEarnings]);
 
-    // When History tab becomes active, or filter/page changes → fetch transactions
+    // Bug 6 Fix: single effect that runs when section/filter/page changes.
+    // Using a ref-guarded approach: only fires loadHistory when the history section
+    // is active, and avoids the duplicate call that happened when setHistoryPage(1)
+    // and setHistoryFilter() both changed state in the same handleFilterChange call.
+    const historyParamsRef = useRef({ filter: 'all', page: 1 });
     useEffect(() => {
-        if (activeSection === 'history') loadHistory(historyFilter, historyPage);
-    }, [activeSection, historyFilter, historyPage]);
+        if (activeSection !== 'history') return;
+        const prev = historyParamsRef.current;
+        // Only fire if params actually changed (avoids double-call from handleFilterChange)
+        if (prev.filter !== historyFilter || prev.page !== historyPage) {
+            historyParamsRef.current = { filter: historyFilter, page: historyPage };
+            loadHistory(historyFilter, historyPage);
+        }
+    }, [activeSection, historyFilter, historyPage, loadHistory]);
+
+    // When history section first becomes active, trigger initial load
+    const prevSectionRef = useRef('overview');
+    useEffect(() => {
+        if (activeSection === 'history' && prevSectionRef.current !== 'history') {
+            historyParamsRef.current = { filter: historyFilter, page: historyPage };
+            loadHistory(historyFilter, historyPage);
+        }
+        prevSectionRef.current = activeSection;
+    }, [activeSection]); // intentionally minimal deps
 
     const handleFilterChange = (f) => {
+        if (f === historyFilter) return; // no-op — avoids redundant reload
         setHistoryFilter(f);
         setHistoryPage(1);
+        // Bug 6 Fix: manually trigger load with the new values immediately
+        // so we don't rely on two separate setState calls going through the effect.
+        historyParamsRef.current = { filter: f, page: 1 };
+        if (activeSection === 'history') loadHistory(f, 1);
     };
 
     const handlePayoutSuccess = () => {
         setShowModal(false);
+        // Bug 10 Fix: clear any previous toast timer before setting a new one
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         setSuccessMsg("Payout request submitted! We'll process it within 2 business days.");
         loadEarnings();
-        loadBreakdown();  // also refresh type breakdown after payout
-        setTimeout(() => setSuccessMsg(''), 6000);
+        toastTimerRef.current = setTimeout(() => setSuccessMsg(''), 6000);
     };
 
-    // Breakdown always comes from dedicated `breakdown` state — never from `history.breakdown`
-    // so stat cards show correct values even on the Overview tab
+    // Breakdown always comes from `breakdown` state (populated by loadEarnings + loadHistory).
+    // No separate breakdownLoading state needed — it loads with the main earnings fetch.
+    const breakdownLoading = loading;
 
     // Find the most recent paid payout for the Paid Amount card subLabel
     const lastPaidPayout = payouts.find((p) => p.status === 'paid');
@@ -418,7 +435,12 @@ export default function Earnings() {
                 </Tab>
                 <Tab
                     active={activeSection === 'history'}
-                    onClick={() => { setActiveSection('history'); if (historyFilter === 'all') loadHistory('all', 1); }}
+                    onClick={() => {
+                        if (activeSection !== 'history') {
+                            setActiveSection('history');
+                            // Trigger initial load on first visit to this tab
+                        }
+                    }}
                 >
                     📈 Earning History
                 </Tab>

@@ -22,6 +22,7 @@ const payoutRequestSchema = new mongoose.Schema(
         requestedAt: {
             type: Date,
             default: Date.now,
+            index: true,  // Bug 8 Fix: indexes the sort field used in listPayoutsService
         },
         processedAt: {
             type: Date,

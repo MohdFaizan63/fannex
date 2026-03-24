@@ -35,7 +35,8 @@ const checkSubscription = async (req, res, next) => {
 
         let decoded;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+            if (!process.env.JWT_SECRET) throw new Error('FATAL: JWT_SECRET is not set');
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
         } catch (err) {
             return res.status(401).json({
                 success: false,

@@ -13,10 +13,21 @@
 
 const axios = require('axios');
 
-// Simple in-memory cache to avoid hammering ipapi.co repeatedly for the same IP
-// (TTL: 5 minutes per IP)
+// Bounded in-memory cache to avoid hammering ipapi.co for the same IP.
+// Bug 17 Fix: MAX_CACHE_SIZE prevents unbounded growth and OOM under load.
 const ipCache = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+const CACHE_TTL_MS    = 5 * 60 * 1000; // 5 min
+const MAX_CACHE_SIZE  = 5_000;          // at most 5 000 entries (~200 bytes each ≈ 1 MB)
+
+/** Add to cache, evicting the oldest entry when at capacity */
+function setCacheEntry(ip, country) {
+    if (ipCache.size >= MAX_CACHE_SIZE) {
+        // Map preserves insertion order — delete the very first (oldest) key
+        const firstKey = ipCache.keys().next().value;
+        ipCache.delete(firstKey);
+    }
+    ipCache.set(ip, { country, ts: Date.now() });
+}
 
 async function lookupCountryByIp(ip) {
     // Skip loopback / private IP ranges — ipapi.co can't handle them
@@ -35,7 +46,7 @@ async function lookupCountryByIp(ip) {
         });
         const country = (data || '').toString().trim().toUpperCase();
         if (country && country.length === 2) {
-            ipCache.set(ip, { country, ts: Date.now() });
+            setCacheEntry(ip, country);
             return country;
         }
     } catch {
@@ -46,9 +57,14 @@ async function lookupCountryByIp(ip) {
 
 const geoMiddleware = async (req, res, next) => {
     try {
-        // 1. Manual override (great for testing without VPN)
+        // 1. Manual override — ONLY allowed in non-production (dev/testing without VPN)
         const override = req.headers['x-country-code'];
-        if (override && typeof override === 'string' && override.length === 2) {
+        if (
+            process.env.NODE_ENV !== 'production' &&
+            override &&
+            typeof override === 'string' &&
+            override.length === 2
+        ) {
             req.country = override.toUpperCase().trim();
             return next();
         }

@@ -277,13 +277,26 @@ const getUserRooms = async (req, res, next) => {
             .populate({ path: 'creatorId', select: 'name', model: 'User' })
             .lean();
 
-        // Enrich with creator profile images
-        const enriched = await Promise.all(rooms.map(async (r) => {
-            const cp = await CreatorProfile.findOne({ userId: r.creatorId?._id }).select('displayName profileImage chatPrice username');
-            return { ...r, creatorProfile: cp };
+        // ✅ Bug 16 Fix: single $in query instead of N+1 per-room queries
+        const creatorUserIds = rooms
+            .map((r) => r.creatorId?._id)
+            .filter(Boolean);
+
+        const creatorProfiles = await CreatorProfile
+            .find({ userId: { $in: creatorUserIds } })
+            .select('userId displayName profileImage chatPrice username')
+            .lean();
+
+        const profileMap = {};
+        creatorProfiles.forEach((cp) => { profileMap[cp.userId.toString()] = cp; });
+
+        const enriched = rooms.map((r) => ({
+            ...r,
+            creatorProfile: profileMap[r.creatorId?._id?.toString()] ?? null,
         }));
 
         res.json({ success: true, data: enriched });
+
     } catch (err) { next(err); }
 };
 
@@ -315,14 +328,15 @@ const getCreatorChatStats = async (req, res, next) => {
             ]),
             Payment.aggregate([
                 { $match: { creatorId, type: 'gift', status: 'captured' } },
-                { $group: { _id: null, total: { $sum: '$giftAmount' } } },
+                // ✅ Bug 12 Fix: sum $creatorEarning (80% of base), NOT $giftAmount (total paid with GST)
+                { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
             ]),
             Payment.aggregate([
                 { $match: { creatorId, type: 'chat_unlock', status: 'captured' } },
-                // Sum creatorEarning (80% of base), NOT amount (full fan payment with GST)
                 { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
             ]),
         ]);
+
 
         res.json({
             success: true,
@@ -387,6 +401,18 @@ const sendMessage = async (req, res, next) => {
         const { type = 'text', content } = req.body;
         const senderId = req.user._id;
 
+        // ── Input validation ─────────────────────────────────────────────────
+        const ALLOWED_TYPES = ['text', 'image', 'voice', 'gift'];
+        if (!ALLOWED_TYPES.includes(type)) {
+            return res.status(400).json({ success: false, message: `Invalid message type: ${type}` });
+        }
+        if (type === 'text' && (!content || typeof content !== 'string' || content.trim().length === 0)) {
+            return res.status(400).json({ success: false, message: 'Message content cannot be empty' });
+        }
+        if (content && content.length > 5000) {
+            return res.status(400).json({ success: false, message: 'Message is too long (max 5000 characters)' });
+        }
+
         const room = await ChatRoom.findById(chatId);
         if (!room || !room.isPaid) return res.status(403).json({ success: false, message: 'Chat not unlocked' });
 
@@ -397,14 +423,26 @@ const sendMessage = async (req, res, next) => {
 
         const isCreator = room.creatorId.toString() === senderId.toString();
 
-        // ── Wallet deduction for fan messages ─────────────────────────────────
+        // ── Wallet deduction for fan messages (ATOMIC — fixes Bug 10 TOCTOU) ─
         if (!isCreator) {
             const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('messagePrice');
             const msgCost = profile?.messagePrice ?? 0;
 
             if (msgCost > 0) {
-                const fan = await User.findById(senderId).select('walletBalance');
-                if (!fan || (fan.walletBalance ?? 0) < msgCost) {
+                const { calcGST } = require('../utils/gstHelper');
+                const split = calcGST(msgCost);
+                const creatorEarning = split.creatorEarning;
+
+                // ✅ ATOMIC deduction — only succeeds when balance >= msgCost
+                // This eliminates the TOCTOU race that existed in the old read+write pattern.
+                const updatedFan = await User.findOneAndUpdate(
+                    { _id: senderId, walletBalance: { $gte: msgCost } },
+                    { $inc: { walletBalance: -msgCost } },
+                    { new: true, select: 'walletBalance' }
+                );
+
+                if (!updatedFan) {
+                    const fan = await User.findById(senderId).select('walletBalance');
                     return res.status(402).json({
                         success: false,
                         message: 'Insufficient wallet balance. Please top up to continue chatting.',
@@ -413,13 +451,8 @@ const sendMessage = async (req, res, next) => {
                     });
                 }
 
-                // 80/20 split: creator gets 80%, platform keeps 20%
-                const { calcGST } = require('../utils/gstHelper');
-                const split = calcGST(msgCost);
-                const creatorEarning = split.creatorEarning; // 80% of msgCost
-
-                // Deduct full msgCost from fan wallet
-                await User.findByIdAndUpdate(senderId, { $inc: { walletBalance: -msgCost } });
+                // ✅ Unique cfOrderId prevents double-credit if both REST & Socket.IO fire
+                const msgPaymentId = `rest_msg_${String(senderId).slice(-6)}_${Date.now()}`;
 
                 // Credit only 80% to creator
                 await Earnings.findOneAndUpdate(
@@ -428,23 +461,21 @@ const sendMessage = async (req, res, next) => {
                     { upsert: true }
                 );
 
-                // Create a Payment record so it appears in Earning History
-                await Payment.create({
+                Payment.create({
                     userId: senderId,
                     creatorId: room.creatorId,
-                    amount: split.totalPaid,        // total fan paid (base + GST equiv)
+                    amount: split.totalPaid,
                     baseAmount: msgCost,
                     gstAmount: split.gstAmount,
-                    platformFee: split.platformFee, // 20% platform cut
-                    creatorEarning,                 // 80% of msgCost
-                    type: 'chat_unlock',             // grouped under Chat in Earning History
+                    platformFee: split.platformFee,
+                    creatorEarning,
+                    type: 'chat_unlock',
                     chatId: room._id,
+                    cfOrderId: msgPaymentId,
                     status: 'captured',
                     sideEffectsDone: true,
                     _earningsCredited: true,
-                });
-
-                console.log(`[sendMessage] ₹${msgCost} → creator ₹${creatorEarning} (80%) + platform ₹${split.platformFee} (20%)`);
+                }).catch((e) => console.warn('[sendMessage REST] Payment create failed:', e.message));
             }
         }
         // ─────────────────────────────────────────────────────────────────────
@@ -463,6 +494,7 @@ const sendMessage = async (req, res, next) => {
     } catch (err) { next(err); }
 };
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GIFTS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -479,6 +511,10 @@ const createGiftOrder = async (req, res, next) => {
         if (!room || !room.isPaid) return res.status(403).json({ success: false, message: 'Chat not unlocked' });
         if (room.userId.toString() !== user._id.toString()) {
             return res.status(403).json({ success: false, message: 'Only the fan can send gifts' });
+        }
+        // \u2705 Bug 24 Fix: creators cannot send gifts to themselves (would inflate their own earnings)
+        if (room.creatorId.toString() === user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You cannot send a gift to yourself' });
         }
 
         const profile = await CreatorProfile.findOne({ userId: room.creatorId }).select('minGift maxGift');

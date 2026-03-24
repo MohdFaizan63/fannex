@@ -27,7 +27,7 @@ export default defineConfig({
           'vendor-router': ['react-router-dom'],
           'vendor-motion': ['framer-motion'],
           'vendor-swiper': ['swiper'],
-          'vendor-stripe': ['@stripe/react-stripe-js', '@stripe/stripe-js'],
+          // 'vendor-stripe' removed — Stripe is unused (Cashfree is the payment gateway)
           'vendor-socket': ['socket.io-client'],
         },
       },

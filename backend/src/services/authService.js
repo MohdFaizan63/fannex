@@ -97,7 +97,7 @@ const verifyOtpService = async ({ email, otp }) => {
         throw err;
     }
 
-    const user = await User.findOne({ email }).select('+otpCode +otpExpiry');
+    const user = await User.findOne({ email }).select('+otpCode +otpExpiry +otpRequestCount');
 
     if (!user) {
         const err = new Error('No account found with this email');
@@ -117,8 +117,21 @@ const verifyOtpService = async ({ email, otp }) => {
         throw err;
     }
 
+    // ✅ Bug 14: Track failed attempts — lock after 5 wrong guesses
     if (user.otpCode !== otp.toString()) {
-        const err = new Error('Invalid OTP. Please try again.');
+        user.otpRequestCount = (user.otpRequestCount || 0) + 1;
+        if (user.otpRequestCount >= 5) {
+            // Invalidate the OTP so attacker cannot keep trying
+            user.otpCode = undefined;
+            user.otpExpiry = undefined;
+        }
+        await user.save({ validateBeforeSave: false });
+        const remaining = Math.max(0, 5 - user.otpRequestCount);
+        const err = new Error(
+            remaining > 0
+                ? `Invalid OTP. ${remaining} attempt(s) remaining.`
+                : 'Too many failed attempts. Please request a new OTP.'
+        );
         err.statusCode = 400;
         throw err;
     }
@@ -127,6 +140,7 @@ const verifyOtpService = async ({ email, otp }) => {
     user.isVerified = true;
     user.otpCode = undefined;
     user.otpExpiry = undefined;
+    user.otpRequestCount = 0;
     await user.save({ validateBeforeSave: false });
 
     return {
@@ -134,6 +148,7 @@ const verifyOtpService = async ({ email, otp }) => {
         token: generateToken(user._id, user.role),
     };
 };
+
 
 // ─── Send OTP (for login or resend) ───────────────────────────────────────────
 

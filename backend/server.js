@@ -2,17 +2,6 @@ const path = require('path');
 // Always load .env relative to THIS file so it works regardless of CWD
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-// ── Startup diagnostic (masked) — remove after confirming creds work ───────
-console.log('[✔] ENV check:');
-console.log('  CASHFREE_APP_ID   :', process.env.CASHFREE_APP_ID
-    ? process.env.CASHFREE_APP_ID.slice(0, 6) + '****' + process.env.CASHFREE_APP_ID.slice(-4)
-    : '❌ NOT SET');
-console.log('  CASHFREE_SECRET_KEY:', process.env.CASHFREE_SECRET_KEY
-    ? process.env.CASHFREE_SECRET_KEY.slice(0, 8) + '****'
-    : '❌ NOT SET');
-console.log('  CASHFREE_ENV      :', process.env.CASHFREE_ENV || 'production (default)');
-// ─────────────────────────────────────────────────────────────────────
-
 const http = require('http');
 const { Server } = require('socket.io');
 const { connectDB } = require('./src/config/db.js');
@@ -25,6 +14,8 @@ const User = require('./src/models/User.js');
 const Earnings = require('./src/models/Earnings.js');
 const Payment = require('./src/models/Payment.js');
 const { createNotification } = require('./src/services/notificationService.js');
+// ✅ Bug 22 Fix: moved here from inside send_message handler (module-level, cached)
+const { calcGST } = require('./src/utils/gstHelper');
 
 
 const PORT = process.env.PORT || 8080;
@@ -94,6 +85,18 @@ io.on('connection', (socket) => {
     // ── Send a message ────────────────────────────────────────────────────────
     socket.on('send_message', async ({ chatId, type = 'text', content }) => {
         try {
+            // ✅ Bug 23 Fix: validate message type and content before hitting the DB
+            const ALLOWED_MSG_TYPES = ['text', 'image', 'voice', 'gift'];
+            if (!ALLOWED_MSG_TYPES.includes(type)) {
+                return socket.emit('send_error', { code: 'INVALID_TYPE', message: `Invalid message type: ${type}` });
+            }
+            if (type === 'text' && (!content || typeof content !== 'string' || content.trim().length === 0)) {
+                return socket.emit('send_error', { code: 'EMPTY_CONTENT', message: 'Message cannot be empty' });
+            }
+            if (content && content.length > 5000) {
+                return socket.emit('send_error', { code: 'TOO_LONG', message: 'Message is too long (max 5000 chars)' });
+            }
+
             const room = await ChatRoom.findById(chatId);
             if (!room || !room.isPaid) return;
 
@@ -139,7 +142,7 @@ io.on('connection', (socket) => {
                     });
 
                     // ── 80/20 split: creator gets 80%, platform keeps 20% ────────────
-                    const { calcGST } = require('./src/utils/gstHelper');
+                    // ✅ Bug 22 Fix: calcGST is now imported at module top-level (not require() here)
                     const split = calcGST(msgCost);
                     const creatorEarning = split.creatorEarning; // 80% of msgCost
 
@@ -225,24 +228,34 @@ io.on('connection', (socket) => {
                 { chatId, senderId: { $ne: socket.userId }, seen: false },
                 { seen: true, seenAt: new Date() }
             );
-            // Single DB call: update + learn isCreator at once
-            const room = await ChatRoom.findByIdAndUpdate(
+            // ✅ Bug 28 Fix: single pipeline-update call — no read, one write
+            await ChatRoom.findByIdAndUpdate(
                 chatId,
-                {},
-                { new: false }
+                [{
+                    $set: {
+                        unreadByCreator: {
+                            $cond: [
+                                { $eq: ['$creatorId', { $toObjectId: socket.userId }] },
+                                0,
+                                '$unreadByCreator',
+                            ],
+                        },
+                        unreadByUser: {
+                            $cond: [
+                                { $ne: ['$creatorId', { $toObjectId: socket.userId }] },
+                                0,
+                                '$unreadByUser',
+                            ],
+                        },
+                    },
+                }]
             );
-            if (room) {
-                const isCreator = room.creatorId.toString() === socket.userId;
-                await ChatRoom.findByIdAndUpdate(chatId, {
-                    [isCreator ? 'unreadByCreator' : 'unreadByUser']: 0,
-                });
-            }
-            // Notify the sender that messages were seen
             socket.to(chatId).emit('messages_seen', { chatId, seenBy: socket.userId });
         } catch (err) {
             console.error('mark_seen error:', err.message);
         }
     });
+
 
     // ── Disconnect ────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {

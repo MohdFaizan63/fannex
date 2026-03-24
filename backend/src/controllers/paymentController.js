@@ -202,8 +202,8 @@ const verifyPayment = async (req, res, next) => {
         const { orderId } = req.body;
         const userId = req.user._id;
 
-        if (!orderId) {
-            return res.status(400).json({ success: false, message: 'orderId is required' });
+        if (!orderId || typeof orderId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(orderId)) {
+            return res.status(400).json({ success: false, message: 'orderId is missing or invalid' });
         }
 
         console.log(`[verifyPayment] START orderId=${orderId} userId=${userId}`);
@@ -254,10 +254,20 @@ const verifyPayment = async (req, res, next) => {
             });
         }
 
-        // BUG 5 FIX: creatorId can be null if order_tags were lost (Bug 4 scenario).
-        // Prefer req.body.creatorId sent by frontend, then fall back to tags.
-        // If still missing, return a detailed error so logs are actionable.
-        const creatorId = req.body.creatorId || tags.creatorId;
+        // ── Bug 13 Fix: Never trust req.body.creatorId — derive from our own DB ─
+        // If the Payment doc exists (created at order-create time), use its creatorId.
+        // Only fall back to order_tags when no doc exists yet (idempotency window).
+        const existingPayment = await PaymentModel.findOne({ cfOrderId: orderId })
+            .select('creatorId userId')
+            .lean();
+
+        // Block if the stored userId doesn't match the requesting user
+        if (existingPayment && existingPayment.userId.toString() !== userId.toString()) {
+            console.error(`[verifyPayment] userId mismatch — stored=${existingPayment.userId} req=${userId}`);
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        const creatorId = existingPayment?.creatorId?.toString() || tags.creatorId;
 
         if (!creatorId) {
             console.error(`[verifyPayment] MISSING creatorId — tags=${JSON.stringify(tags)} orderId=${orderId}`);
@@ -566,17 +576,15 @@ async function createWalletOrder(req, res, next) {
     try {
         const { amount } = req.body;
         const user = req.user;
-
+        // ✅ Bug 25 Fix: unified minimum check — removed duplicate `parsed < 1` dead code
         const parsed = Number(amount);
-        if (isNaN(parsed) || parsed <= 0) {
-            return res.status(400).json({ success: false, message: 'Invalid amount' });
-        }
-        if (parsed < 1) {
+        if (isNaN(parsed) || parsed < 1) {
             return res.status(400).json({ success: false, message: 'Minimum recharge amount is ₹1 (base, excl. GST)' });
         }
         if (parsed > 50000) {
             return res.status(400).json({ success: false, message: 'Maximum recharge amount is ₹50,000' });
         }
+
 
         // Apply 18% GST — fan pays base + GST, wallet credits only base amount
         const gst = calcGST(parsed);

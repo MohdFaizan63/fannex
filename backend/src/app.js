@@ -38,7 +38,33 @@ app.use(compression());
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
-    contentSecurityPolicy: false, // allow images/media from any origin in dev
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",               // Vite / inline React hydration
+          'https://checkout.cashfree.com',  // Cashfree SDK
+          'https://accounts.google.com',    // Google Sign-In
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc:  ["'self'", 'https://fonts.gstatic.com'],
+        imgSrc:   ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com', 'https://lh3.googleusercontent.com'],
+        mediaSrc: ["'self'", 'blob:', 'https://res.cloudinary.com'],
+        connectSrc: [
+          "'self'",
+          'https://api.cashfree.com',
+          'https://sandbox.cashfree.com',
+          'wss://api.fannex.in',
+          'wss://www.fannex.in',
+          'ws://localhost:8080',            // dev Socket.IO
+        ],
+        frameSrc:   ['https://checkout.cashfree.com', 'https://accounts.google.com'],
+        objectSrc:  ["'none'"],
+        baseUri:    ["'self'"],
+        formAction: ["'self'"],
+      },
+    },
   })
 );
 

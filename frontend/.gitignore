@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files — NEVER commit to VCS
+.env
+.env.local
+.env.production
+.env.staging

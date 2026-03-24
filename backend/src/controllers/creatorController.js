@@ -11,14 +11,31 @@ const {
 } = require('../services/earningsService');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// @desc    Get logged-in creator's earnings summary
+// @desc    Get logged-in creator's earnings summary + per-type breakdown
 // @route   GET /api/v1/creator/earnings
 // @access  Private (creator)
 // ─────────────────────────────────────────────────────────────────────────────
 const getMyEarnings = async (req, res, next) => {
     try {
-        const earnings = await getMyEarningsService(req.user._id);
-        res.status(200).json({ success: true, data: earnings });
+        const creatorId = req.user._id;
+
+        // Bug 5 Fix: fetch earnings + per-type breakdown in ONE controller call
+        // so the frontend needs only this single endpoint (no separate loadBreakdown call).
+        const [earnings, breakdownAgg] = await Promise.all([
+            getMyEarningsService(creatorId),
+            // Per-type breakdown for the 3 stat cards (Subscription / Gift / Chat)
+            require('../models/Payment').aggregate([
+                { $match: { creatorId, status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock'] } } },
+                { $group: { _id: '$type', total: { $sum: '$creatorEarning' } } },
+            ]),
+        ]);
+
+        const breakdown = { subscription: 0, gift: 0, chat_unlock: 0 };
+        breakdownAgg.forEach(({ _id, total }) => {
+            if (_id in breakdown) breakdown[_id] = Math.round(total * 100) / 100;
+        });
+
+        res.status(200).json({ success: true, data: { ...earnings, breakdown } });
     } catch (error) {
         if (error.statusCode) res.status(error.statusCode);
         next(error);
@@ -573,11 +590,19 @@ const getEarningsHistory = async (req, res, next) => {
 
         // ── Single faceted aggregation — ONE round-trip to MongoDB ─────────────
         // Facets: transactions (paginated) + total count + per-type breakdown
-        const matchBase  = { creatorId, status: 'captured' };
-        const matchPage  = type !== 'all' ? { ...matchBase, type } : matchBase;
+        //
+        // Bug 2 Fix: restrict matchBase to only the 3 earning types.
+        // Without this, dream_fund payments appeared in the transactions list
+        // showing as mysterious +₹0.00 DREAM_FUND entries.
+        // Bug 3 Fix: removed unused `matchPage` variable (was never referenced).
+        const matchBase = {
+            creatorId,
+            status: 'captured',
+            type:   { $in: ['subscription', 'gift', 'chat_unlock'] },
+        };
 
         const [result] = await Payment.aggregate([
-            // Stage 1: narrow by creatorId + status (uses compound index)
+            // Stage 1: narrow by creatorId + status + type (uses compound index)
             { $match: matchBase },
 
             // Stage 2: parallel facets
@@ -596,7 +621,7 @@ const getEarningsHistory = async (req, res, next) => {
                     ...(type !== 'all' ? [{ $match: { type } }] : []),
                     { $count: 'n' },
                 ],
-                // Per-type breakdown — ALWAYS computed across ALL types regardless of filter
+                // Per-type breakdown — always across all 3 types regardless of filter
                 breakdown: [
                     { $group: {
                         _id: '$type',

@@ -92,8 +92,9 @@ const creditEarningsOnPayment = async (creatorId, baseAmount, session = null) =>
 
 /**
  * Creator requests a payout.
- * - Validates amount ≤ pendingAmount.
- * - Atomically decrements pendingAmount and creates a PayoutRequest.
+ * - Validates amount ≤ live available balance (computed from Payment collection).
+ * - Atomically decrements pendingAmount via findOneAndUpdate with $gte guard
+ *   to prevent sub-zero balance even under concurrent requests.
  *
  * @param {ObjectId|string} creatorId
  * @param {number}          amount
@@ -102,34 +103,74 @@ const requestPayoutService = async (creatorId, amount) => {
     return withTransaction(async (session) => {
         const opts = session ? { session } : {};
 
-        // Fetch with session lock (or without, on standalone)
-        const earnings = session
-            ? await Earnings.findOne({ creatorId }).session(session)
-            : await Earnings.findOne({ creatorId });
-
-        if (!earnings) {
-            const err = new Error('No earnings record found. You have not received any payments yet.');
-            err.statusCode = 400;
-            throw err;
-        }
-
         if (amount <= 0) {
             const err = new Error('Payout amount must be greater than 0.');
             err.statusCode = 400;
             throw err;
         }
 
-        if (amount > earnings.pendingAmount) {
+        // ── Compute live available balance (source of truth) ────────────────
+        // We do NOT trust the stale Earnings.pendingAmount field here.
+        // Instead we recompute it fresh inside the transaction to avoid races.
+        const Payment = require('../models/Payment');
+
+        const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
+            Payment.aggregate([
+                { $match: { creatorId: new mongoose.Types.ObjectId(String(creatorId)), status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock'] } } },
+                { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
+            ]),
+            session
+                ? Earnings.findOne({ creatorId }).session(session)
+                : Earnings.findOne({ creatorId }),
+            PayoutRequest.aggregate([
+                { $match: { creatorId: new mongoose.Types.ObjectId(String(creatorId)), status: { $in: ['pending', 'approved'] } } },
+                { $group: { _id: null, total: { $sum: '$amount' } } },
+            ]),
+        ]);
+
+        const R = (n) => Math.round(n * 100) / 100;
+
+        if (!earnDoc) {
+            const err = new Error('No earnings record found. You have not received any payments yet.');
+            err.statusCode = 400;
+            throw err;
+        }
+
+        const totalEarned   = R(aggResult[0]?.total ?? 0);
+        const withdrawnAmt  = R(earnDoc.withdrawnAmount ?? 0);
+        const inFlight      = R(inFlightAgg[0]?.total ?? 0);
+        const availableBalance = R(Math.max(0, totalEarned - withdrawnAmt - inFlight));
+
+        if (amount > availableBalance) {
             const err = new Error(
-                `Requested amount (₹${amount}) exceeds your available balance (₹${earnings.pendingAmount}).`
+                `Requested amount (₹${amount}) exceeds your available balance (₹${availableBalance}).`
             );
             err.statusCode = 400;
             throw err;
         }
 
-        // Atomically decrement pendingAmount
-        earnings.pendingAmount -= amount;
-        await earnings.save({ ...opts, validateBeforeSave: false });
+        // ── Bug 7 Fix: Atomic decrement with $gte guard — prevents sub-zero ──
+        // Using findOneAndUpdate with $gte in the query so the update only
+        // applies when there is sufficient balance. This is fully atomic even
+        // without a session (MongoDB document-level atomicity guarantee).
+        const updated = session
+            ? await Earnings.findOneAndUpdate(
+                { creatorId, pendingAmount: { $gte: amount } },
+                { $inc: { pendingAmount: -amount } },
+                { returnDocument: 'after', session }
+            )
+            : await Earnings.findOneAndUpdate(
+                { creatorId, pendingAmount: { $gte: amount } },
+                { $inc: { pendingAmount: -amount } },
+                { returnDocument: 'after' }
+            );
+
+        if (!updated) {
+            // Guard tripped — concurrent request already consumed the balance
+            const err = new Error('Insufficient balance. Your available balance may have changed. Please refresh and try again.');
+            err.statusCode = 409;
+            throw err;
+        }
 
         // Create the payout request
         const [payoutRequest] = await PayoutRequest.create(
@@ -258,18 +299,32 @@ const rejectPayoutService = async (payoutId, adminId, notes) => {
     });
 };
 
+/**
+ * Bug 1 & 4 Fix: Compute live earnings figures from Payment collection and return
+ * as a plain object. NO DB write is performed here — this is a pure read operation.
+ *
+ * The previous implementation did a `$set { totalEarned, pendingAmount }` on every
+ * GET request, which could race with requestPayoutService and overwrite atomic
+ * decrements with stale computed values.
+ *
+ * Now we compute on-the-fly and return a plain object for the API response.
+ * The Earnings doc is used only for `withdrawnAmount` (which is only written when
+ * a payout is marked paid — a much rarer and correctly transactional event).
+ */
 const getMyEarningsService = async (creatorId) => {
-    const Payment      = require('../models/Payment');
+    const Payment       = require('../models/Payment');
     const PayoutRequest = require('../models/PayoutRequest');
 
     // ── Three parallel DB reads ───────────────────────────────────────────────
     const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
         // 1. Live sum of all captured creator earnings (source of truth)
+        //    dream_fund excluded — only subscription/gift/chat_unlock count
         Payment.aggregate([
             { $match: { creatorId, status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock'] } } },
             { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
         ]),
-        // 2. Earnings doc (for withdrawnAmount — incremented only when payout is marked PAID)
+        // 2. Earnings doc — for withdrawnAmount (only updated when a payout is marked PAID)
+        //    Upsert so new creators get a fresh doc with all defaults
         Earnings.findOneAndUpdate(
             { creatorId },
             {},
@@ -284,22 +339,24 @@ const getMyEarningsService = async (creatorId) => {
 
     const R = (n) => Math.round(n * 100) / 100;
 
-    const totalEarned    = R(aggResult[0]?.total ?? 0);
-    const withdrawnAmt   = R(earnDoc.withdrawnAmount ?? 0);
-    const inFlight       = R(inFlightAgg[0]?.total ?? 0);
+    const totalEarned   = R(aggResult[0]?.total   ?? 0);
+    const withdrawnAmt  = R(earnDoc.withdrawnAmount ?? 0);
+    const inFlight      = R(inFlightAgg[0]?.total  ?? 0);
 
-    // Available = earned minus already withdrawn minus reserved-for-payout
-    // This is what the creator can actually request RIGHT NOW
-    const pendingAmount  = R(Math.max(0, totalEarned - withdrawnAmt - inFlight));
+    // Available = earned − withdrawn − in-flight (pending/approved requests)
+    const pendingAmount = R(Math.max(0, totalEarned - withdrawnAmt - inFlight));
 
-    // Write synced values back so requestPayoutService can use them for concurrency guard
-    const synced = await Earnings.findOneAndUpdate(
-        { creatorId },
-        { $set: { totalEarned, pendingAmount } },
-        { returnDocument: 'after' }
-    );
-
-    return synced;
+    // Return as a plain object — NO DB write. The computed values are consistent
+    // with the live state and should not be persisted in a racy GET handler.
+    return {
+        _id:             earnDoc._id,
+        creatorId:       earnDoc.creatorId,
+        totalEarned,
+        pendingAmount,
+        withdrawnAmount: withdrawnAmt,
+        createdAt:       earnDoc.createdAt,
+        updatedAt:       earnDoc.updatedAt,
+    };
 };
 
 

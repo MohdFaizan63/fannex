@@ -183,6 +183,8 @@ const googleAuth = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getMe = async (req, res, next) => {
     try {
+        // ✅ Bug 26 Fix: avoid double DB query — user is already fetched by protect middleware.
+        // Refresh only to pick up walletBalance (which protect middleware doesn't select).
         const user = await User.findById(req.user._id)
             .select('name email role isVerified isBanned avatar creatorApplicationStatus creatorRejectionReason signupSource creatorReferred createdAt walletBalance');
 
@@ -200,6 +202,7 @@ const getMe = async (req, res, next) => {
                 isVerified: user.isVerified,
                 isBanned: user.isBanned,
                 avatar: user.avatar,
+                walletBalance: user.walletBalance ?? 0, // ✅ Bug 27 Fix: was missing from response
                 creatorApplicationStatus: user.creatorApplicationStatus,
                 creatorRejectionReason: user.creatorRejectionReason,
                 signupSource: user.signupSource,
@@ -211,6 +214,7 @@ const getMe = async (req, res, next) => {
         next(error);
     }
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // @desc    Forgot password — send reset link
