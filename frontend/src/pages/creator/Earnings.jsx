@@ -11,6 +11,7 @@ const Icon = {
     gift:     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5"><rect x="3" y="9" width="18" height="13" rx="1"/><path d="M3 9h18M12 9V22M8 9c0-2 1-4 4-4s4 2 4 4"/></svg>,
     chat:     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
     sub:      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
+    dream:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
     arrow:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M5 12h14M12 5l7 7-7 7"/></svg>,
     payout:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-5 h-5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
     refresh:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>,
@@ -18,7 +19,7 @@ const Icon = {
     close:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"/></svg>,
 };
 
-// ── Type config ───────────────────────────────────────────────────────────────
+// ── Type config — BUG-24 Fix: added dream_fund ────────────────────────────────
 const TYPE_CONFIG = {
     subscription: {
         label: 'Subscription',
@@ -26,6 +27,7 @@ const TYPE_CONFIG = {
         color: 'text-violet-400',
         bg: 'bg-violet-500/15',
         border: 'border-violet-500/20',
+        filterKey: 'subscription',
     },
     gift: {
         label: 'Gift',
@@ -33,6 +35,7 @@ const TYPE_CONFIG = {
         color: 'text-rose-400',
         bg: 'bg-rose-500/15',
         border: 'border-rose-500/20',
+        filterKey: 'gift',
     },
     chat_unlock: {
         label: 'Chat Unlock',
@@ -40,6 +43,16 @@ const TYPE_CONFIG = {
         color: 'text-sky-400',
         bg: 'bg-sky-500/15',
         border: 'border-sky-500/20',
+        filterKey: 'chat_unlock',
+    },
+    // BUG-24 Fix: Dream Fund is now a proper type with its own config
+    dream_fund: {
+        label: 'Dream Fund',
+        icon: Icon.dream,
+        color: 'text-amber-400',
+        bg: 'bg-amber-500/15',
+        border: 'border-amber-500/20',
+        filterKey: 'dream_fund',
     },
 };
 
@@ -73,7 +86,6 @@ function StatCard({ icon, label, value, accent, gradient, loading, chip, subLabe
             hover:-translate-y-1 hover:shadow-2xl group
             ${accent ? 'border-brand-500/30 hover:border-brand-500/60' : 'border-white/5 hover:border-white/10'}
         `}>
-            {/* Glow effect for accent card */}
             {accent && (
                 <div className="absolute inset-0 bg-gradient-to-br from-brand-600/10 to-violet-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
             )}
@@ -112,6 +124,7 @@ function StatCard({ icon, label, value, accent, gradient, loading, chip, subLabe
 }
 
 // ── Payout Request Modal ──────────────────────────────────────────────────────
+// BUG-26/BUG-28 Fix: when maxAmount <= 0, hide the form entirely and show warning only
 function PayoutModal({ maxAmount, onClose, onSuccess }) {
     const { register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm();
     const overlayRef = useRef();
@@ -148,52 +161,60 @@ function PayoutModal({ maxAmount, onClose, onSuccess }) {
                     </button>
                 </div>
 
-                {/* Warning if nothing available */}
-                {maxAmount <= 0 && (
-                    <div className="mb-5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm">
-                        ⚠️ No pending balance available for payout.
+                {/* BUG-26/28 Fix: show only the warning when no balance; do NOT render the form */}
+                {maxAmount <= 0 ? (
+                    <div className="mb-5 px-4 py-5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm text-center flex flex-col items-center gap-3">
+                        <span className="text-3xl">💸</span>
+                        <p className="font-semibold">No pending balance available.</p>
+                        <p className="text-xs text-amber-400/70">Earnings from new payments will appear here once processed.</p>
+                        <button onClick={onClose} className="mt-1 btn-outline px-6 py-2 text-sm">Close</button>
                     </div>
-                )}
-
-                <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-                    <div>
-                        <label className="block text-sm font-semibold text-surface-300 mb-2">Amount (₹)</label>
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400 font-bold text-lg">₹</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="1"
-                                max={maxAmount}
-                                placeholder="0.00"
-                                className="input-dark pl-10 w-full h-12 text-lg font-semibold"
-                                {...register('amount', {
-                                    required: 'Enter an amount',
-                                    min: { value: 1, message: 'Minimum ₹1' },
-                                    max: { value: maxAmount, message: `Max ${formatCurrency(maxAmount)}` },
-                                    validate: (v) => !isNaN(parseFloat(v)) || 'Enter a valid number',
-                                })}
-                            />
+                ) : (
+                    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-surface-300 mb-2">Amount (₹)</label>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400 font-bold text-lg">₹</span>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="1"
+                                    max={maxAmount}
+                                    placeholder="0.00"
+                                    className="input-dark pl-10 w-full h-12 text-lg font-semibold"
+                                    {...register('amount', {
+                                        required: 'Enter an amount',
+                                        // BUG-26 Fix: validate v > 0 explicitly to catch cleared/0 inputs
+                                        validate: (v) => {
+                                            const n = parseFloat(v);
+                                            if (isNaN(n) || n <= 0) return 'Enter a valid amount greater than ₹0';
+                                            if (n < 1) return 'Minimum payout is ₹1';
+                                            if (n > maxAmount) return `Max available is ${formatCurrency(maxAmount)}`;
+                                            return true;
+                                        },
+                                    })}
+                                />
+                            </div>
+                            {errors.amount && <p className="mt-1.5 text-xs text-red-400">{errors.amount.message}</p>}
                         </div>
-                        {errors.amount && <p className="mt-1.5 text-xs text-red-400">{errors.amount.message}</p>}
-                    </div>
 
-                    <div className="flex gap-3 mt-1">
-                        <button type="button" onClick={onClose} className="btn-outline flex-1 h-12">Cancel</button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || maxAmount <= 0}
-                            className="btn-brand flex-1 h-12 disabled:opacity-40"
-                        >
-                            {isSubmitting ? (
-                                <span className="flex items-center gap-2 justify-center">
-                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Sending…
-                                </span>
-                            ) : 'Request Payout'}
-                        </button>
-                    </div>
-                </form>
+                        <div className="flex gap-3 mt-1">
+                            <button type="button" onClick={onClose} className="btn-outline flex-1 h-12">Cancel</button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="btn-brand flex-1 h-12 disabled:opacity-40"
+                            >
+                                {isSubmitting ? (
+                                    <span className="flex items-center gap-2 justify-center">
+                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Sending…
+                                    </span>
+                                ) : 'Request Payout'}
+                            </button>
+                        </div>
+                    </form>
+                )}
             </div>
         </div>
     );
@@ -205,6 +226,10 @@ function TxRow({ tx }) {
         label: tx.type, icon: Icon.wallet, color: 'text-surface-400', bg: 'bg-surface-700/40', border: 'border-white/5',
     };
     const fan = tx.userId;
+    // BUG-30 Fix: provide a meaningful fallback label for dream_fund contributors
+    const fanName = fan?.name || fan?.username
+        ? (fan.name || fan.username)
+        : tx.type === 'dream_fund' ? 'Dream Fund Contributor' : 'Anonymous Fan';
 
     return (
         <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.02] transition-colors border-b border-white/[0.04] last:border-0">
@@ -218,9 +243,7 @@ function TxRow({ tx }) {
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
                 </div>
-                <p className="text-sm text-surface-400 truncate mt-0.5">
-                    {fan?.name || fan?.username || 'Anonymous Fan'}
-                </p>
+                <p className="text-sm text-surface-400 truncate mt-0.5">{fanName}</p>
                 <p className="text-xs text-surface-500 mt-0.5">{formatDate(tx.createdAt)}</p>
             </div>
 
@@ -259,21 +282,22 @@ function Tab({ active, onClick, children, count }) {
 export default function Earnings() {
     const [earnings, setEarnings]           = useState(null);
     const [payouts, setPayouts]             = useState([]);
-    // Bug 5 Fix: breakdown comes from getEarnings() response — no separate API call needed
-    const [breakdown, setBreakdown]         = useState({ subscription: 0, gift: 0, chat_unlock: 0 });
+    // BUG-24 Fix: added dream_fund to breakdown state
+    const [breakdown, setBreakdown]         = useState({ subscription: 0, gift: 0, chat_unlock: 0, dream_fund: 0 });
+    const [breakdownLoading, setBreakdownLoading] = useState(false); // BUG-29 Fix: separate loading state for breakdown
     const [history, setHistory]             = useState({ transactions: [], pagination: null });
     const [historyLoading, setHistoryLoading] = useState(false);
     const [loading, setLoading]             = useState(true);
     const [showModal, setShowModal]         = useState(false);
     const [successMsg, setSuccessMsg]       = useState('');
-    const [activeSection, setActiveSection] = useState('overview');
+    // BUG-27 Fix: renamed activeSection key from 'overview' → 'payouts'
+    const [activeSection, setActiveSection] = useState('payouts');
     const [historyFilter, setHistoryFilter] = useState('all');
     const [historyPage, setHistoryPage]     = useState(1);
 
-    // Bug 10 Fix: store timeout ID in a ref so we can clear it before setting a new one
     const toastTimerRef = useRef(null);
 
-    /** Fetch earnings summary (now also returns breakdown — Bug 5 fix) */
+    /** Fetch earnings summary */
     const loadEarnings = useCallback(async () => {
         setLoading(true);
         try {
@@ -284,8 +308,7 @@ export default function Earnings() {
             if (eRes.status === 'fulfilled') {
                 const data = eRes.value.data?.data ?? eRes.value.data;
                 setEarnings(data);
-                // Bug 5 Fix: breakdown is now embedded in the earnings response
-                if (data?.breakdown) setBreakdown(data.breakdown);
+                if (data?.breakdown) setBreakdown(prev => ({ ...prev, ...data.breakdown }));
             }
             if (pRes.status === 'fulfilled') setPayouts(pRes.value.data?.results ?? []);
         } finally {
@@ -293,93 +316,78 @@ export default function Earnings() {
         }
     }, []);
 
-    // Bug 6 Fix: stable loadHistory — deps do NOT include historyFilter/historyPage.
-    // Instead, callers pass the values explicitly so useCallback identity stays stable.
+    // BUG-29 Fix: loadHistory now toggles breakdownLoading alongside historyLoading
     const loadHistory = useCallback(async (type, page) => {
         setHistoryLoading(true);
+        setBreakdownLoading(true);
         try {
             const res = await payoutService.getEarningsHistory({ type, page, limit: 20 });
             const data = res.data?.data ?? {};
             setHistory({ transactions: data.transactions ?? [], pagination: data.pagination ?? null });
-            // Refresh breakdown totals in case new payments came in
-            if (data.breakdown) setBreakdown(data.breakdown);
+            if (data.breakdown) setBreakdown(prev => ({ ...prev, ...data.breakdown }));
         } catch {
             setHistory({ transactions: [], pagination: null });
         } finally {
             setHistoryLoading(false);
+            setBreakdownLoading(false);
         }
-    }, []); // stable — no state deps
+    }, []);
 
-    // Mount: load earnings summary (includes breakdown via Bug 5 fix)
-    useEffect(() => {
-        loadEarnings();
-    }, [loadEarnings]);
+    // Mount: load earnings summary
+    useEffect(() => { loadEarnings(); }, [loadEarnings]);
 
-    // Bug 6 Fix: single effect that runs when section/filter/page changes.
-    // Using a ref-guarded approach: only fires loadHistory when the history section
-    // is active, and avoids the duplicate call that happened when setHistoryPage(1)
-    // and setHistoryFilter() both changed state in the same handleFilterChange call.
-    const historyParamsRef = useRef({ filter: 'all', page: 1 });
+    // BUG-20 Fix: single consolidated effect — only the historyParamsRef approach, no duplicate prevSectionRef effect
+    const historyParamsRef = useRef({ section: null, filter: 'all', page: 1 });
     useEffect(() => {
         if (activeSection !== 'history') return;
         const prev = historyParamsRef.current;
-        // Only fire if params actually changed (avoids double-call from handleFilterChange)
-        if (prev.filter !== historyFilter || prev.page !== historyPage) {
-            historyParamsRef.current = { filter: historyFilter, page: historyPage };
+        // Fire when anything changed (section activation OR filter/page change)
+        if (prev.section !== 'history' || prev.filter !== historyFilter || prev.page !== historyPage) {
+            historyParamsRef.current = { section: 'history', filter: historyFilter, page: historyPage };
             loadHistory(historyFilter, historyPage);
         }
     }, [activeSection, historyFilter, historyPage, loadHistory]);
 
-    // When history section first becomes active, trigger initial load
-    const prevSectionRef = useRef('overview');
-    useEffect(() => {
-        if (activeSection === 'history' && prevSectionRef.current !== 'history') {
-            historyParamsRef.current = { filter: historyFilter, page: historyPage };
-            loadHistory(historyFilter, historyPage);
-        }
-        prevSectionRef.current = activeSection;
-    }, [activeSection]); // intentionally minimal deps
-
+    // BUG-21 Fix: allow same-filter click to refresh (removed early-return no-op guard)
     const handleFilterChange = (f) => {
-        if (f === historyFilter) return; // no-op — avoids redundant reload
-        setHistoryFilter(f);
-        setHistoryPage(1);
-        // Bug 6 Fix: manually trigger load with the new values immediately
-        // so we don't rely on two separate setState calls going through the effect.
-        historyParamsRef.current = { filter: f, page: 1 };
-        if (activeSection === 'history') loadHistory(f, 1);
+        const isSame = f === historyFilter;
+        if (!isSame) {
+            setHistoryFilter(f);
+            setHistoryPage(1);
+            historyParamsRef.current = { section: 'history', filter: f, page: 1 };
+        }
+        // Always reload on click — even same filter means "refresh"
+        if (activeSection === 'history') loadHistory(f, isSame ? historyPage : 1);
     };
 
     const handlePayoutSuccess = () => {
         setShowModal(false);
-        // Bug 10 Fix: clear any previous toast timer before setting a new one
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         setSuccessMsg("Payout request submitted! We'll process it within 2 business days.");
         loadEarnings();
         toastTimerRef.current = setTimeout(() => setSuccessMsg(''), 6000);
     };
 
-    // Breakdown always comes from `breakdown` state (populated by loadEarnings + loadHistory).
-    // No separate breakdownLoading state needed — it loads with the main earnings fetch.
-    const breakdownLoading = loading;
-
-    // Find the most recent paid payout for the Paid Amount card subLabel
     const lastPaidPayout = payouts.find((p) => p.status === 'paid');
     const paidSubLabel = lastPaidPayout?.processedAt
         ? `Paid on: ${formatDateTime(lastPaidPayout.processedAt)}`
         : null;
 
-    const statCards = [
-        { icon: Icon.wallet, label: 'Total Earned',      value: earnings?.totalEarned ?? 0,    accent: true, chip: 'lifetime' },
-        { icon: Icon.clock,  label: 'Pending Balance',   value: earnings?.pendingAmount ?? 0,   accent: false },
-        { icon: Icon.check,  label: 'Paid Amount',       value: earnings?.withdrawnAmount ?? 0, accent: false, subLabel: paidSubLabel },
-        { icon: Icon.sub,    label: 'Subscription Earn', value: breakdown.subscription ?? 0,    gradient: 'bg-violet-500/15 text-violet-400', accent: false },
-        { icon: Icon.gift,   label: 'Gift Earnings',     value: breakdown.gift ?? 0,            gradient: 'bg-rose-500/15 text-rose-400',   accent: false },
-        { icon: Icon.chat,   label: 'Chat Earnings',     value: breakdown.chat_unlock ?? 0,     gradient: 'bg-sky-500/15 text-sky-400',     accent: false },
+    // Main stat cards (3 top cards)
+    const mainCards = [
+        { icon: Icon.wallet, label: 'Total Earned',    value: earnings?.totalEarned ?? 0,    accent: true, chip: 'lifetime' },
+        { icon: Icon.clock,  label: 'Pending Balance', value: earnings?.pendingAmount ?? 0,   accent: false },
+        // BUG-22 Fix: renamed "Paid Amount" → "Withdrawn" with subLabel clarification
+        { icon: Icon.check,  label: 'Withdrawn',       value: earnings?.withdrawnAmount ?? 0, accent: false, subLabel: paidSubLabel ?? 'Admin confirmed & transferred' },
     ];
 
-    const mainCards = statCards.slice(0, 3);
-    const typeCards = statCards.slice(3);
+    // BUG-23/BUG-24 Fix: typeCards now use stable filterKey; dream_fund added as 4th card
+    const typeCards = [
+        { icon: Icon.sub,   label: 'Subscription Earn', value: breakdown.subscription ?? 0, gradient: 'bg-violet-500/15 text-violet-400', filterKey: 'subscription' },
+        { icon: Icon.gift,  label: 'Gift Earnings',      value: breakdown.gift ?? 0,          gradient: 'bg-rose-500/15 text-rose-400',     filterKey: 'gift' },
+        { icon: Icon.chat,  label: 'Chat Earnings',      value: breakdown.chat_unlock ?? 0,   gradient: 'bg-sky-500/15 text-sky-400',       filterKey: 'chat_unlock' },
+        { icon: Icon.dream, label: 'Dream Fund',         value: breakdown.dream_fund ?? 0,    gradient: 'bg-amber-500/15 text-amber-400',   filterKey: 'dream_fund' },
+    ];
 
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
@@ -390,6 +398,15 @@ export default function Earnings() {
                     <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Earnings</h1>
                     <p style={{ color: 'rgba(255,255,255,0.42)' }} className="mt-1 text-sm sm:text-base">Track your income and request payouts.</p>
                 </div>
+                {/* BUG-19 Fix: "Request Payout" CTA button in the page header — always visible */}
+                <button
+                    onClick={() => setShowModal(true)}
+                    disabled={loading}
+                    className="btn-brand px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 self-start sm:self-auto disabled:opacity-40"
+                >
+                    {Icon.payout}
+                    Request Payout
+                </button>
             </div>
 
             {/* ── Success toast ───────────────────────────────────────────── */}
@@ -407,18 +424,24 @@ export default function Earnings() {
                 ))}
             </div>
 
-            {/* ── Earnings breakdown cards (subscription / gift / chat) ────── */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
+            {/* ── Earnings breakdown cards ─────────────────────────────────── */}
+            {/* BUG-24 Fix: 4-column grid for 4 type cards (subscription/gift/chat/dream) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-8">
                 {typeCards.map((c) => (
                     <div
                         key={c.label}
                         className="glass rounded-2xl p-4 sm:p-5 border border-white/5 hover:border-white/10 transition-all hover:-translate-y-0.5 cursor-pointer"
-                        onClick={() => { setActiveSection('history'); handleFilterChange(c.label === 'Subscription Earn' ? 'subscription' : c.label === 'Gift Earnings' ? 'gift' : 'chat_unlock'); }}
+                        // BUG-23 Fix: use stable filterKey, not label string comparison
+                        onClick={() => {
+                            setActiveSection('history');
+                            handleFilterChange(c.filterKey);
+                        }}
                     >
                         <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center mb-3 ${c.gradient}`}>
                             {c.icon}
                         </div>
-                        {breakdownLoading ? (
+                        {/* BUG-29 Fix: show skeleton for breakdown values during filter changes */}
+                        {(loading || breakdownLoading) ? (
                             <Skeleton className="h-6 w-16 mb-1" />
                         ) : (
                             <p className="text-lg sm:text-xl font-black text-white">{formatCurrency(c.value)}</p>
@@ -430,16 +453,14 @@ export default function Earnings() {
 
             {/* ── Section tabs ────────────────────────────────────────────── */}
             <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hidden">
-                <Tab active={activeSection === 'overview'} onClick={() => setActiveSection('overview')}>
+                {/* BUG-27 Fix: tab state key is now 'payouts' (not 'overview') */}
+                <Tab active={activeSection === 'payouts'} onClick={() => setActiveSection('payouts')}>
                     📤 Payout History
                 </Tab>
                 <Tab
                     active={activeSection === 'history'}
                     onClick={() => {
-                        if (activeSection !== 'history') {
-                            setActiveSection('history');
-                            // Trigger initial load on first visit to this tab
-                        }
+                        if (activeSection !== 'history') setActiveSection('history');
                     }}
                 >
                     📈 Earning History
@@ -447,9 +468,9 @@ export default function Earnings() {
             </div>
 
             {/* ════════════════════════════════════════════════════════════════
-                SECTION: PAYOUT HISTORY
+                SECTION: PAYOUT HISTORY (BUG-27: was 'overview', now 'payouts')
                 ════════════════════════════════════════════════════════════════ */}
-            {activeSection === 'overview' && (
+            {activeSection === 'payouts' && (
                 <div className="glass rounded-2xl border border-white/5 overflow-hidden">
                     <div className="px-4 sm:px-5 py-4 border-b border-white/5 flex items-center justify-between">
                         <h2 className="font-bold text-white text-base sm:text-lg">Payout History</h2>
@@ -513,10 +534,12 @@ export default function Earnings() {
                     {/* Filter tabs */}
                     <div className="px-4 sm:px-5 py-3 border-b border-white/5 flex items-center gap-2 overflow-x-auto scrollbar-hidden">
                         {[
-                            { key: 'all',          label: 'All',          icon: '⚡' },
+                            { key: 'all',        label: 'All',          icon: '⚡' },
                             { key: 'subscription', label: 'Subscriptions', icon: '👥' },
-                            { key: 'gift',         label: 'Gifts',         icon: '🎁' },
-                            { key: 'chat_unlock',  label: 'Chat',          icon: '💬' },
+                            { key: 'gift',       label: 'Gifts',         icon: '🎁' },
+                            { key: 'chat_unlock', label: 'Chat',          icon: '💬' },
+                            // BUG-24 Fix: Dream Fund filter tab
+                            { key: 'dream_fund', label: 'Dream Fund',    icon: '⭐' },
                         ].map(({ key, label, icon }) => (
                             <button
                                 key={key}
@@ -573,7 +596,7 @@ export default function Earnings() {
                         </div>
                     )}
 
-                    {/* Pagination */}
+                    {/* Pagination — BUG-25 Fix: scroll to top on page change */}
                     {history.pagination && history.pagination.pages > 1 && (
                         <div className="px-5 py-4 border-t border-white/5 flex items-center justify-between">
                             <span className="text-xs text-surface-500">
@@ -582,14 +605,22 @@ export default function Earnings() {
                             <div className="flex gap-2">
                                 <button
                                     disabled={historyPage <= 1}
-                                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                                    onClick={() => {
+                                        setHistoryPage((p) => Math.max(1, p - 1));
+                                        // BUG-25 Fix: scroll to top when paginating
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
                                     className="btn-outline text-xs px-3 py-1.5 disabled:opacity-30"
                                 >
                                     Previous
                                 </button>
                                 <button
                                     disabled={historyPage >= history.pagination.pages}
-                                    onClick={() => setHistoryPage((p) => p + 1)}
+                                    onClick={() => {
+                                        setHistoryPage((p) => p + 1);
+                                        // BUG-25 Fix: scroll to top when paginating
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
                                     className="btn-outline text-xs px-3 py-1.5 disabled:opacity-30"
                                 >
                                     Next

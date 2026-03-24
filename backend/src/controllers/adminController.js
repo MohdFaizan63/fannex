@@ -152,6 +152,13 @@ const adminDeletePost = async (req, res, next) => {
         }
 
         await post.deleteOne();
+
+        // BUG-06 Fix: decrement totalPosts on CreatorProfile to keep counter in sync
+        await CreatorProfile.findOneAndUpdate(
+            { userId: post.creatorId },
+            { $inc: { totalPosts: -1 } }
+        );
+
         res.status(200).json({ success: true, message: 'Post deleted by admin' });
     } catch (error) {
         next(error);
@@ -571,40 +578,52 @@ const getCreatorDetail = async (req, res, next) => {
         const mongoose = require('mongoose');
         const objectCreatorId = new mongoose.Types.ObjectId(String(creatorId));
 
-        const [creator, profile, verification, earnings, recentPayouts, weeklyAgg, overviewAgg] = await Promise.all([
+        // BUG-13 Fix: support pagination for payout history
+        const payoutPage  = Math.max(1, parseInt(req.query.payoutPage  ?? 1));
+        const payoutLimit = Math.min(100, parseInt(req.query.payoutLimit ?? 20));
+        const payoutSkip  = (payoutPage - 1) * payoutLimit;
+
+        const [creator, profile, verification, earnings, payoutsResult, weeklyAgg, overviewAgg] = await Promise.all([
             User.findById(creatorId, '-password').lean(),
             CreatorProfile.findOne({ userId: creatorId }).lean(),
             CreatorVerification.findOne({ userId: creatorId })
                 .select('userId accountHolderName bankName bankAccountNumber ifscCode bankProofImageUrl status'),
             Earnings.findOne({ creatorId }).lean(),
-            PayoutRequest.find({ creatorId })
-                .sort({ requestedAt: -1 })
-                .limit(20)
-                .lean(),
-            // Weekly earnings
+            // BUG-13 Fix: paginated payout history instead of hard-capped 20
+            Promise.all([
+                PayoutRequest.find({ creatorId })
+                    .sort({ requestedAt: -1 })
+                    .skip(payoutSkip)
+                    .limit(payoutLimit)
+                    .lean(),
+                PayoutRequest.countDocuments({ creatorId }),
+            ]),
+            // BUG-01 Fix: weekly earnings uses same payment types as getMyEarningsService for consistency
             Payment.aggregate([
                 {
                     $match: {
                         creatorId: objectCreatorId,
                         status: 'captured',
-                        // Include ALL payment types that generate creator earnings
                         type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] },
                         createdAt: { $gte: weekStart, $lte: weekEnd },
                     },
                 },
                 { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
             ]),
-            // Overview: total payments count, paid payouts count, active subscribers
+            // BUG-04/BUG-05 Fix: fetch live counts in parallel
             Promise.all([
                 Payment.countDocuments({ creatorId: objectCreatorId, status: 'captured' }),
                 PayoutRequest.countDocuments({ creatorId, status: 'paid' }),
                 Subscription.countDocuments({ creatorId, status: 'active' }),
+                Post.countDocuments({ creatorId }),  // BUG-05: live post count instead of stale profile counter
             ]),
         ]);
 
         if (!creator) {
             return res.status(404).json({ success: false, message: 'Creator not found' });
         }
+
+        const [recentPayouts, payoutTotal] = payoutsResult;
 
         // Safely build bank details (run Mongoose getter for AES decryption)
         let bankDetails = null;
@@ -622,7 +641,8 @@ const getCreatorDetail = async (req, res, next) => {
         }
 
         const weeklyEarnings = Math.round((weeklyAgg[0]?.total ?? 0) * 100) / 100;
-        const [totalPayments, totalPaidPayouts, activeSubscribers] = overviewAgg;
+        // BUG-04/BUG-05 Fix: use live counts exclusively — no stale profile counter fallback
+        const [totalPayments, totalPaidPayouts, activeSubscribers, liveTotalPosts] = overviewAgg;
 
         res.status(200).json({
             success: true,
@@ -639,14 +659,22 @@ const getCreatorDetail = async (req, res, next) => {
                     weekEnd: weekEnd.toISOString(),
                 },
                 overview: {
-                    totalSubscribers: profile?.totalSubscribers ?? activeSubscribers ?? 0,
-                    totalPosts: profile?.totalPosts ?? 0,
+                    // BUG-04: always use live activeSubscribers count (never stale profile counter)
+                    totalSubscribers: activeSubscribers,
+                    // BUG-05: always use live post count from Post collection
+                    totalPosts: liveTotalPosts,
                     totalPayments,
                     totalPaidPayouts,
                     activeSubscribers,
                     joinedAt: creator.createdAt,
                 },
                 recentPayouts,
+                payoutPagination: {
+                    total: payoutTotal,
+                    page: payoutPage,
+                    limit: payoutLimit,
+                    pages: Math.ceil(payoutTotal / payoutLimit),
+                },
             },
         });
     } catch (error) {
@@ -920,10 +948,23 @@ const adminUpdateCreatorFinancials = async (req, res, next) => {
         if (withdrawnAmount !== undefined && !isNaN(Number(withdrawnAmount))) updates.withdrawnAmount = Math.max(0, Number(withdrawnAmount));
         if (Object.keys(updates).length === 0)
             return res.status(400).json({ success: false, message: 'No financial fields to update.' });
+
+        // BUG-14 Fix: server-side sanity validation — pendingAmount + withdrawnAmount must not exceed totalEarned
+        const finalTotal     = updates.totalEarned     ?? (await Earnings.findOne({ creatorId: req.params.id }))?.totalEarned     ?? 0;
+        const finalPending   = updates.pendingAmount   ?? (await Earnings.findOne({ creatorId: req.params.id }))?.pendingAmount   ?? 0;
+        const finalWithdrawn = updates.withdrawnAmount ?? (await Earnings.findOne({ creatorId: req.params.id }))?.withdrawnAmount ?? 0;
+        const R = (n) => Math.round(n * 100) / 100;
+        if (R(finalPending + finalWithdrawn) > R(finalTotal) + 0.01) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid financials: Pending (₹${finalPending}) + Withdrawn (₹${finalWithdrawn}) = ₹${R(finalPending + finalWithdrawn)} exceeds Total Earned (₹${finalTotal}). Please correct the values.`,
+            });
+        }
+
         const earnings = await Earnings.findOneAndUpdate(
             { creatorId: req.params.id },
             { $set: updates },
-            { returnDocument: 'after', upsert: false }
+            { returnDocument: 'after', upsert: false, runValidators: true }
         );
         if (!earnings) return res.status(404).json({ success: false, message: 'Earnings record not found.' });
         res.json({ success: true, message: 'Financials updated.', data: earnings });

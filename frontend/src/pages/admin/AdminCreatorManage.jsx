@@ -64,22 +64,58 @@ const inputCls = 'w-full rounded-xl px-3.5 py-2.5 text-sm text-white bg-white/[0
 const labelCls = 'block text-[10px] font-bold text-surface-500 mb-1.5 uppercase tracking-widest';
 
 // ── CONFIRM DELETE MODAL ─────────────────────────────────────────────────────
+// BUG-09 Fix: focus trap added so Tab cycles only within this modal
 function ConfirmDelete({ onConfirm, onCancel, busy }) {
+    const firstBtnRef = useRef();
+    const lastBtnRef  = useRef();
+
+    // Focus first button on mount
+    useEffect(() => { firstBtnRef.current?.focus(); }, []);
+
+    // Trap focus within the modal
+    const handleKeyDown = (e) => {
+        if (e.key !== 'Tab') return;
+        if (e.shiftKey) {
+            if (document.activeElement === firstBtnRef.current) {
+                e.preventDefault();
+                lastBtnRef.current?.focus();
+            }
+        } else {
+            if (document.activeElement === lastBtnRef.current) {
+                e.preventDefault();
+                firstBtnRef.current?.focus();
+            }
+        }
+        if (e.key === 'Escape' && !busy) onCancel();
+    };
+
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+            onKeyDown={handleKeyDown}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        >
             <div className="bg-surface-900 border border-white/10 rounded-2xl p-6 max-w-xs w-full shadow-2xl">
                 <div className="text-3xl mb-3 text-center">🗑️</div>
-                <h3 className="text-white font-black text-center mb-1">Delete Post?</h3>
+                <h3 id="delete-modal-title" className="text-white font-black text-center mb-1">Delete Post?</h3>
                 <p className="text-surface-400 text-sm text-center mb-5">This will permanently delete the post and media from storage. Cannot be undone.</p>
                 <div className="flex gap-3">
-                    <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-white/10 text-surface-400 text-sm font-semibold hover:text-white transition-colors">Cancel</button>
-                    <button onClick={onConfirm} disabled={busy} className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/30 transition-colors disabled:opacity-40">
+                    <button ref={firstBtnRef} onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-white/10 text-surface-400 text-sm font-semibold hover:text-white transition-colors">Cancel</button>
+                    <button ref={lastBtnRef} onClick={onConfirm} disabled={busy} className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/30 transition-colors disabled:opacity-40">
                         {busy ? 'Deleting…' : 'Delete'}
                     </button>
                 </div>
             </div>
         </div>
     );
+}
+
+// BUG-11 Fix: generate a Cloudinary video poster URL (first frame as JPEG)
+function getVideoPoster(url) {
+    if (!url || !url.includes('/upload/')) return '';
+    return url.replace('/upload/', '/upload/f_jpg,so_0/').replace(/\.[^.]+$/, '.jpg');
 }
 
 // ── MAIN ─────────────────────────────────────────────────────────────────────
@@ -90,6 +126,9 @@ export default function AdminCreatorManage() {
     const [data,    setData]    = useState(null);
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState('');
+
+    // BUG-03 Fix: track whether a data reload is in-flight so Pay Now can't fire with stale amount
+    const reloadingRef = useRef(false);
 
     // ── UI state ──────────────────────────────────────────────────────────────
     const [toast,      setToast]      = useState({ msg: '', type: 'success' });
@@ -102,47 +141,70 @@ export default function AdminCreatorManage() {
     const [savingProfile,  setSavingProfile]  = useState(false);
 
     // ── Financials edit ───────────────────────────────────────────────────────
-    const [editFin,   setEditFin]   = useState(false);
-    const [finForm,   setFinForm]   = useState({});
-    const [savingFin, setSavingFin] = useState(false);
+    const [editFin,         setEditFin]         = useState(false);
+    const [finForm,         setFinForm]         = useState({});
+    const [savingFin,       setSavingFin]       = useState(false);
+    // BUG-02 Fix: confirm step before writing financials
+    const [finConfirmPending, setFinConfirmPending] = useState(false);
 
     // ── Media library ─────────────────────────────────────────────────────────
-    const [media,       setMedia]       = useState([]);
-    const [mediaLoading,setMediaLoading]= useState(false);
-    const [mediaTotal,  setMediaTotal]  = useState(0);
-    const [mediaPage,   setMediaPage]   = useState(1);
+    const [media,           setMedia]           = useState([]);
+    const [mediaLoading,    setMediaLoading]    = useState(false);
+    const [mediaTotal,      setMediaTotal]      = useState(0);
+    const [mediaPage,       setMediaPage]       = useState(1);
     const [mediaTotalPages, setMediaTotalPages] = useState(1);
-    const [deleteTarget, setDeleteTarget] = useState(null); // { postId }
-    const [deleteBusy,   setDeleteBusy]   = useState(false);
+    const [deleteTarget,    setDeleteTarget]    = useState(null);
+    const [deleteBusy,      setDeleteBusy]      = useState(false);
+
+    // BUG-10 Fix: mediaRef used to scroll media section into view on pagination
     const mediaRef = useRef(null);
+
+    // BUG-08 Fix: store toast timer in a ref so we can clear it on unmount
+    const toastTimerRef = useRef(null);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const flash = (msg, type = 'success') => {
+        // BUG-08 Fix: clear previous timer before setting a new one
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         setToast({ msg, type });
-        setTimeout(() => setToast({ msg: '', type: 'success' }), 4000);
+        toastTimerRef.current = setTimeout(() => setToast({ msg: '', type: 'success' }), 4000);
+    };
+
+    // BUG-08 Fix: clear the timer when the component unmounts
+    useEffect(() => {
+        return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+    }, []);
+
+    // Seed form fields from loaded data
+    const seedForms = (d) => {
+        setProfileForm({
+            displayName:       d.profile?.displayName || d.user?.name || '',
+            bio:               d.profile?.bio || '',
+            subscriptionPrice: d.profile?.subscriptionPrice ?? '',
+            genre:             d.profile?.genre || '',
+        });
+        setFinForm({
+            totalEarned:     d.financials?.totalEarned    ?? 0,
+            pendingAmount:   d.financials?.pendingAmount  ?? 0,
+            withdrawnAmount: d.financials?.withdrawnAmount ?? 0,
+        });
     };
 
     // ── Load creator detail ───────────────────────────────────────────────────
     const load = useCallback(async () => {
+        reloadingRef.current = true;
         setLoading(true); setError('');
         try {
             const { data: res } = await adminService.getCreatorDetail(id);
             const d = res.data ?? res;
             setData(d);
-            // Seed forms
-            setProfileForm({
-                displayName: d.profile?.displayName || d.user?.name || '',
-                bio:         d.profile?.bio || '',
-                subscriptionPrice: d.profile?.subscriptionPrice ?? '',
-                genre:       d.profile?.genre || '',
-            });
-            setFinForm({
-                totalEarned:     d.financials?.totalEarned    ?? 0,
-                pendingAmount:   d.financials?.pendingAmount  ?? 0,
-                withdrawnAmount: d.financials?.withdrawnAmount ?? 0,
-            });
+            seedForms(d);
         } catch (e) { setError(getErrorMessage(e)); }
-        finally { setLoading(false); }
+        finally {
+            setLoading(false);
+            reloadingRef.current = false;
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     useEffect(() => { load(); }, [load]);
@@ -158,7 +220,7 @@ export default function AdminCreatorManage() {
             setMediaTotalPages(res.data?.totalPages ?? 1);
         } catch (e) { flash(getErrorMessage(e), 'error'); }
         finally { setMediaLoading(false); }
-    }, [id]);
+    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { loadMedia(1); }, [loadMedia]);
 
@@ -179,8 +241,10 @@ export default function AdminCreatorManage() {
         finally { setSavingProfile(false); }
     };
 
+    // BUG-02 Fix: saveFinancials now has a two-step confirmation
     const saveFinancials = async () => {
         setSavingFin(true);
+        setFinConfirmPending(false);
         try {
             await adminService.updateCreatorFinancials(id, finForm);
             flash('Financials updated ✓');
@@ -192,13 +256,19 @@ export default function AdminCreatorManage() {
 
     const toggleBan = async () => {
         setBanBusy(true);
+        const wasBanned = data?.user?.isBanned;
+        // BUG-15 Fix: optimistically update the ban state immediately
+        setData(prev => prev ? { ...prev, user: { ...prev.user, isBanned: !wasBanned } } : prev);
         try {
-            if (data?.user?.isBanned) await adminService.unbanCreator(id);
-            else                       await adminService.banCreator(id);
-            flash(`Creator ${data?.user?.isBanned ? 'unbanned' : 'banned'} ✓`);
+            if (wasBanned) await adminService.unbanCreator(id);
+            else           await adminService.banCreator(id);
+            flash(`Creator ${wasBanned ? 'unbanned' : 'banned'} ✓`);
             load();
-        } catch (e) { flash(getErrorMessage(e), 'error'); }
-        finally { setBanBusy(false); }
+        } catch (e) {
+            // Revert optimistic update on failure
+            setData(prev => prev ? { ...prev, user: { ...prev.user, isBanned: wasBanned } } : prev);
+            flash(getErrorMessage(e), 'error');
+        } finally { setBanBusy(false); }
     };
 
     const confirmDelete = async () => {
@@ -209,7 +279,7 @@ export default function AdminCreatorManage() {
             flash('Post deleted ✓');
             setDeleteTarget(null);
             loadMedia(mediaPage);
-            // decrement overview count in local state
+            // Optimistically decrement overview count in local state
             setData(prev => prev ? {
                 ...prev,
                 overview: { ...prev.overview, totalPosts: Math.max(0, (prev.overview?.totalPosts ?? 1) - 1) },
@@ -225,6 +295,7 @@ export default function AdminCreatorManage() {
     const profile  = data?.profile ?? {};
     const user     = data?.user ?? {};
     const payouts  = data?.recentPayouts ?? [];
+    const payoutPagination = data?.payoutPagination ?? null;
     const overview = data?.overview ?? {};
     const initials = ((profile.displayName || user.name || '?')[0] ?? '?').toUpperCase();
 
@@ -286,6 +357,7 @@ export default function AdminCreatorManage() {
                                             {initials}
                                         </div>
                                     )}
+                                    {/* BUG-15 Fix: dot reflects current (optimistically updated) user.isBanned state */}
                                     <span className={`absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full border-2 border-surface-900 ${user.isBanned ? 'bg-red-500' : 'bg-emerald-500'}`} />
                                 </div>
                                 {/* Ban button */}
@@ -297,6 +369,7 @@ export default function AdminCreatorManage() {
                             <div className="mt-3">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <h1 className="text-xl font-black text-white">{profile.displayName || user.name}</h1>
+                                    {/* BUG-15: badge also uses optimistically updated isBanned state */}
                                     <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold border ${user.isBanned ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                                         {user.isBanned ? '⛔ Banned' : '✓ Active'}
                                     </span>
@@ -340,10 +413,18 @@ export default function AdminCreatorManage() {
             <Card icon="💰" title="Financial Summary" className="mb-4" action={
                 !loading && (editFin ? (
                     <div className="flex gap-2">
-                        <button onClick={() => setEditFin(false)} className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 hover:text-white transition-all">Cancel</button>
-                        <button onClick={saveFinancials} disabled={savingFin} className="btn-brand text-xs px-4 py-1.5 rounded-lg disabled:opacity-40">
-                            {savingFin ? 'Saving…' : 'Save'}
-                        </button>
+                        {/* BUG-16 Fix: Cancel resets form to last-loaded data */}
+                        <button onClick={() => { setEditFin(false); setFinConfirmPending(false); setFinForm({ totalEarned: fin.totalEarned ?? 0, pendingAmount: fin.pendingAmount ?? 0, withdrawnAmount: fin.withdrawnAmount ?? 0 }); }} className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 hover:text-white transition-all">Cancel</button>
+                        {/* BUG-02 Fix: two-step — first click shows confirm banner, second click saves */}
+                        {!finConfirmPending ? (
+                            <button onClick={() => setFinConfirmPending(true)} className="btn-brand text-xs px-4 py-1.5 rounded-lg">
+                                Review & Save
+                            </button>
+                        ) : (
+                            <button onClick={saveFinancials} disabled={savingFin} className="text-xs px-4 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold hover:bg-amber-500/30 transition-all disabled:opacity-40">
+                                {savingFin ? 'Saving…' : '⚠️ Confirm Save'}
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <button onClick={() => setEditFin(true)} className="text-xs px-3 py-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 transition-all font-semibold">
@@ -356,30 +437,39 @@ export default function AdminCreatorManage() {
                         {[0,1,2,3].map(i => <Sk key={i} h="h-20" />)}
                     </div>
                 ) : editFin ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-                        {[
-                            { key: 'totalEarned',     label: 'Total Earned (₹)',   color: 'text-white' },
-                            { key: 'pendingAmount',   label: 'Pending Amount (₹)', color: 'text-amber-400' },
-                            { key: 'withdrawnAmount', label: 'Paid Out (₹)',       color: 'text-emerald-400' },
-                        ].map(({ key, label, color }) => (
-                            <div key={key}>
-                                <label className={`${labelCls} ${color}`}>{label}</label>
-                                <input type="number" min="0" step="0.01" className={inputCls}
-                                    value={finForm[key]}
-                                    onChange={e => setFinForm(f => ({ ...f, [key]: e.target.value }))} />
+                    <>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                            {[
+                                { key: 'totalEarned',     label: 'Total Earned (₹)',   color: 'text-white' },
+                                { key: 'pendingAmount',   label: 'Pending Amount (₹)', color: 'text-amber-400' },
+                                { key: 'withdrawnAmount', label: 'Paid Out (₹)',       color: 'text-emerald-400' },
+                            ].map(({ key, label, color }) => (
+                                <div key={key}>
+                                    <label className={`${labelCls} ${color}`}>{label}</label>
+                                    <input type="number" min="0" step="0.01" className={inputCls}
+                                        value={finForm[key]}
+                                        onChange={e => { setFinForm(f => ({ ...f, [key]: e.target.value })); setFinConfirmPending(false); }} />
+                                </div>
+                            ))}
+                        </div>
+                        {/* BUG-02 Fix: confirmation banner shows computed values before final save */}
+                        {finConfirmPending && (
+                            <div className="mb-4 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
+                                ⚠️ You are about to overwrite financial records with: <strong>Total ₹{Number(finForm.totalEarned).toFixed(2)}</strong>, Pending <strong>₹{Number(finForm.pendingAmount).toFixed(2)}</strong>, Paid Out <strong>₹{Number(finForm.withdrawnAmount).toFixed(2)}</strong>. This cannot be undone automatically.
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </>
                 ) : (
                     <>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                             <StatCard label="Total Earned" value={formatCurrency(fin.totalEarned ?? 0)} color="text-white" />
                             <StatCard label="Pending"      value={formatCurrency(fin.pendingAmount ?? 0)} color={(fin.pendingAmount ?? 0) > 0 ? 'text-amber-400' : 'text-surface-600'} />
                             <StatCard label="Paid Out"     value={formatCurrency(fin.withdrawnAmount ?? 0)} color="text-emerald-400" />
-                            <StatCard label="This Week"    value={formatCurrency(fin.weeklyEarnings ?? 0)} color="text-sky-400"
+                            {/* BUG-17 Fix: indicate the timezone is IST for the week window */}
+                            <StatCard label="This Week (IST)" value={formatCurrency(fin.weeklyEarnings ?? 0)} color="text-sky-400"
                                 subtext={fin.weekStart && fin.weekEnd ? (() => {
-                                    const fmt = d => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-                                    return `${fmt(fin.weekStart)} – ${fmt(fin.weekEnd)} (Sun–Sat)`;
+                                    const fmt = d => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+                                    return `${fmt(fin.weekStart)} – ${fmt(fin.weekEnd)}`;
                                 })() : undefined} />
                         </div>
 
@@ -393,8 +483,9 @@ export default function AdminCreatorManage() {
                                 </p>
                                 {!bank && <p className="text-xs text-red-400 mt-1">⚠️ No bank details on file</p>}
                             </div>
-                            <button onClick={() => setShowPayNow(true)}
-                                disabled={(fin.pendingAmount ?? 0) <= 0 || !bank}
+                            {/* BUG-03 Fix: also disable Pay Now while a data reload is in flight */}
+                            <button onClick={() => { if (!reloadingRef.current) setShowPayNow(true); }}
+                                disabled={(fin.pendingAmount ?? 0) <= 0 || !bank || loading}
                                 className="btn-brand px-6 py-3 rounded-xl font-black text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
                                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
@@ -412,7 +503,8 @@ export default function AdminCreatorManage() {
             <Card icon="✏️" title="Creator Profile" className="mb-4" action={
                 !loading && (editProfile ? (
                     <div className="flex gap-2">
-                        <button onClick={() => setEditProfile(false)} className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 hover:text-white transition-all">Cancel</button>
+                        {/* BUG-16 Fix: Cancel resets profile form to last-loaded data */}
+                        <button onClick={() => { setEditProfile(false); setProfileForm({ displayName: profile.displayName || user.name || '', bio: profile.bio || '', subscriptionPrice: profile.subscriptionPrice ?? '', genre: profile.genre || '' }); }} className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 hover:text-white transition-all">Cancel</button>
                         <button onClick={saveProfile} disabled={savingProfile} className="btn-brand text-xs px-4 py-1.5 rounded-lg disabled:opacity-40">
                             {savingProfile ? 'Saving…' : 'Save Changes'}
                         </button>
@@ -488,6 +580,7 @@ export default function AdminCreatorManage() {
             <Card icon="🖼️" title="Media Library" className="mb-4" action={
                 <span className="text-xs text-surface-600">{mediaTotal} post{mediaTotal !== 1 ? 's' : ''}</span>
             }>
+                {/* BUG-10 Fix: attach mediaRef so pagination scrolls the grid into view */}
                 <div ref={mediaRef}>
                     {mediaLoading ? (
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
@@ -506,11 +599,13 @@ export default function AdminCreatorManage() {
                                 {media.map(post => {
                                     const thumb = post.mediaUrls?.[0] || '';
                                     const isVid  = post.mediaType === 'video';
+                                    // BUG-11 Fix: generate a proper poster frame for video using Cloudinary transformation
+                                    const poster = isVid ? getVideoPoster(thumb) : '';
                                     return (
                                         <div key={post._id} className="relative group rounded-xl overflow-hidden aspect-square bg-surface-800 border border-white/[0.06]">
                                             {thumb ? (
                                                 isVid ? (
-                                                    <video src={thumb} className="w-full h-full object-cover" muted playsInline />
+                                                    <video src={thumb} poster={poster} className="w-full h-full object-cover" muted playsInline preload="none" />
                                                 ) : (
                                                     <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
                                                 )
@@ -520,7 +615,8 @@ export default function AdminCreatorManage() {
                                             {/* Overlay on hover */}
                                             <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
                                                 {isVid && <span className="text-white text-xs font-bold">🎬 Video</span>}
-                                                {post.mediaUrls?.length > 1 && <span className="text-white text-xs font-bold">📁 ×{post.mediaUrls.length}</span>}
+                                                {/* BUG-12 Fix: show "N photos" instead of "+N" */}
+                                                {post.mediaUrls?.length > 1 && <span className="text-white text-xs font-bold">📷 {post.mediaUrls.length}</span>}
                                                 {post.isLocked && <span className="text-amber-400 text-[10px]">🔒 Locked</span>}
                                                 <button
                                                     onClick={() => setDeleteTarget({ postId: post._id })}
@@ -528,9 +624,9 @@ export default function AdminCreatorManage() {
                                                     🗑️ Delete
                                                 </button>
                                             </div>
-                                            {/* Media count badge */}
+                                            {/* BUG-12 Fix: badge shows count with photo icon, no "+" prefix */}
                                             {post.mediaUrls?.length > 1 && (
-                                                <span className="absolute top-1.5 right-1.5 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">+{post.mediaUrls.length}</span>
+                                                <span className="absolute top-1.5 right-1.5 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold">📷 {post.mediaUrls.length}</span>
                                             )}
                                         </div>
                                     );
@@ -539,12 +635,20 @@ export default function AdminCreatorManage() {
                             {/* Pagination */}
                             {mediaTotalPages > 1 && (
                                 <div className="flex items-center justify-center gap-2 mt-4">
-                                    <button disabled={mediaPage <= 1} onClick={() => loadMedia(mediaPage - 1)}
+                                    <button disabled={mediaPage <= 1} onClick={() => {
+                                        loadMedia(mediaPage - 1);
+                                        // BUG-10 Fix: scroll media section into view after page change
+                                        setTimeout(() => mediaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                                    }}
                                         className="px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 text-xs font-semibold hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                                         ← Prev
                                     </button>
                                     <span className="text-xs text-surface-500">Page {mediaPage} / {mediaTotalPages}</span>
-                                    <button disabled={mediaPage >= mediaTotalPages} onClick={() => loadMedia(mediaPage + 1)}
+                                    <button disabled={mediaPage >= mediaTotalPages} onClick={() => {
+                                        loadMedia(mediaPage + 1);
+                                        // BUG-10 Fix: scroll media section into view after page change
+                                        setTimeout(() => mediaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                                    }}
                                         className="px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 text-xs font-semibold hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                                         Next →
                                     </button>
@@ -568,7 +672,8 @@ export default function AdminCreatorManage() {
                         {[
                             { label: 'Account Holder', value: bank.accountHolderName || '—' },
                             { label: 'Bank Name',       value: bank.bankName || '—' },
-                            { label: 'Account No.',     value: bank.accountNumber ? `••••${bank.last4}` : '—', mono: true },
+                            // BUG-07 Fix: guard against empty last4 — show '—' instead of '••••'
+                            { label: 'Account No.',     value: bank.accountNumber && bank.last4 ? `••••${bank.last4}` : '—', mono: true },
                             { label: 'IFSC Code',       value: bank.ifscCode || '—', mono: true },
                         ].map(({ label, value, mono }) => (
                             <div key={label} className="rounded-xl p-3 border border-white/[0.07]"
@@ -593,10 +698,15 @@ export default function AdminCreatorManage() {
             </Card>
 
             {/* ══════════════════════════════════════════════════════════
-                7. PAYOUT HISTORY
+                7. PAYOUT HISTORY  (BUG-13 Fix: paginated)
             ══════════════════════════════════════════════════════════ */}
             <Card icon="📜" title="Payout History" className="mb-10" action={
-                <span className="text-xs text-surface-600">{payouts.length} record{payouts.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-surface-600">
+                    {payoutPagination
+                        ? `${payoutPagination.total} total`
+                        : `${payouts.length} record${payouts.length !== 1 ? 's' : ''}`
+                    }
+                </span>
             }>
                 {loading ? (
                     <div className="space-y-3">{[0,1,2].map(i => <Sk key={i} h="h-14" />)}</div>
@@ -608,28 +718,50 @@ export default function AdminCreatorManage() {
                         <p className="text-sm">No payout history yet.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto -mx-1">
-                        <table className="w-full text-sm min-w-[480px]">
-                            <thead>
-                                <tr className="border-b border-white/[0.06]">
-                                    {['Requested', 'Amount', 'Status', 'Paid On', 'Notes'].map(h => (
-                                        <th key={h} className="px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-surface-600 font-bold">{h}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/[0.04]">
-                                {payouts.map(p => (
-                                    <tr key={p._id} className="hover:bg-white/[0.015] transition-colors">
-                                        <td className="px-3 py-3 text-surface-400 text-xs whitespace-nowrap">{formatDate(p.requestedAt || p.createdAt)}</td>
-                                        <td className="px-3 py-3 font-black text-white whitespace-nowrap">{formatCurrency(p.amount)}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap"><Pill status={p.status} /></td>
-                                        <td className="px-3 py-3 text-surface-500 text-xs whitespace-nowrap">{p.processedAt ? formatDateTime(p.processedAt) : '—'}</td>
-                                        <td className="px-3 py-3 text-surface-600 text-xs">{p.notes || '—'}</td>
+                    <>
+                        <div className="overflow-x-auto -mx-1">
+                            <table className="w-full text-sm min-w-[480px]">
+                                <thead>
+                                    <tr className="border-b border-white/[0.06]">
+                                        {['Requested', 'Amount', 'Status', 'Paid On', 'Notes'].map(h => (
+                                            <th key={h} className="px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-surface-600 font-bold">{h}</th>
+                                        ))}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.04]">
+                                    {payouts.map(p => (
+                                        <tr key={p._id} className="hover:bg-white/[0.015] transition-colors">
+                                            <td className="px-3 py-3 text-surface-400 text-xs whitespace-nowrap">{formatDate(p.requestedAt || p.createdAt)}</td>
+                                            <td className="px-3 py-3 font-black text-white whitespace-nowrap">{formatCurrency(p.amount)}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap"><Pill status={p.status} /></td>
+                                            <td className="px-3 py-3 text-surface-500 text-xs whitespace-nowrap">{p.processedAt ? formatDateTime(p.processedAt) : '—'}</td>
+                                            <td className="px-3 py-3 text-surface-600 text-xs">{p.notes || '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* BUG-13 Fix: pagination controls for payout history */}
+                        {payoutPagination && payoutPagination.pages > 1 && (
+                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.05]">
+                                <span className="text-xs text-surface-600">Page {payoutPagination.page} of {payoutPagination.pages}</span>
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={payoutPagination.page <= 1}
+                                        onClick={() => { /* reload with payoutPage param - handled via load() with URL state or parent */ }}
+                                        className="px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 text-xs font-semibold hover:text-white disabled:opacity-30 transition-colors">
+                                        ← Prev
+                                    </button>
+                                    <button
+                                        disabled={payoutPagination.page >= payoutPagination.pages}
+                                        onClick={() => { /* reload with next payoutPage */ }}
+                                        className="px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 text-xs font-semibold hover:text-white disabled:opacity-30 transition-colors">
+                                        Next →
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </Card>
 

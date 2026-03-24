@@ -116,7 +116,8 @@ const requestPayoutService = async (creatorId, amount) => {
 
         const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
             Payment.aggregate([
-                { $match: { creatorId: new mongoose.Types.ObjectId(String(creatorId)), status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock'] } } },
+                // BUG-18/BUG-24 Fix: include dream_fund so Dream Fund contributions count toward creator balance
+                { $match: { creatorId: new mongoose.Types.ObjectId(String(creatorId)), status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] } } },
                 { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
             ]),
             session
@@ -318,9 +319,9 @@ const getMyEarningsService = async (creatorId) => {
     // ── Three parallel DB reads ───────────────────────────────────────────────
     const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
         // 1. Live sum of all captured creator earnings (source of truth)
-        //    dream_fund excluded — only subscription/gift/chat_unlock count
+        //    BUG-18/BUG-24 Fix: include dream_fund alongside subscription/gift/chat_unlock
         Payment.aggregate([
-            { $match: { creatorId, status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock'] } } },
+            { $match: { creatorId, status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] } } },
             { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
         ]),
         // 2. Earnings doc — for withdrawnAmount (only updated when a payout is marked PAID)
