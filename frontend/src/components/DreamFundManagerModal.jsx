@@ -50,18 +50,29 @@ function ProgressBar({ pct, glow }) {
 
 // ─── Balance banner ───────────────────────────────────────────────────────────
 function BalanceBanner({ goals }) {
-    const activeGoals  = goals.filter(g => !['rejected'].includes(g.status));
-    const totalRaised  = activeGoals.reduce((s, g) => s + (g.currentAmount || 0), 0);
-    const creatorEarns = R(totalRaised * CREATOR_SHARE);
+    // Only count goals where contributions have actually been received
+    const contributingGoals = goals.filter(g =>
+        ['approved', 'completed', 'awaiting_verification', 'verified', 'paid'].includes(g.status)
+    );
+    const totalRaised  = contributingGoals.reduce((s, g) => s + (g.currentAmount || 0), 0);
+
+    // Pending payout: 80% from goals admin hasn't paid out yet
+    const unpaidGoals  = goals.filter(g =>
+        ['approved', 'completed', 'awaiting_verification', 'verified'].includes(g.status)
+    );
+    const pendingEarns = R(unpaidGoals.reduce((s, g) => s + (g.currentAmount || 0), 0) * CREATOR_SHARE);
+    const pendingFee   = R(unpaidGoals.reduce((s, g) => s + (g.currentAmount || 0), 0) * PLATFORM_FEE);
+
+    // Paid out: 80% from goals admin has already released
     const paidGoals    = goals.filter(g => g.status === 'paid');
     const totalPaid    = R(paidGoals.reduce((s, g) => s + (g.currentAmount || 0), 0) * CREATOR_SHARE);
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
             {[
-                { icon: '💰', label: 'Total Raised',   value: `₹${fmt(R(totalRaised))}`, sub: 'from all goals',             grad: 'rgba(147,51,234,0.12)',  border: 'rgba(147,51,234,0.25)' },
-                { icon: '🏦', label: 'Your 80%',       value: `₹${fmt(creatorEarns)}`,   sub: `Platform: ₹${fmt(R(totalRaised * PLATFORM_FEE))}`, grad: 'rgba(34,197,94,0.1)',   border: 'rgba(34,197,94,0.22)' },
-                { icon: '💸', label: 'Paid Out',        value: `₹${fmt(totalPaid)}`,      sub: 'after admin payout',         grad: 'rgba(74,222,128,0.1)',   border: 'rgba(74,222,128,0.22)' },
+                { icon: '💰', label: 'Total Raised',  value: `₹${fmt(R(totalRaised))}`, sub: 'from active goals',            grad: 'rgba(147,51,234,0.12)', border: 'rgba(147,51,234,0.25)' },
+                { icon: '🏦', label: 'Pending (80%)', value: `₹${fmt(pendingEarns)}`,   sub: `Platform: ₹${fmt(pendingFee)}`, grad: 'rgba(34,197,94,0.1)',  border: 'rgba(34,197,94,0.22)' },
+                { icon: '💸', label: 'Paid Out',       value: `₹${fmt(totalPaid)}`,      sub: 'released by admin',            grad: 'rgba(74,222,128,0.1)', border: 'rgba(74,222,128,0.22)' },
             ].map(c => (
                 <div key={c.label} style={{ background: c.grad, border: `1px solid ${c.border}`, borderRadius: 14, padding: '11px 10px' }}>
                     <div style={{ fontSize: 16, marginBottom: 5 }}>{c.icon}</div>
