@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import dreamFundService from '../services/dreamFundService';
 
+// ─── Image URL helper ─────────────────────────────────────────────────────────
+const API_ORIGIN = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace('/api/v1', '')
+    : 'https://api.fannex.in';
+
+function getImageUrl(url) {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${API_ORIGIN}${url}`;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CREATOR_SHARE = 0.80;
 const PLATFORM_FEE  = 0.20;
@@ -96,7 +107,7 @@ function GoalCard({ goal }) {
                     )}
                 </div>
                 {goal.image && (
-                    <img src={goal.image} alt="" style={{ width: 46, height: 46, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }} onError={e => e.target.style.display = 'none'} />
+                    <img src={getImageUrl(goal.image)} alt="" style={{ width: 46, height: 46, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }} onError={e => e.target.style.display = 'none'} />
                 )}
             </div>
 
@@ -252,6 +263,7 @@ function CreateForm({ onBack, onSuccess }) {
 export default function DreamFundManagerModal({ onClose }) {
     const [goals, setGoals]   = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError]   = useState(false);
     const [view, setView]     = useState('tabs');   // 'tabs' | 'create'
     const [activeTab, setTab] = useState('active');
     const [success, setSuccess] = useState('');
@@ -266,9 +278,10 @@ export default function DreamFundManagerModal({ onClose }) {
 
     const loadGoals = useCallback(() => {
         setLoading(true);
+        setError(false);
         dreamFundService.getMyGoals()
             .then(r => setGoals(r.data.data || []))
-            .catch(() => {})
+            .catch(() => setError(true))
             .finally(() => setLoading(false));
     }, []);
 
@@ -362,6 +375,12 @@ export default function DreamFundManagerModal({ onClose }) {
                             {loading ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     {[1,2].map(i => <div key={i} style={{ height: 90, borderRadius: 16, background: 'rgba(255,255,255,0.04)' }} />)}
+                                </div>
+                            ) : error ? (
+                                <div style={{ textAlign: 'center', padding: '32px 20px' }}>
+                                    <div style={{ fontSize: 36, marginBottom: 10 }}>⚠️</div>
+                                    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 14 }}>Failed to load your goals</p>
+                                    <button onClick={loadGoals} style={{ padding: '8px 20px', borderRadius: 12, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(168,85,247,0.1)', color: '#a855f7', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>↻ Retry</button>
                                 </div>
                             ) : !hasAnyGoals ? (
                                 <div style={{ textAlign: 'center', padding: '36px 0' }}>

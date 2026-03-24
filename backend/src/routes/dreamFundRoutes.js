@@ -21,8 +21,8 @@ router.get('/goals/me', protect, authorize('creator', 'admin'), getMyGoals);
 
 // ── Public routes (fan-facing) ────────────────────────────────────────────────
 router.get('/goals/:creatorId', getCreatorGoals);
-router.get('/goals/:creatorId/contributors', getTopContributors);
-router.get('/goals/:creatorId/feed', getRecentContributions);
+router.get('/goals/:id/contributors', getTopContributors);
+router.get('/goals/:id/feed', getRecentContributions);
 
 // ── All remaining routes require authentication ───────────────────────────────
 router.use(protect);

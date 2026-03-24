@@ -105,7 +105,7 @@ function GoalCard({ goal, onAction }) {
                         {(creator.name || 'C').charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ color: '#e2e2e2', fontWeight: 700, fontSize: 13, margin: 0, truncate: true }}>{creator.name || 'Creator'}</p>
+                        <p style={{ color: '#e2e2e2', fontWeight: 700, fontSize: 13, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{creator.name || 'Creator'}</p>
                         {creator.email && <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, margin: 0 }}>{creator.email}</p>}
                     </div>
                     <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
@@ -179,7 +179,7 @@ function GoalCard({ goal, onAction }) {
                         </ActionBtn>
                     )}
                     <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, marginLeft: 'auto' }}>
-                        {new Date(goal.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {goal.createdAt ? new Date(goal.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
                     </span>
                 </div>
             </div>
@@ -290,11 +290,14 @@ export default function AdminDreamFunds() {
     const [toast, setToast]       = useState({ msg: '', ok: true });
     const toastTimer              = useRef(null);
 
-    const showToast = (msg, ok = true) => {
+    const showToast = useCallback((msg, ok = true) => {
         setToast({ msg, ok });
         if (toastTimer.current) clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast({ msg: '', ok: true }), 3800);
-    };
+    }, []);
+
+    // Clear toast timer on unmount to avoid setState on unmounted component
+    useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
     const loadGoals = useCallback(() => {
         setLoading(true);

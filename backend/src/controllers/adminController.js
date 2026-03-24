@@ -587,7 +587,8 @@ const getCreatorDetail = async (req, res, next) => {
                     $match: {
                         creatorId: objectCreatorId,
                         status: 'captured',
-                        type: { $in: ['subscription', 'gift', 'chat_unlock'] },
+                        // Include ALL payment types that generate creator earnings
+                        type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] },
                         createdAt: { $gte: weekStart, $lte: weekEnd },
                     },
                 },

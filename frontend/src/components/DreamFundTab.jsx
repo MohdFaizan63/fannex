@@ -17,23 +17,29 @@ function getImageUrl(url) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => (n || 0).toLocaleString('en-IN');
-const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+// Safe clamp: handles NaN/undefined
+const clamp = (v, lo, hi) => {
+    const n = Number(v);
+    return isNaN(n) ? lo : Math.min(hi, Math.max(lo, n));
+};
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_BADGE = {
-    approved:              { label: 'Active',           color: '#22c55e', bg: 'rgba(34,197,94,0.14)',   glow: 'rgba(34,197,94,0.25)'    },
-    completed:             { label: '🎯 Goal Reached',  color: '#f59e0b', bg: 'rgba(245,158,11,0.14)',  glow: 'rgba(245,158,11,0.25)'   },
-    awaiting_verification: { label: 'Under Review',     color: '#60a5fa', bg: 'rgba(96,165,250,0.14)',  glow: 'rgba(96,165,250,0.2)'    },
-    verified:              { label: '✓ Verified',        color: '#a855f7', bg: 'rgba(168,85,247,0.14)', glow: 'rgba(168,85,247,0.2)'    },
-    paid:                  { label: '💸 Paid Out',       color: '#4ade80', bg: 'rgba(74,222,128,0.14)',  glow: 'rgba(74,222,128,0.2)'    },
+    approved:              { label: 'Active',          color: '#22c55e', bg: 'rgba(34,197,94,0.14)',  glow: 'rgba(34,197,94,0.25)'  },
+    completed:             { label: '🎯 Goal Reached', color: '#f59e0b', bg: 'rgba(245,158,11,0.14)', glow: 'rgba(245,158,11,0.25)' },
+    awaiting_verification: { label: 'Under Review',    color: '#60a5fa', bg: 'rgba(96,165,250,0.14)', glow: 'rgba(96,165,250,0.2)'  },
+    verified:              { label: '✓ Verified',       color: '#a855f7', bg: 'rgba(168,85,247,0.14)', glow: 'rgba(168,85,247,0.2)'  },
+    paid:                  { label: '💸 Paid Out',      color: '#4ade80', bg: 'rgba(74,222,128,0.14)', glow: 'rgba(74,222,128,0.2)'  },
 };
+
+const COMPLETED_STATUSES = ['completed', 'awaiting_verification', 'verified', 'paid'];
 
 // ── Confetti ──────────────────────────────────────────────────────────────────
 function launchConfetti() {
     const end = Date.now() + 3000;
     const colors = ['#9333ea', '#ec4899', '#f97316', '#facc15', '#4ade80'];
     (function frame() {
-        confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors });
+        confetti({ particleCount: 5, angle: 60,  spread: 55, origin: { x: 0 }, colors });
         confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors });
         if (Date.now() < end) requestAnimationFrame(frame);
     })();
@@ -41,11 +47,11 @@ function launchConfetti() {
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 function ProgressBar({ pct, completed }) {
+    const safePct = clamp(pct, 0, 100);
     return (
-        <div style={{ height: 8, background: 'rgba(255,255,255,0.07)', borderRadius: 999, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ height: 8, background: 'rgba(255,255,255,0.07)', borderRadius: 999, overflow: 'hidden' }}>
             <div style={{
-                height: '100%', borderRadius: 999,
-                width: `${clamp(pct, 0, 100)}%`,
+                height: '100%', borderRadius: 999, width: `${safePct}%`,
                 background: completed
                     ? 'linear-gradient(90deg, #22c55e, #4ade80)'
                     : 'linear-gradient(90deg, #9333ea, #ec4899, #f97316)',
@@ -59,9 +65,12 @@ function ProgressBar({ pct, completed }) {
 // ── Avatar circle ─────────────────────────────────────────────────────────────
 function Avatar({ src, name, size = 28 }) {
     const [err, setErr] = useState(false);
+    const initial = (name || '?').charAt(0).toUpperCase();
     return (
         <div style={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: 'linear-gradient(135deg,#9333ea,#ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: size * 0.4 }}>
-            {src && !err ? <img src={getImageUrl(src)} alt={name} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ((name || '?').charAt(0).toUpperCase())}
+            {src && !err
+                ? <img src={getImageUrl(src)} alt={name || ''} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initial}
         </div>
     );
 }
@@ -80,61 +89,69 @@ function GoalCard({ goal: initialGoal, onContribute, isSubscribed, isOwnProfile,
     // Viewer eligibility for celebration content
     const canSeeCelebration = isSubscribed || isOwnProfile || hasContributed;
 
-    // Load contributors + feed inline (no expand button)
+    // Load contributors + feed inline — only when there are supporters
     useEffect(() => {
-        if (goal.supporterCount < 1) return;
+        if (!goal._id || (goal.supporterCount || 0) < 1) return;
         setLoadingDetails(true);
         Promise.all([
             dreamFundService.getTopContributors(goal._id).catch(() => ({ data: { data: [] } })),
             dreamFundService.getRecentContributions(goal._id).catch(() => ({ data: { data: [] } })),
         ]).then(([topRes, feedRes]) => {
-            setContributors(topRes.data.data || []);
-            setFeed(feedRes.data.data || []);
+            setContributors(topRes?.data?.data || []);
+            setFeed(feedRes?.data?.data || []);
         }).finally(() => setLoadingDetails(false));
-    // Only run once per goal
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [goal._id, goal.supporterCount]);
+    }, [goal._id, goal.supporterCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Confetti — only for eligible viewers
+    // Confetti — only for eligible viewers, only once
     useEffect(() => {
-        const celebStatus = ['completed', 'awaiting_verification', 'verified', 'paid'];
-        if (canSeeCelebration && celebStatus.includes(goal.status) && !completedFired.current) {
+        if (canSeeCelebration && COMPLETED_STATUSES.includes(goal.status) && !completedFired.current) {
             completedFired.current = true;
             launchConfetti();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [goal.status, canSeeCelebration]);
+    }, [goal.status, canSeeCelebration]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const pct = goal.progressPct ?? clamp(Math.round((goal.currentAmount / goal.targetAmount) * 100), 0, 100);
-    const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
-    const isCompleted = ['completed', 'awaiting_verification', 'verified', 'paid'].includes(goal.status);
+    // Safe progress calculation — guard against targetAmount = 0
+    const rawPct = goal.targetAmount > 0
+        ? Math.round((goal.currentAmount / goal.targetAmount) * 100)
+        : 0;
+    const pct = goal.progressPct ?? clamp(rawPct, 0, 100);
+    const remaining = Math.max(0, (goal.targetAmount || 0) - (goal.currentAmount || 0));
+    const isCompleted = COMPLETED_STATUSES.includes(goal.status);
     const badge = STATUS_BADGE[goal.status];
     const goalImageUrl = !imgErr ? getImageUrl(goal.image) : null;
 
     return (
-        <article style={{
-            background: 'linear-gradient(160deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
-            border: `1px solid ${isCompleted ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.08)'}`,
-            borderRadius: 22, overflow: 'hidden',
-            transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-            boxShadow: isCompleted ? '0 4px 32px rgba(168,85,247,0.08)' : 'none',
-        }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = 'rgba(168,85,247,0.35)'; e.currentTarget.style.boxShadow = '0 8px 40px rgba(168,85,247,0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = isCompleted ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = isCompleted ? '0 4px 32px rgba(168,85,247,0.08)' : 'none'; }}
+        <article
+            style={{
+                background: 'linear-gradient(160deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
+                border: `1px solid ${isCompleted ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.08)'}`,
+                borderRadius: 22, overflow: 'hidden',
+                transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+                boxShadow: isCompleted ? '0 4px 32px rgba(168,85,247,0.08)' : 'none',
+                willChange: 'transform',
+            }}
+            onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-3px)';
+                e.currentTarget.style.borderColor = 'rgba(168,85,247,0.35)';
+                e.currentTarget.style.boxShadow = '0 8px 40px rgba(168,85,247,0.12)';
+            }}
+            onMouseLeave={e => {
+                e.currentTarget.style.transform = '';
+                e.currentTarget.style.borderColor = isCompleted ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.boxShadow = isCompleted ? '0 4px 32px rgba(168,85,247,0.08)' : 'none';
+            }}
         >
             {/* ── Banner image ─────────────────────────────── */}
             {goalImageUrl && (
-                <div style={{ position: 'relative', height: 0, paddingBottom: '52%', overflow: 'hidden' }}>
+                <div style={{ position: 'relative', height: 0, paddingBottom: '50%', overflow: 'hidden' }}>
                     <img
-                        src={goalImageUrl} alt={goal.title} loading="lazy"
+                        src={goalImageUrl} alt={goal.title || ''} loading="lazy"
                         onError={() => setImgErr(true)}
                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }}
                         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; }}
                         onMouseLeave={e => { e.currentTarget.style.transform = ''; }}
                     />
-                    {/* Gradient overlay */}
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(8,4,16,0.97) 0%, rgba(8,4,16,0.3) 55%, transparent 100%)' }} />
-                    {/* Status badge */}
                     {badge && (
                         <div style={{ position: 'absolute', top: 12, right: 12, background: badge.bg, border: `1px solid ${badge.color}40`, color: badge.color, fontWeight: 700, fontSize: 11, padding: '5px 12px', borderRadius: 999, backdropFilter: 'blur(12px)', letterSpacing: '0.02em', boxShadow: `0 0 12px ${badge.glow}` }}>
                             {badge.label}
@@ -144,7 +161,7 @@ function GoalCard({ goal: initialGoal, onContribute, isSubscribed, isOwnProfile,
             )}
 
             <div style={{ padding: 'clamp(14px,4vw,20px)' }}>
-                {/* Status badge (no image) + title */}
+                {/* Title block */}
                 <div style={{ marginBottom: 12 }}>
                     {!goalImageUrl && badge && (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 11px', borderRadius: 999, background: badge.bg, border: `1px solid ${badge.color}40`, color: badge.color, fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', marginBottom: 8, boxShadow: `0 0 10px ${badge.glow}` }}>
@@ -161,7 +178,7 @@ function GoalCard({ goal: initialGoal, onContribute, isSubscribed, isOwnProfile,
                     )}
                 </div>
 
-                {/* ── Amounts + progress ─────────────────── */}
+                {/* Amounts + progress */}
                 <div style={{ marginBottom: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <div>
@@ -175,23 +192,24 @@ function GoalCard({ goal: initialGoal, onContribute, isSubscribed, isOwnProfile,
                     <ProgressBar pct={pct} completed={isCompleted} />
                 </div>
 
-                {/* ── Supporter count + urgency ──────────── */}
+                {/* Supporter count + urgency */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                         <span style={{ fontSize: 15 }}>❤️</span>
                         <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
-                            <strong style={{ color: '#fff', fontWeight: 700 }}>{goal.supporterCount || 0}</strong> {goal.supporterCount === 1 ? 'supporter' : 'supporters'}
+                            <strong style={{ color: '#fff', fontWeight: 700 }}>{goal.supporterCount || 0}</strong>
+                            {' '}{goal.supporterCount === 1 ? 'supporter' : 'supporters'}
                         </span>
                     </div>
                     {/* Near-completion urgency pill */}
-                    {!isCompleted && remaining > 0 && remaining < goal.targetAmount * 0.25 && (
+                    {!isCompleted && goal.targetAmount > 0 && remaining > 0 && remaining < goal.targetAmount * 0.25 && (
                         <div style={{ padding: '4px 12px', borderRadius: 999, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#f59e0b', fontWeight: 700, fontSize: 11 }}>
                             🔥 ₹{fmt(remaining)} to go!
                         </div>
                     )}
                 </div>
 
-                {/* ── Goal Achieved banner ────────────────── */}
+                {/* Goal Achieved banner — only for eligible viewers */}
                 {isCompleted && canSeeCelebration && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 14, background: 'linear-gradient(135deg, rgba(34,197,94,0.09), rgba(74,222,128,0.04))', border: '1px solid rgba(34,197,94,0.22)', marginBottom: 14, boxShadow: '0 0 18px rgba(34,197,94,0.07)' }}>
                         <span style={{ fontSize: 22, flexShrink: 0 }}>🎉</span>
@@ -202,11 +220,11 @@ function GoalCard({ goal: initialGoal, onContribute, isSubscribed, isOwnProfile,
                     </div>
                 )}
 
-                {/* ── Contribute button / completed state ── */}
+                {/* Contribute button / completed state */}
                 {!isCompleted ? (
                     <button
                         onClick={() => onContribute(goal)}
-                        style={{ width: '100%', height: 50, borderRadius: 16, border: 'none', background: 'linear-gradient(135deg,#9333ea,#ec4899,#f97316)', color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em', cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden' }}
+                        style={{ width: '100%', height: 50, borderRadius: 16, border: 'none', background: 'linear-gradient(135deg,#9333ea,#ec4899,#f97316)', color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em', cursor: 'pointer', transition: 'transform 0.2s ease, box-shadow 0.2s ease', position: 'relative', overflow: 'hidden' }}
                         onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(168,85,247,0.45)'; }}
                         onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; }}
                     >
@@ -219,34 +237,40 @@ function GoalCard({ goal: initialGoal, onContribute, isSubscribed, isOwnProfile,
                     </div>
                 )}
 
-                {/* ── Top contributors — inline, no expand ─ */}
-                {contributors.length > 0 && (
+                {/* Top contributors — inline, no expand button */}
+                {loadingDetails && (
+                    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {[0, 1].map(i => <div key={i} style={{ height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.04)', animation: 'dfPulse 1.5s ease-in-out infinite' }} />)}
+                    </div>
+                )}
+
+                {!loadingDetails && contributors.length > 0 && (
                     <div style={{ marginTop: 18 }}>
                         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', margin: '0 0 10px' }}>🏆 Top Supporters</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {contributors.slice(0, 3).map((c, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div key={c.username || i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <Avatar src={c.profileImage} name={c.name} size={30} />
-                                    <span style={{ flex: 1, color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 600 }}>
+                                    <span style={{ flex: 1, color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {c.isAnonymous ? 'Anonymous' : c.name}
-                                        {i === 0 && <span style={{ marginLeft: 5, fontSize: 13 }}>🥇</span>}
+                                        {i === 0 && <span style={{ marginLeft: 5 }}>🥇</span>}
                                     </span>
-                                    <span style={{ color: '#a855f7', fontWeight: 800, fontSize: 13 }}>₹{fmt(c.totalAmount)}</span>
+                                    <span style={{ color: '#a855f7', fontWeight: 800, fontSize: 13, flexShrink: 0 }}>₹{fmt(c.totalAmount)}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
 
-                {/* ── Recent feed — inline ────────────────── */}
-                {feed.length > 0 && (
+                {/* Recent contributions feed */}
+                {!loadingDetails && feed.length > 0 && (
                     <div style={{ marginTop: 16 }}>
                         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em', margin: '0 0 8px' }}>🔴 Recent</p>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             {feed.slice(0, 5).map(f => (
                                 <div key={f._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <Avatar src={f.user?.profileImage} name={f.isAnonymous ? '?' : f.user?.name} size={24} />
-                                    <span style={{ flex: 1, color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 600, minWidth: 0 }}>
+                                    <Avatar src={f.user?.profileImage} name={f.isAnonymous ? undefined : f.user?.name} size={24} />
+                                    <span style={{ flex: 1, color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {f.isAnonymous ? 'Anonymous' : (f.user?.name || 'Fan')}
                                         {f.message && <span style={{ color: 'rgba(255,255,255,0.32)', fontWeight: 400 }}> · {f.message.length > 30 ? f.message.slice(0, 30) + '…' : f.message}</span>}
                                     </span>
@@ -254,13 +278,6 @@ function GoalCard({ goal: initialGoal, onContribute, isSubscribed, isOwnProfile,
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
-
-                {/* Skeleton while details loading */}
-                {loadingDetails && (
-                    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {[1,2].map(i => <div key={i} style={{ height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.04)', animation: 'dfPulse 1.5s ease-in-out infinite' }} />)}
                     </div>
                 )}
             </div>
@@ -273,15 +290,17 @@ export default function DreamFundTab({ creatorId, isOwnProfile, isSubscribed, on
     const { isAuthenticated } = useAuth();
     const [goals, setGoals] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [contributeGoal, setContributeGoal] = useState(null);
     const [contributedGoalIds, setContributedGoalIds] = useState(() => new Set());
 
     const loadGoals = useCallback(() => {
         if (!creatorId) return;
         setLoading(true);
+        setError(false);
         dreamFundService.getCreatorGoals(creatorId)
             .then(r => setGoals(r.data.data || []))
-            .catch(() => {})
+            .catch(() => setError(true))
             .finally(() => setLoading(false));
     }, [creatorId]);
 
@@ -293,19 +312,24 @@ export default function DreamFundTab({ creatorId, isOwnProfile, isSubscribed, on
     };
 
     const handleContributionSuccess = (result) => {
-        const goalId = contributeGoal?._id;
-        setContributeGoal(null);
-        if (goalId) setContributedGoalIds(prev => new Set([...prev, goalId.toString()]));
-        setGoals(prev => prev.map(g => {
-            if (g._id !== goalId) return g;
-            return {
-                ...g,
-                currentAmount: result.data?.currentAmount ?? g.currentAmount,
-                status: result.completed ? 'completed' : g.status,
-                progressPct: result.data?.progressPct ?? g.progressPct,
-                supporterCount: (g.supporterCount || 0) + 1,
-            };
-        }));
+        // Capture goalId immediately before clearing state (avoids stale closure bug)
+        setContributeGoal(prev => {
+            const goalId = prev?._id;
+            if (goalId) {
+                setContributedGoalIds(ids => new Set([...ids, goalId.toString()]));
+                setGoals(gs => gs.map(g => {
+                    if (g._id !== goalId) return g;
+                    return {
+                        ...g,
+                        currentAmount: result?.data?.currentAmount ?? g.currentAmount,
+                        status: result?.completed ? 'completed' : g.status,
+                        progressPct: result?.data?.progressPct ?? g.progressPct,
+                        supporterCount: (g.supporterCount || 0) + 1,
+                    };
+                }));
+            }
+            return null; // clears contributeGoal
+        });
     };
 
     // ── Loading skeleton ──────────────────────────────────────────────────────
@@ -318,20 +342,32 @@ export default function DreamFundTab({ creatorId, isOwnProfile, isSubscribed, on
         </div>
     );
 
+    // ── Error state ───────────────────────────────────────────────────────────
+    if (error) return (
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 16 }}>Failed to load Dream Funds</p>
+            <button onClick={loadGoals} style={{ padding: '10px 22px', borderRadius: 12, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(168,85,247,0.1)', color: '#a855f7', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                ↻ Try again
+            </button>
+        </div>
+    );
+
     // ── Empty state ───────────────────────────────────────────────────────────
     if (goals.length === 0) return (
         <div style={{ textAlign: 'center', padding: '52px 20px' }}>
+            <style>{`@keyframes dfPulse { 0%,100%{opacity:0.4} 50%{opacity:0.9} }`}</style>
             <div style={{ fontSize: 52, marginBottom: 14 }}>🌟</div>
             <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 18, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
                 {isOwnProfile ? 'Share your dream with fans' : 'No Dream Funds yet'}
             </h3>
             <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 14, margin: '0 auto 24px', maxWidth: 280, lineHeight: 1.6 }}>
-                {isOwnProfile ? 'Create a goal and let your fans help you achieve it.' : 'This creator hasn\'t set up any Dream Funds yet.'}
+                {isOwnProfile ? 'Create a goal and let your fans help you achieve it.' : "This creator hasn't set up any Dream Funds yet."}
             </p>
             {isOwnProfile && (
                 <button
                     onClick={onOpenManager}
-                    style={{ padding: '13px 30px', borderRadius: 16, border: 'none', background: 'linear-gradient(135deg,#9333ea,#ec4899)', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 6px 24px rgba(147,51,234,0.4)', transition: 'all 0.2s ease' }}
+                    style={{ padding: '13px 30px', borderRadius: 16, border: 'none', background: 'linear-gradient(135deg,#9333ea,#ec4899)', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 6px 24px rgba(147,51,234,0.4)', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
                     onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 32px rgba(147,51,234,0.5)'; }}
                     onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 6px 24px rgba(147,51,234,0.4)'; }}
                 >
@@ -355,7 +391,7 @@ export default function DreamFundTab({ creatorId, isOwnProfile, isSubscribed, on
                 {isOwnProfile && (
                     <button
                         onClick={onOpenManager}
-                        style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(168,85,247,0.1)', color: '#a855f7', fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s ease' }}
+                        style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(168,85,247,0.35)', background: 'rgba(168,85,247,0.1)', color: '#a855f7', fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'background 0.15s ease' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.2)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.1)'; }}
                     >

@@ -658,6 +658,36 @@ const adminMarkPaid = async (req, res, next) => {
         goal.paidBy = req.user._id;
         await goal.save({ validateBeforeSave: false });
 
+        // ── Update Earnings ledger: deduct pending, credit withdrawn ──────────
+        // The creator already has their 80% credited as pendingAmount in Earnings
+        // (done at contribution verify time). When admin releases the payout,
+        // move that amount from pending → withdrawn so the admin panel reflects correctly.
+        const CREATOR_SHARE = 0.80;
+        const creatorShare = Math.round((goal.currentAmount || 0) * CREATOR_SHARE * 100) / 100;
+        if (creatorShare > 0) {
+            const Earnings = require('../models/Earnings');
+            try {
+                await Earnings.findOneAndUpdate(
+                    { creatorId: goal.creatorId },
+                    {
+                        // Deduct from pending, add to withdrawn (floor at 0 to avoid negative)
+                        $inc: {
+                            pendingAmount:   -creatorShare,
+                            withdrawnAmount:  creatorShare,
+                        },
+                    },
+                    { upsert: false }
+                );
+                // Guard: ensure pendingAmount never goes below 0
+                await Earnings.findOneAndUpdate(
+                    { creatorId: goal.creatorId, pendingAmount: { $lt: 0 } },
+                    { $set: { pendingAmount: 0 } }
+                );
+            } catch (earningsErr) {
+                console.warn('[adminMarkPaid] Earnings ledger update failed:', earningsErr.message);
+            }
+        }
+
         await sendNotification({
             recipientId: goal.creatorId,
             type: 'dream_fund_paid',
