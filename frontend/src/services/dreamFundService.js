@@ -46,6 +46,9 @@ const dreamFundService = {
 
     adminRejectProof: (id, reason) =>
         api.patch(`/admin/dream-funds/${id}/reject-proof`, { reason }),
+
+    adminMarkPaid: (id) =>
+        api.patch(`/admin/dream-funds/${id}/mark-paid`),
 };
 
 export default dreamFundService;

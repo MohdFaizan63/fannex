@@ -19,6 +19,7 @@ const {
     adminRejectGoal,
     adminVerifyProof,
     adminRejectProof,
+    adminMarkPaid,
 } = require('../controllers/dreamFundController');
 
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -80,6 +81,7 @@ router.patch('/dream-funds/:id/approve', adminApproveGoal);
 router.patch('/dream-funds/:id/reject', adminRejectGoal);
 router.patch('/dream-funds/:id/verify-proof', adminVerifyProof);
 router.patch('/dream-funds/:id/reject-proof', adminRejectProof);
+router.patch('/dream-funds/:id/mark-paid', adminMarkPaid);
 
 module.exports = router;
 

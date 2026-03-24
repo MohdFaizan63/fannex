@@ -637,6 +637,41 @@ const adminRejectProof = async (req, res, next) => {
     }
 };
 
+// @desc  Admin: mark a completed goal as paid (funds released to creator)
+// @route PATCH /api/v1/admin/dream-funds/:id/mark-paid
+const adminMarkPaid = async (req, res, next) => {
+    try {
+        const goal = await DreamFund.findById(req.params.id);
+        if (!goal) return res.status(404).json({ success: false, message: 'Goal not found' });
+
+        // Allow transitioning from completed / awaiting_verification / verified → paid
+        const payableStatuses = ['completed', 'awaiting_verification', 'verified'];
+        if (!payableStatuses.includes(goal.status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Goal must be completed before marking as paid (current: ${goal.status})`,
+            });
+        }
+
+        goal.status = 'paid';
+        goal.paidAt = new Date();
+        goal.paidBy = req.user._id;
+        await goal.save({ validateBeforeSave: false });
+
+        await sendNotification({
+            recipientId: goal.creatorId,
+            type: 'dream_fund_paid',
+            title: '💸 Dream Fund Payment Released!',
+            body: `Your Dream Fund goal "${goal.title}" has been marked as paid. Funds are on their way!`,
+            referenceId: goal._id,
+        });
+
+        res.status(200).json({ success: true, data: goal, message: 'Goal marked as paid. Creator notified.' });
+    } catch (err) {
+        next(err);
+    }
+};
+
 // Export multer middleware for use in routes
 const uploadMiddleware = upload.single('file');
 
@@ -660,4 +695,5 @@ module.exports = {
     adminRejectGoal,
     adminVerifyProof,
     adminRejectProof,
+    adminMarkPaid,
 };

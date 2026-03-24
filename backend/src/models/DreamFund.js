@@ -38,10 +38,14 @@ const dreamFundSchema = new mongoose.Schema(
         // pending → approved/rejected → (fan contributes) → completed → awaiting_verification → verified
         status: {
             type: String,
-            enum: ['pending', 'approved', 'rejected', 'completed', 'awaiting_verification', 'verified'],
+            // Flow: pending → approved/rejected → completed (auto when target met) → paid (admin marks)
+            // awaiting_verification / verified kept for backward compat only
+            enum: ['pending', 'approved', 'rejected', 'completed', 'awaiting_verification', 'verified', 'paid'],
             default: 'pending',
             index: true,
         },
+        paidAt: { type: Date, default: null },
+        paidBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
         rejectionReason: {
             type: String,
             default: '',
