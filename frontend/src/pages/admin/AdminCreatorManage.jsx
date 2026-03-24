@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { adminService } from '../../services/adminService';
 import { formatCurrency, formatDate, formatDateTime, getErrorMessage } from '../../utils/helpers';
 import PayNowModal from './PayNowModal';
@@ -131,9 +131,12 @@ export default function AdminCreatorManage() {
     const reloadingRef = useRef(false);
 
     // ── UI state ──────────────────────────────────────────────────────────────
-    const [toast,      setToast]      = useState({ msg: '', type: 'success' });
-    const [showPayNow, setShowPayNow] = useState(false);
-    const [banBusy,    setBanBusy]    = useState(false);
+    const [toast,              setToast]             = useState({ msg: '', type: 'success' });
+    const [showPayNow,         setShowPayNow]         = useState(false);
+    const [banBusy,            setBanBusy]            = useState(false);
+    const [showDeleteModal,    setShowDeleteModal]    = useState(false);
+    const [deleteBusyAccount,  setDeleteBusyAccount]  = useState(false);
+    const navigate = useNavigate();
 
     // ── Profile edit ──────────────────────────────────────────────────────────
     const [editProfile,    setEditProfile]    = useState(false);
@@ -299,6 +302,20 @@ export default function AdminCreatorManage() {
     const overview = data?.overview ?? {};
     const initials = ((profile.displayName || user.name || '?')[0] ?? '?').toUpperCase();
 
+    // ── Delete creator account (full cascade) ──────────────────────────────────
+    const handleDeleteAccount = async () => {
+        setDeleteBusyAccount(true);
+        try {
+            await adminService.deleteCreator(id);
+            navigate('/admin/creators', { state: { deleted: user.email } });
+        } catch (err) {
+            flash(getErrorMessage(err), 'error');
+            setShowDeleteModal(false);
+        } finally {
+            setDeleteBusyAccount(false);
+        }
+    };
+
     return (
         <>
         {deleteTarget && (
@@ -307,6 +324,47 @@ export default function AdminCreatorManage() {
                 onCancel={() => setDeleteTarget(null)}
                 busy={deleteBusy}
             />
+        )}
+
+        {/* Delete creator account modal */}
+        {showDeleteModal && !loading && (
+            <div role="dialog" aria-modal="true"
+                onClick={(e) => e.target === e.currentTarget && !deleteBusyAccount && setShowDeleteModal(false)}
+                className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                <div className="bg-surface-900 border border-red-500/20 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                    <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-7 h-7 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                    </div>
+                    <h3 className="text-white font-black text-center text-lg mb-1">Permanently Delete Creator?</h3>
+                    <p className="text-surface-400 text-sm text-center mb-2">
+                        <span className="text-white font-semibold">{profile.displayName || user.name}</span>
+                        <span className="text-surface-500 text-xs block mt-0.5">{user.email}</span>
+                    </p>
+                    <div className="rounded-xl bg-red-500/5 border border-red-500/15 p-3 mb-5 text-xs text-red-300 space-y-1">
+                        <p className="font-bold text-red-400 mb-1.5">⚠️ This will permanently delete:</p>
+                        <p>• All posts, media files from Cloudinary, comments &amp; likes</p>
+                        <p>• All subscriptions, payments, chat history</p>
+                        <p>• Earnings ledger, payout records, KYC data</p>
+                        <p>• Dream Fund goals &amp; contributions</p>
+                        <p className="mt-1.5 text-red-400 font-semibold">You will be redirected after deletion. This CANNOT be undone.</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setShowDeleteModal(false)} disabled={deleteBusyAccount}
+                            className="flex-1 py-2.5 rounded-xl border border-white/10 text-surface-400 text-sm font-semibold hover:text-white transition-colors disabled:opacity-40">Cancel</button>
+                        <button onClick={handleDeleteAccount} disabled={deleteBusyAccount}
+                            className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 text-sm font-bold hover:bg-red-500/30 transition-colors disabled:opacity-50">
+                            {deleteBusyAccount ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <span className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                                    Deleting…
+                                </span>
+                            ) : '🗑️ Delete Everything'}
+                        </button>
+                    </div>
+                </div>
+            </div>
         )}
 
         <div className="px-3 sm:px-6 py-4 max-w-5xl mx-auto">
@@ -360,10 +418,21 @@ export default function AdminCreatorManage() {
                                     {/* BUG-15 Fix: dot reflects current (optimistically updated) user.isBanned state */}
                                     <span className={`absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full border-2 border-surface-900 ${user.isBanned ? 'bg-red-500' : 'bg-emerald-500'}`} />
                                 </div>
-                                {/* Ban button */}
+                                {/* Ban / Unban button */}
                                 <button onClick={toggleBan} disabled={banBusy}
                                     className={`mb-1 px-4 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-40 ${user.isBanned ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' : 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'}`}>
                                     {banBusy ? '…' : user.isBanned ? '✓ Unban' : '⛔ Ban Creator'}
+                                </button>
+                                {/* Delete entire account button */}
+                                <button
+                                    onClick={() => setShowDeleteModal(true)}
+                                    title="Permanently delete creator account and all their data"
+                                    className="mb-1 px-3 py-2 rounded-xl text-xs font-bold border bg-red-600/10 border-red-600/30 text-red-400 hover:bg-red-600/20 transition-all flex items-center gap-1.5"
+                                >
+                                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                                    </svg>
+                                    Delete Account
                                 </button>
                             </div>
                             <div className="mt-3">

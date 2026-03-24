@@ -95,7 +95,155 @@ const unbanUser = async (req, res, next) => {
     }
 };
 
-// @desc    Delete a user account permanently
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED HELPER: Full cascade account deletion
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Permanently delete a user (or creator) and ALL associated data from every
+ * collection.  Also purges Cloudinary assets for posts and profile images.
+ *
+ * Deletion order (dependencies first):
+ *  1. Creator's posts + Cloudinary media
+ *  2. Creator-specific collections (Profile, Verification, Earnings, Payouts, DreamFunds)
+ *  3. Shared collections (Subscriptions, Payments, ChatMessages, ChatRooms,
+ *                         Notifications, Comments, Likes, ProfileViews,
+ *                         SecurityLogs, IssueReports)
+ *  4. User document
+ *
+ * @param {string|ObjectId} userId      - ID of the user to delete
+ * @param {boolean}         isAdmin     - whether the target user is an admin (blocked)
+ * @returns {Promise<{deleted: Object}>} - summary of deleted counts
+ */
+const _cascadeDeleteAccount = async (userId) => {
+    // Lazy-require models not imported at the top of the file
+    const ChatMessage  = require('../models/ChatMessage');
+    const ChatRoom     = require('../models/ChatRoom');
+    const Notification = require('../models/Notification');
+    const PostComment  = require('../models/PostComment');
+    const PostLike     = require('../models/PostLike');
+    const ProfileView  = require('../models/ProfileView');
+    const SecurityLog  = require('../models/SecurityLog');
+    const IssueReport  = require('../models/IssueReport');
+    const DreamFund         = require('../models/DreamFund');
+    const DreamFundContribution = require('../models/DreamFundContribution');
+
+    const deletedSummary = {};
+    const uid = String(userId);
+
+    // ── 1. Delete creator's posts + Cloudinary media ──────────────────────────
+    const posts = await Post.find({ creatorId: uid });
+    let mediaDeleted = 0;
+    for (const post of posts) {
+        // Delete all Cloudinary assets attached to this post
+        const urls = post.mediaUrls ?? (post.mediaUrl ? [post.mediaUrl] : []);
+        const publicIds = post.mediaPublicIds ?? (post.mediaPublicId ? [post.mediaPublicId] : []);
+        for (let i = 0; i < publicIds.length; i++) {
+            try {
+                const resourceType = (post.mediaType === 'video' || (urls[i] && urls[i].includes('/video/'))) ? 'video' : 'image';
+                await cloudinary.uploader.destroy(publicIds[i], { resource_type: resourceType });
+                mediaDeleted++;
+            } catch { /* non-fatal — continue if Cloudinary asset already gone */ }
+        }
+    }
+    const { deletedCount: postsDeleted } = await Post.deleteMany({ creatorId: uid });
+    deletedSummary.posts = postsDeleted;
+    deletedSummary.cloudinaryAssets = mediaDeleted;
+
+    // ── 2. Delete post interactions authored by this user ─────────────────────
+    const [{ deletedCount: commentsDeleted }, { deletedCount: likesDeleted }] = await Promise.all([
+        PostComment.deleteMany({ $or: [{ userId: uid }, { creatorId: uid }] }),
+        PostLike.deleteMany({ userId: uid }),
+    ]);
+    deletedSummary.comments = commentsDeleted;
+    deletedSummary.likes    = likesDeleted;
+
+    // ── 3. Delete profile image from Cloudinary ────────────────────────────────
+    const profile = await CreatorProfile.findOne({ userId: uid });
+    if (profile?.profileImagePublicId) {
+        try { await cloudinary.uploader.destroy(profile.profileImagePublicId); } catch { /* ignore */ }
+    }
+
+    // ── 4. Creator-specific collections ───────────────────────────────────────
+    const [
+        { deletedCount: profileDeleted },
+        { deletedCount: verificationDeleted },
+        { deletedCount: earningsDeleted },
+        { deletedCount: payoutsDeleted },
+    ] = await Promise.all([
+        CreatorProfile.deleteMany({ userId: uid }),
+        CreatorVerification.deleteMany({ userId: uid }),
+        Earnings.deleteMany({ creatorId: uid }),
+        PayoutRequest.deleteMany({ creatorId: uid }),
+    ]);
+    deletedSummary.creatorProfile     = profileDeleted;
+    deletedSummary.creatorVerification = verificationDeleted;
+    deletedSummary.earnings           = earningsDeleted;
+    deletedSummary.payoutRequests     = payoutsDeleted;
+
+    // ── 5. Dream Fund — goals created by the creator, contributions by this user
+    const dreamFundIds = (await DreamFund.find({ creatorId: uid }).select('_id')).map(d => d._id);
+    const [
+        { deletedCount: dreamFundsDeleted },
+        { deletedCount: contributionsAsCreator },
+        { deletedCount: contributionsAsFan },
+    ] = await Promise.all([
+        DreamFund.deleteMany({ creatorId: uid }),
+        DreamFundContribution.deleteMany({ dreamFundId: { $in: dreamFundIds } }),
+        DreamFundContribution.deleteMany({ userId: uid }),
+    ]);
+    deletedSummary.dreamFunds    = dreamFundsDeleted;
+    deletedSummary.contributions = contributionsAsCreator + contributionsAsFan;
+
+    // ── 6. Subscriptions (as creator OR as fan) ────────────────────────────────
+    const { deletedCount: subsDeleted } = await Subscription.deleteMany({
+        $or: [{ creatorId: uid }, { userId: uid }],
+    });
+    deletedSummary.subscriptions = subsDeleted;
+
+    // ── 7. Payments (as creator OR as paying fan) ─────────────────────────────
+    const { deletedCount: paymentsDeleted } = await Payment.deleteMany({
+        $or: [{ creatorId: uid }, { userId: uid }],
+    });
+    deletedSummary.payments = paymentsDeleted;
+
+    // ── 8. Chat rooms + messages ───────────────────────────────────────────────
+    const chatRooms = await ChatRoom.find({
+        $or: [{ creatorId: uid }, { userId: uid }],
+    }).select('_id');
+    const roomIds = chatRooms.map(r => r._id);
+    const [{ deletedCount: messagesDeleted }, { deletedCount: roomsDeleted }] = await Promise.all([
+        ChatMessage.deleteMany({ roomId: { $in: roomIds } }),
+        ChatRoom.deleteMany({ _id: { $in: roomIds } }),
+    ]);
+    deletedSummary.chatMessages = messagesDeleted;
+    deletedSummary.chatRooms    = roomsDeleted;
+
+    // ── 9. Notifications ───────────────────────────────────────────────────────
+    const { deletedCount: notificationsDeleted } = await Notification.deleteMany({
+        $or: [{ userId: uid }, { senderId: uid }],
+    });
+    deletedSummary.notifications = notificationsDeleted;
+
+    // ── 10. Profile views ──────────────────────────────────────────────────────
+    const { deletedCount: profileViewsDeleted } = await ProfileView.deleteMany({
+        $or: [{ viewerId: uid }, { creatorId: uid }],
+    });
+    deletedSummary.profileViews = profileViewsDeleted;
+
+    // ── 11. Security logs ──────────────────────────────────────────────────────
+    const { deletedCount: securityLogsDeleted } = await SecurityLog.deleteMany({ userId: uid });
+    deletedSummary.securityLogs = securityLogsDeleted;
+
+    // ── 12. Issue reports ──────────────────────────────────────────────────────
+    const { deletedCount: issueReportsDeleted } = await IssueReport.deleteMany({
+        $or: [{ reportedBy: uid }, { userId: uid }],
+    });
+    deletedSummary.issueReports = issueReportsDeleted;
+
+    return deletedSummary;
+};
+
+// @desc    Delete a user/creator account permanently (full cascade)
 // @route   DELETE /api/admin/users/:id
 // @access  Admin
 const deleteUser = async (req, res, next) => {
@@ -106,8 +254,44 @@ const deleteUser = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Cannot delete an admin account' });
         }
 
+        const deletedSummary = await _cascadeDeleteAccount(req.params.id);
+
+        // Finally delete the User document
         await user.deleteOne();
-        res.status(200).json({ success: true, message: 'User deleted successfully' });
+
+        console.log(`[adminDeleteUser] Deleted account ${user.email}:`, deletedSummary);
+        res.status(200).json({
+            success: true,
+            message: `Account for ${user.email} and all associated data has been permanently deleted.`,
+            data: { deleted: deletedSummary },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Delete a creator's account + ALL data from every collection + Cloudinary
+// @route   DELETE /api/admin/creators/:id
+// @access  Admin
+const deleteCreator = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ success: false, message: 'Creator not found' });
+        if (user.role === 'admin') {
+            return res.status(400).json({ success: false, message: 'Cannot delete an admin account' });
+        }
+
+        const deletedSummary = await _cascadeDeleteAccount(req.params.id);
+
+        // Finally delete the User document
+        await user.deleteOne();
+
+        console.log(`[adminDeleteCreator] Deleted creator ${user.email}:`, deletedSummary);
+        res.status(200).json({
+            success: true,
+            message: `Creator ${user.email} and all their data has been permanently deleted.`,
+            data: { deleted: deletedSummary },
+        });
     } catch (error) {
         next(error);
     }
@@ -1025,6 +1209,7 @@ module.exports = {
     banUser,
     unbanUser,
     deleteUser,
+    deleteCreator,
     getAllPosts,
     adminDeletePost,
     getAnalytics,
@@ -1045,6 +1230,7 @@ module.exports = {
     adminToggleBan,
     getCreatorMedia,
     adminDeleteCreatorPost,
+    deleteCreator,
     // One-time repairs
     repairStats,
     dedupSubscriptions,
