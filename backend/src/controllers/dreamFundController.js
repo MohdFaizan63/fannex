@@ -439,45 +439,28 @@ const verifyContribution = async (req, res, next) => {
             ),
         ]);
 
-        // Record Payment doc + credit creator earnings (80% of base — Bug Fix)
-        // dream_fund contributions follow the same 80/20 split as subscriptions/gifts.
-        // Previously creatorEarning was never set (stayed at 0) and Earnings was never updated.
-        const CREATOR_SHARE = 0.80;
-        const creatorEarning = Math.round(baseAmount * CREATOR_SHARE * 100) / 100;
-        const platformFee    = Math.round(baseAmount * (1 - CREATOR_SHARE) * 100) / 100;
-        const Earnings = require('../models/Earnings');
+        // Record Payment doc via the SAME idempotency path the webhook uses.
+        // handlePaymentCaptured uses a sideEffectsDone false→true atomic claim —
+        // whichever arrives first (verify redirect OR Cashfree webhook) wins.
+        // The second caller finds sideEffectsDone=true and exits. No duplicates.
+        await paymentService.handlePaymentCaptured({
+            orderId,
+            cfPaymentId,
+            amount: orderData.order_amount,
+            meta: {
+                userId:      userId.toString(),
+                creatorId:   resolvedCreatorId?.toString() || '',
+                goalId:      resolvedGoalId?.toString()   || '',
+                type:        'dream_fund',
+                baseAmount:  baseAmount.toString(),
+            },
+        });
 
-        try {
-            await PaymentModel.create({
-                userId,
-                creatorId: resolvedCreatorId,
-                goalId: resolvedGoalId,
-                amount: orderData.order_amount,
-                baseAmount,
-                gstAmount: orderData.order_amount - baseAmount,
-                platformFee,
-                creatorEarning,   // ← Bug Fix: was always 0 before
-                currency: 'INR',
-                type: 'dream_fund',
-                status: 'captured',
-                cfOrderId: orderId,
-                cfPaymentId,
-                sideEffectsDone: true,
-            });
-        } catch (dbErr) {
-            console.warn('[dreamFund.verifyContribution] Payment doc create failed:', dbErr.message);
-        }
+        // NOTE: Earnings are now computed LIVE from Payment.creatorEarning aggregation.
+        // No need to $inc Earnings.totalEarned / pendingAmount here — that was the
+        // source of stale divergence. The Payment doc created by handlePaymentCaptured
+        // carries the correct creatorEarning value which is aggregated on read.
 
-        // Atomically credit creator earnings ledger (same pattern as paymentService/chatController)
-        try {
-            await Earnings.findOneAndUpdate(
-                { creatorId: resolvedCreatorId },
-                { $inc: { totalEarned: creatorEarning, pendingAmount: creatorEarning } },
-                { upsert: true }
-            );
-        } catch (earningsErr) {
-            console.warn('[dreamFund.verifyContribution] Earnings credit failed:', earningsErr.message);
-        }
 
         // Check if goal is now completed
         let completed = false;
