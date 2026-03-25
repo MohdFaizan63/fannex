@@ -18,19 +18,29 @@ const {
 const getMyEarnings = async (req, res, next) => {
     try {
         const creatorId = req.user._id;
+        const mongoose = require('mongoose');
+        const creatorObjId = new mongoose.Types.ObjectId(String(creatorId));
 
-        // Bug 5 Fix: fetch earnings + per-type breakdown in ONE controller call
-        // so the frontend needs only this single endpoint (no separate loadBreakdown call).
+        // Bug Fix: fetch earnings + per-type breakdown in ONE controller call.
+        // CRITICAL: breakdown MUST include dream_fund so the total matches the
+        // sum of all breakdown types (subscription + gift + chat_unlock + dream_fund).
         const [earnings, breakdownAgg] = await Promise.all([
             getMyEarningsService(creatorId),
-            // Per-type breakdown for the 3 stat cards (Subscription / Gift / Chat)
+            // Per-type breakdown — cast creatorId to ObjectId, filter sideEffectsDone:true
             require('../models/Payment').aggregate([
-                { $match: { creatorId, status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock'] } } },
+                {
+                    $match: {
+                        creatorId: creatorObjId,          // FIX: explicit ObjectId cast
+                        status: 'captured',
+                        sideEffectsDone: true,            // FIX: only real completed payments
+                        type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] }, // FIX: include dream_fund
+                    },
+                },
                 { $group: { _id: '$type', total: { $sum: '$creatorEarning' } } },
             ]),
         ]);
 
-        const breakdown = { subscription: 0, gift: 0, chat_unlock: 0 };
+        const breakdown = { subscription: 0, gift: 0, chat_unlock: 0, dream_fund: 0 };
         breakdownAgg.forEach(({ _id, total }) => {
             if (_id in breakdown) breakdown[_id] = Math.round(total * 100) / 100;
         });
@@ -588,17 +598,18 @@ const getEarningsHistory = async (req, res, next) => {
         const limit     = Math.min(50, parseInt(req.query.limit, 10) || 20);
         const skip      = (page - 1) * limit;
 
-        // ── Single faceted aggregation — ONE round-trip to MongoDB ─────────────
-        // Facets: transactions (paginated) + total count + per-type breakdown
-        //
-        // Bug 2 Fix: restrict matchBase to only the 3 earning types.
-        // Without this, dream_fund payments appeared in the transactions list
-        // showing as mysterious +₹0.00 DREAM_FUND entries.
-        // Bug 3 Fix: removed unused `matchPage` variable (was never referenced).
+        const mongoose = require('mongoose');
+        const creatorObjId = new mongoose.Types.ObjectId(String(creatorId));
+
+        // FIX: Added dream_fund to the earning types so dream fund contributions
+        // appear in the history and breakdown — previously they were invisible here
+        // while still being included in totalEarned, causing a mismatch.
+        // Also added sideEffectsDone:true to exclude orphan/abandoned payment docs.
         const matchBase = {
-            creatorId,
+            creatorId: creatorObjId,    // FIX: explicit ObjectId cast
             status: 'captured',
-            type:   { $in: ['subscription', 'gift', 'chat_unlock'] },
+            sideEffectsDone: true,      // FIX: only real completed payments
+            type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] }, // FIX: include dream_fund
         };
 
         const [result] = await Payment.aggregate([
@@ -631,8 +642,8 @@ const getEarningsHistory = async (req, res, next) => {
             }},
         ]);
 
-        // Collapse breakdown array → { subscription, gift, chat_unlock }
-        const breakdownMap = { subscription: 0, gift: 0, chat_unlock: 0 };
+        // Collapse breakdown array → { subscription, gift, chat_unlock, dream_fund }
+        const breakdownMap = { subscription: 0, gift: 0, chat_unlock: 0, dream_fund: 0 };
         (result?.breakdown ?? []).forEach(({ _id, total }) => {
             if (_id in breakdownMap) breakdownMap[_id] = Math.round(total * 100) / 100;
         });
