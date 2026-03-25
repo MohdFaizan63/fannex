@@ -8,22 +8,32 @@ export const formatCurrency = (amount, currency = 'INR') =>
 
 /**
  * Format a date string or Date object to a readable local string.
+ * Returns '—' for null/undefined/invalid dates instead of throwing.
  */
-export const formatDate = (date, options = {}) =>
-    new Intl.DateTimeFormat('en-IN', {
+export const formatDate = (date, options = {}) => {
+    if (!date) return '—';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('en-IN', {
         day: 'numeric', month: 'short', year: 'numeric',
         ...options,
-    }).format(new Date(date));
+    }).format(d);
+};
 
 /**
  * Format a date string or Date object with both date AND time.
  * e.g. "20 Mar 2026, 02:45 PM"
+ * Returns '—' for null/undefined/invalid dates instead of throwing.
  */
-export const formatDateTime = (date) =>
-    new Intl.DateTimeFormat('en-IN', {
+export const formatDateTime = (date) => {
+    if (!date) return '—';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('en-IN', {
         day: 'numeric', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true,
-    }).format(new Date(date));
+    }).format(d);
+};
 
 /**
  * Truncate a string to maxLength, appending ellipsis if needed.
