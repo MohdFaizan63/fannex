@@ -5,14 +5,20 @@ const PayoutRequest = require('../models/PayoutRequest');
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PLATFORM_FEE_PERCENT = 20; // 20% platform cut → creator earns 80%
 
+// ─── Payment types that generate creator earnings ─────────────────────────────
+const EARNING_TYPES = ['subscription', 'gift', 'chat_unlock', 'dream_fund'];
+
+// ─── Helper: ensure an ObjectId for use in aggregation pipelines ──────────────
+// Mongoose does NOT auto-cast plain strings in aggregate $match — must cast explicitly.
+const toObjectId = (id) => new mongoose.Types.ObjectId(String(id));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
  * Detect whether the connected MongoDB deployment supports multi-document
  * transactions (requires a replica set or sharded cluster).
- * Standalone instances (common in local dev) do not support transactions.
  */
-let _transactionsSupported = null; // cached after first check
+let _transactionsSupported = null;
 const supportsTransactions = async () => {
     if (_transactionsSupported !== null) return _transactionsSupported;
     try {
@@ -20,10 +26,9 @@ const supportsTransactions = async () => {
         const { hosts } = await admin.serverStatus();
         _transactionsSupported = !!(hosts && hosts.length > 0);
     } catch {
-        // serverStatus may not report hosts on older versions; try isMaster
         try {
             const result = await mongoose.connection.db.command({ isMaster: 1 });
-            _transactionsSupported = !!(result.setName); // replica set name present
+            _transactionsSupported = !!(result.setName);
         } catch {
             _transactionsSupported = false;
         }
@@ -34,18 +39,13 @@ const supportsTransactions = async () => {
 /**
  * Run `fn(session)` inside a Mongo transaction.
  * Gracefully falls back to no-session on standalone MongoDB (dev).
- *
- * @param {(session: ClientSession|null) => Promise<any>} fn
  */
 const withTransaction = async (fn) => {
     const useTransactions = await supportsTransactions();
-
     if (!useTransactions) {
-        // Standalone MongoDB — run without session (no ACID, but functional for dev)
         console.warn('[earningsService] Transactions not supported — running without session (dev mode).');
         return fn(null);
     }
-
     const session = await mongoose.startSession();
     try {
         session.startTransaction();
@@ -60,44 +60,105 @@ const withTransaction = async (fn) => {
     }
 };
 
+// ─── Core Live-Balance Helper ─────────────────────────────────────────────────
+
+/**
+ * FIX-1: Single source of truth for a creator's live financial summary.
+ * Reads from Payment collection (creatorEarning field) — NOT from stale Earnings doc.
+ *
+ * @param {ObjectId|string} creatorId
+ * @param {ClientSession|null} [session]
+ * @returns {{ totalEarned, withdrawnAmt, inFlight, availableBalance }}
+ */
+const _computeLiveBalance = async (creatorId, session = null) => {
+    const Payment = require('../models/Payment');
+    const R = (n) => Math.round(n * 100) / 100;
+
+    // FIX-1: Always cast creatorId to ObjectId for aggregation — Mongoose does NOT auto-cast in aggregate $match
+    const creatorObjId = toObjectId(creatorId);
+
+    const maybeSession = (agg) => (session ? agg.session(session) : agg);
+
+    const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
+        // 1. Live sum of all captured creator earnings — Payment is the source of truth
+        maybeSession(Payment.aggregate([
+            {
+                $match: {
+                    creatorId: creatorObjId,   // FIX-1: explicit ObjectId cast
+                    status: 'captured',
+                    type: { $in: EARNING_TYPES },
+                },
+            },
+            { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
+        ])),
+        // 2. Earnings doc — only used for withdrawnAmount (only written when a payout is marked PAID)
+        session
+            ? Earnings.findOneAndUpdate(
+                { creatorId },
+                {},
+                { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, session }
+              )
+            : Earnings.findOneAndUpdate(
+                { creatorId },
+                {},
+                { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+              ),
+        // 3. In-flight payouts (pending/approved — money reserved, not yet disbursed)
+        // FIX-3+4: Cast creatorId to ObjectId here too
+        maybeSession(PayoutRequest.aggregate([
+            {
+                $match: {
+                    creatorId: creatorObjId,   // FIX-3: explicit ObjectId cast
+                    status: { $in: ['pending', 'approved'] },
+                },
+            },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ])),
+    ]);
+
+    const totalEarned      = R(aggResult[0]?.total   ?? 0);
+    const withdrawnAmt     = R(earnDoc?.withdrawnAmount ?? 0);
+    const inFlight         = R(inFlightAgg[0]?.total  ?? 0);
+    const availableBalance = R(Math.max(0, totalEarned - withdrawnAmt - inFlight));
+
+    return { totalEarned, withdrawnAmt, inFlight, availableBalance, earnDoc };
+};
+
 // ─── Service Functions ────────────────────────────────────────────────────────
 
 /**
- * Credit earnings when a payment is confirmed.
- * Deducts the 20% platform fee and credits 80% of the BASE price to the creator.
- * GST (18%) is collected by the platform for tax compliance and is never included
- * in creator earnings.
+ * Credit earnings when a subscription payment is confirmed.
+ * NOTE: For gift/chat_unlock — crediting is done directly in paymentService.handlePaymentCaptured
+ * by setting creatorEarning on the Payment doc. This function is subscription-only.
+ *
+ * IMPORTANT: Only updates withdrawnAmount-adjacent ledger fields.
+ * totalEarned and pendingAmount are now computed live from Payment collection.
+ * This function is kept for backward-compatibility but now only ensures the
+ * Earnings doc exists (upsert). It does NOT write totalEarned/pendingAmount
+ * since those are derived from Payment.creatorEarning.
  *
  * @param {ObjectId|string} creatorId
  * @param {number}          baseAmount   - price BEFORE GST (creator-set price)
  * @param {ClientSession}   [session]    - optional existing Mongo session
  */
 const creditEarningsOnPayment = async (creatorId, baseAmount, session = null) => {
-    // Creator earns 80% of base price — platform keeps 20% as fee
-    const creatorShare = Math.round(baseAmount * (1 - PLATFORM_FEE_PERCENT / 100) * 100) / 100;
-
+    // FIX-9: Do NOT write totalEarned/pendingAmount to Earnings doc.
+    // The Payment doc's creatorEarning field is the source of truth, aggregated live.
+    // Only ensure the Earnings doc exists so withdrawnAmount has a home.
     const opts = session ? { session } : {};
-
     await Earnings.findOneAndUpdate(
         { creatorId },
-        {
-            $inc: {
-                totalEarned: creatorShare,
-                pendingAmount: creatorShare,
-            },
-        },
-        { upsert: true, returnDocument: 'after', ...opts }
+        {},   // empty update — only creates doc if it doesn't exist
+        { upsert: true, setDefaultsOnInsert: true, returnDocument: 'after', ...opts }
     );
+    // Log for observability
+    const creatorShare = Math.round(baseAmount * (1 - PLATFORM_FEE_PERCENT / 100) * 100) / 100;
+    console.log(`[earningsService] creditEarningsOnPayment: Earnings doc ensured for creatorId=${creatorId}, share=₹${creatorShare} (recorded in Payment.creatorEarning)`);
 };
 
 /**
  * Creator requests a payout.
- * - Validates amount ≤ live available balance (computed from Payment collection).
- * - Atomically decrements pendingAmount via findOneAndUpdate with $gte guard
- *   to prevent sub-zero balance even under concurrent requests.
- *
- * @param {ObjectId|string} creatorId
- * @param {number}          amount
+ * Uses live Payment-aggregated balance as source of truth (FIX-2).
  */
 const requestPayoutService = async (creatorId, amount) => {
     return withTransaction(async (session) => {
@@ -109,38 +170,15 @@ const requestPayoutService = async (creatorId, amount) => {
             throw err;
         }
 
-        // ── Compute live available balance (source of truth) ────────────────
-        // We do NOT trust the stale Earnings.pendingAmount field here.
-        // Instead we recompute it fresh inside the transaction to avoid races.
-        const Payment = require('../models/Payment');
-
-        const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
-            Payment.aggregate([
-                // BUG-18/BUG-24 Fix: include dream_fund so Dream Fund contributions count toward creator balance
-                { $match: { creatorId: new mongoose.Types.ObjectId(String(creatorId)), status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] } } },
-                { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
-            ]),
-            session
-                ? Earnings.findOne({ creatorId }).session(session)
-                : Earnings.findOne({ creatorId }),
-            PayoutRequest.aggregate([
-                { $match: { creatorId: new mongoose.Types.ObjectId(String(creatorId)), status: { $in: ['pending', 'approved'] } } },
-                { $group: { _id: null, total: { $sum: '$amount' } } },
-            ]),
-        ]);
-
-        const R = (n) => Math.round(n * 100) / 100;
+        // FIX-2: Compute live balance from Payment collection — NOT stale Earnings doc
+        const { totalEarned, withdrawnAmt, inFlight, availableBalance, earnDoc } =
+            await _computeLiveBalance(creatorId, session);
 
         if (!earnDoc) {
             const err = new Error('No earnings record found. You have not received any payments yet.');
             err.statusCode = 400;
             throw err;
         }
-
-        const totalEarned   = R(aggResult[0]?.total ?? 0);
-        const withdrawnAmt  = R(earnDoc.withdrawnAmount ?? 0);
-        const inFlight      = R(inFlightAgg[0]?.total ?? 0);
-        const availableBalance = R(Math.max(0, totalEarned - withdrawnAmt - inFlight));
 
         if (amount > availableBalance) {
             const err = new Error(
@@ -150,30 +188,7 @@ const requestPayoutService = async (creatorId, amount) => {
             throw err;
         }
 
-        // ── Bug 7 Fix: Atomic decrement with $gte guard — prevents sub-zero ──
-        // Using findOneAndUpdate with $gte in the query so the update only
-        // applies when there is sufficient balance. This is fully atomic even
-        // without a session (MongoDB document-level atomicity guarantee).
-        const updated = session
-            ? await Earnings.findOneAndUpdate(
-                { creatorId, pendingAmount: { $gte: amount } },
-                { $inc: { pendingAmount: -amount } },
-                { returnDocument: 'after', session }
-            )
-            : await Earnings.findOneAndUpdate(
-                { creatorId, pendingAmount: { $gte: amount } },
-                { $inc: { pendingAmount: -amount } },
-                { returnDocument: 'after' }
-            );
-
-        if (!updated) {
-            // Guard tripped — concurrent request already consumed the balance
-            const err = new Error('Insufficient balance. Your available balance may have changed. Please refresh and try again.');
-            err.statusCode = 409;
-            throw err;
-        }
-
-        // Create the payout request
+        // Create the payout request — withdrawnAmount is only updated when admin marks it PAID
         const [payoutRequest] = await PayoutRequest.create(
             [{ creatorId, amount, requestedAt: new Date() }],
             opts
@@ -185,39 +200,30 @@ const requestPayoutService = async (creatorId, amount) => {
 
 /**
  * Admin: approve a pending payout request.
- *
- * @param {string} payoutId
- * @param {ObjectId|string} adminId
  */
 const approvePayoutService = async (payoutId, adminId) => {
     const payout = await PayoutRequest.findById(payoutId);
-
     if (!payout) {
         const err = new Error('Payout request not found.');
         err.statusCode = 404;
         throw err;
     }
-
     if (payout.status !== 'pending') {
         const err = new Error(`Cannot approve a payout with status '${payout.status}'.`);
         err.statusCode = 400;
         throw err;
     }
-
     payout.status = 'approved';
     payout.processedBy = adminId;
     payout.processedAt = new Date();
     await payout.save({ validateBeforeSave: false });
-
     return payout;
 };
 
 /**
  * Admin: mark an approved payout as paid.
  * Increments withdrawnAmount on the creator's Earnings document atomically.
- *
- * @param {string} payoutId
- * @param {ObjectId|string} adminId
+ * withdrawnAmount is the ONLY field we write to Earnings from the payout flow.
  */
 const markPayoutPaidService = async (payoutId, adminId) => {
     return withTransaction(async (session) => {
@@ -232,24 +238,22 @@ const markPayoutPaidService = async (payoutId, adminId) => {
             err.statusCode = 404;
             throw err;
         }
-
         if (payout.status !== 'approved') {
             const err = new Error(`Cannot mark as paid — payout status is '${payout.status}'. It must be 'approved' first.`);
             err.statusCode = 400;
             throw err;
         }
 
-        // Update payout status
         payout.status = 'paid';
         payout.processedBy = adminId;
         payout.processedAt = new Date();
         await payout.save({ ...opts, validateBeforeSave: false });
 
-        // Atomically increment withdrawnAmount on earnings ledger
+        // Atomically increment withdrawnAmount — this is the ONLY write to Earnings from payout flow
         await Earnings.findOneAndUpdate(
             { creatorId: payout.creatorId },
             { $inc: { withdrawnAmount: payout.amount } },
-            opts
+            { upsert: true, ...opts }
         );
 
         return payout;
@@ -257,11 +261,9 @@ const markPayoutPaidService = async (payoutId, adminId) => {
 };
 
 /**
- * Admin: reject a pending payout request and restore the creator's pendingAmount.
- *
- * @param {string} payoutId
- * @param {ObjectId|string} adminId
- * @param {string} notes - reason for rejection
+ * Admin: reject a pending payout request.
+ * FIX-5: No longer restores pendingAmount on Earnings doc (it's computed live).
+ * Only updates payout status.
  */
 const rejectPayoutService = async (payoutId, adminId, notes) => {
     return withTransaction(async (session) => {
@@ -276,19 +278,15 @@ const rejectPayoutService = async (payoutId, adminId, notes) => {
             err.statusCode = 404;
             throw err;
         }
-
         if (payout.status !== 'pending') {
             const err = new Error(`Cannot reject a payout with status '${payout.status}'.`);
             err.statusCode = 400;
             throw err;
         }
 
-        // Atomically restore pendingAmount to creator
-        await Earnings.findOneAndUpdate(
-            { creatorId: payout.creatorId },
-            { $inc: { pendingAmount: payout.amount } },
-            opts
-        );
+        // FIX-5: No Earnings.$inc restore needed — pendingAmount is computed live:
+        // availableBalance = totalEarned(Payment) − withdrawnAmt − inFlight(pending/approved payouts)
+        // Rejecting moves the payout out of inFlight automatically → available balance increases.
 
         payout.status = 'rejected';
         payout.processedBy = adminId;
@@ -301,78 +299,36 @@ const rejectPayoutService = async (payoutId, adminId, notes) => {
 };
 
 /**
- * Bug 1 & 4 Fix: Compute live earnings figures from Payment collection and return
- * as a plain object. NO DB write is performed here — this is a pure read operation.
+ * FIX-1+2+3+4: Compute live earnings figures from Payment collection.
+ * This is now the single canonical source of truth for the creator dashboard.
  *
- * The previous implementation did a `$set { totalEarned, pendingAmount }` on every
- * GET request, which could race with requestPayoutService and overwrite atomic
- * decrements with stale computed values.
+ * - totalEarned:    SUM(Payment.creatorEarning) where status=captured, type in EARNING_TYPES
+ * - withdrawnAmt:   Earnings.withdrawnAmount (only written when payout is marked PAID)
+ * - pendingAmount:  totalEarned − withdrawnAmt − inFlight
+ * - inFlight:       SUM(PayoutRequest.amount) where status in [pending, approved]
  *
- * Now we compute on-the-fly and return a plain object for the API response.
- * The Earnings doc is used only for `withdrawnAmount` (which is only written when
- * a payout is marked paid — a much rarer and correctly transactional event).
+ * NO DB write performed — pure read.
  */
 const getMyEarningsService = async (creatorId) => {
-    const Payment       = require('../models/Payment');
-    const PayoutRequest = require('../models/PayoutRequest');
+    const { totalEarned, withdrawnAmt, availableBalance, earnDoc } =
+        await _computeLiveBalance(creatorId);
 
-    // ── Three parallel DB reads ───────────────────────────────────────────────
-    const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
-        // 1. Live sum of all captured creator earnings (source of truth)
-        //    BUG-18/BUG-24 Fix: include dream_fund alongside subscription/gift/chat_unlock
-        Payment.aggregate([
-            { $match: { creatorId, status: 'captured', type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] } } },
-            { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
-        ]),
-        // 2. Earnings doc — for withdrawnAmount (only updated when a payout is marked PAID)
-        //    Upsert so new creators get a fresh doc with all defaults
-        Earnings.findOneAndUpdate(
-            { creatorId },
-            {},
-            { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
-        ),
-        // 3. Sum of all pending/approved payouts (money reserved, not yet disbursed)
-        PayoutRequest.aggregate([
-            { $match: { creatorId, status: { $in: ['pending', 'approved'] } } },
-            { $group: { _id: null, total: { $sum: '$amount' } } },
-        ]),
-    ]);
-
-    const R = (n) => Math.round(n * 100) / 100;
-
-    const totalEarned   = R(aggResult[0]?.total   ?? 0);
-    const withdrawnAmt  = R(earnDoc.withdrawnAmount ?? 0);
-    const inFlight      = R(inFlightAgg[0]?.total  ?? 0);
-
-    // Available = earned − withdrawn − in-flight (pending/approved requests)
-    const pendingAmount = R(Math.max(0, totalEarned - withdrawnAmt - inFlight));
-
-    // Return as a plain object — NO DB write. The computed values are consistent
-    // with the live state and should not be persisted in a racy GET handler.
     return {
         _id:             earnDoc._id,
         creatorId:       earnDoc.creatorId,
         totalEarned,
-        pendingAmount,
+        pendingAmount:   availableBalance,
         withdrawnAmount: withdrawnAmt,
         createdAt:       earnDoc.createdAt,
         updatedAt:       earnDoc.updatedAt,
     };
 };
 
-
-
-
 /**
  * Paginated list of payout requests for a creator.
- *
- * @param {ObjectId|string} creatorId
- * @param {number} page
- * @param {number} limit
  */
 const listPayoutsService = async (creatorId, page = 1, limit = 20) => {
     const skip = (page - 1) * limit;
-
     const [results, total] = await Promise.all([
         PayoutRequest.find({ creatorId })
             .sort({ requestedAt: -1 })
@@ -381,42 +337,30 @@ const listPayoutsService = async (creatorId, page = 1, limit = 20) => {
             .populate('processedBy', 'name email'),
         PayoutRequest.countDocuments({ creatorId }),
     ]);
-
     return { results, total, page, pages: Math.ceil(total / limit) };
 };
 
 /**
- * Admin: directly pay out a creator's full pending balance in one atomic step.
- * This bypasses the creator-request flow — useful for admin-initiated payouts.
- *
- * Flow:
- *  1. Validate pendingAmount > 0 (and no other pending/approved payout in-flight)
- *  2. Atomically decrement pendingAmount and increment withdrawnAmount
- *  3. Create a PayoutRequest doc with status='paid' immediately
- *
- * @param {string|ObjectId} creatorId
- * @param {string|ObjectId} adminId
- * @returns {Promise<PayoutRequest>}
+ * FIX-2+6: Admin direct payout — uses live Payment-aggregated balance.
+ * No longer reads stale Earnings.pendingAmount.
  */
 const adminDirectPayoutService = async (creatorId, adminId) => {
     return withTransaction(async (session) => {
         const opts = session ? { session } : {};
 
-        // Lock the earnings doc (or fetch without lock on standalone)
-        const earnings = session
-            ? await Earnings.findOne({ creatorId }).session(session)
-            : await Earnings.findOne({ creatorId });
+        // FIX-2: Use live balance from Payment collection
+        const { availableBalance, earnDoc } = await _computeLiveBalance(creatorId, session);
 
-        if (!earnings) {
+        if (!earnDoc) {
             const err = new Error('No earnings record found for this creator.');
             err.statusCode = 404;
             throw err;
         }
 
-        const amount = Math.round(earnings.pendingAmount * 100) / 100;
+        const amount = Math.round(availableBalance * 100) / 100;
 
         if (amount <= 0) {
-            const err = new Error('Creator has no pending balance to pay out.');
+            const err = new Error('Creator has no available balance to pay out.');
             err.statusCode = 400;
             throw err;
         }
@@ -435,11 +379,11 @@ const adminDirectPayoutService = async (creatorId, adminId) => {
             throw err;
         }
 
-        // Atomically deduct pendingAmount and credit withdrawnAmount
+        // Atomically credit withdrawnAmount — the ONLY field we write to Earnings doc
         await Earnings.findOneAndUpdate(
             { creatorId },
-            { $inc: { pendingAmount: -amount, withdrawnAmount: amount } },
-            opts
+            { $inc: { withdrawnAmount: amount } },
+            { upsert: true, ...opts }
         );
 
         // Create a completed PayoutRequest record for audit trail
@@ -462,6 +406,8 @@ const adminDirectPayoutService = async (creatorId, adminId) => {
 
 module.exports = {
     PLATFORM_FEE_PERCENT,
+    EARNING_TYPES,
+    toObjectId,
     creditEarningsOnPayment,
     requestPayoutService,
     approvePayoutService,

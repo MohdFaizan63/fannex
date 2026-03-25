@@ -12,6 +12,7 @@ const CreatorProfile = require('../models/CreatorProfile');
 const { creditEarningsOnPayment } = require('./earningsService');
 const { calcGST } = require('../utils/gstHelper');
 
+
 // ── Cashfree config ────────────────────────────────────────────────────────────
 const CF_APP_ID = process.env.CASHFREE_APP_ID;
 const CF_SECRET = process.env.CASHFREE_SECRET_KEY;
@@ -303,12 +304,25 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
         { upsert: true }   // NO rawResult — simple upsert
     );
 
-    // Step 2: Atomically claim the right to run side effects exactly once
+    // Step 2: Atomically claim the right to run side effects exactly once.
     // findOneAndUpdate returns the BEFORE doc. If sideEffectsDone was false → we own it.
     // If it was already true → someone else already ran side effects → skip.
     const claimed = await Payment.findOneAndUpdate(
         { cfOrderId: orderId, sideEffectsDone: false },
-        { $set: { sideEffectsDone: true, status: 'captured' } },
+        {
+            $set: {
+                sideEffectsDone: true,
+                status: 'captured',
+                cfPaymentId: cfPaymentId || null,
+                // FIX-4: Always correct creatorEarning at capture time — $setOnInsert above is a
+                // no-op for pre-created docs (created at order time). If the stored value is wrong
+                // (e.g. Cashfree tag parsing failed → base=0), this $set restores the correct value.
+                creatorEarning: gst.creatorEarning,
+                baseAmount: gst.baseAmount,
+                gstAmount: gst.gstAmount,
+                platformFee: gst.platformFee,
+            },
+        },
         { new: false }  // return BEFORE doc so we know if we won the claim
     );
 
@@ -367,11 +381,9 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
         console.log(`[handlePaymentCaptured] Earnings credited creatorId=${creatorId} amount=${gst.baseAmount}`);
 
     } else if (type === 'gift') {
-        const Earnings = require('../models/Earnings');
-
-        // ALWAYS update Payment doc with correct GST split — the doc may have been
-        // pre-created by chatController.createGiftOrder with creatorEarning=0 (default).
-        // $setOnInsert above was a no-op in that case, so we must $set it explicitly.
+        // FIX-4: Ensure Payment doc has correct GST split — the pre-created doc may have
+        // had creatorEarning=0 if chatController.createGiftOrder was the entry point.
+        // The $set here is always safe (idempotent after claim).
         await Payment.findOneAndUpdate(
             { cfOrderId: orderId },
             { $set: {
@@ -384,15 +396,13 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: false }
         );
 
-        await Earnings.findOneAndUpdate(
-            { creatorId },
-            { $inc: { totalEarned: gst.creatorEarning, pendingAmount: gst.creatorEarning } },
-            { upsert: true }
-        );
+        // FIX-5: Do NOT write to Earnings.totalEarned/pendingAmount directly.
+        // Payment.creatorEarning is now the single source of truth, aggregated live in
+        // earningsService._computeLiveBalance(). Dual-writes cause admin vs creator divergence.
+        console.log(`[handlePaymentCaptured] ✅ Gift captured creatorId=${creatorId} earning=₹${gst.creatorEarning} (tracked via Payment.creatorEarning)`);
 
     } else if (type === 'chat_unlock') {
         const ChatRoom = require('../models/ChatRoom');
-        const Earnings = require('../models/Earnings');
 
         await ChatRoom.findOneAndUpdate(
             { creatorId, userId },
@@ -400,11 +410,9 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
             { upsert: true }
         );
 
-        await Earnings.findOneAndUpdate(
-            { creatorId },
-            { $inc: { totalEarned: gst.creatorEarning, pendingAmount: gst.creatorEarning } },
-            { upsert: true }
-        );
+        // FIX-5: Do NOT write to Earnings.totalEarned/pendingAmount directly.
+        // Payment.creatorEarning (set via $setOnInsert above) is the source of truth.
+        console.log(`[handlePaymentCaptured] ✅ Chat unlocked creatorId=${creatorId} earning=₹${gst.creatorEarning} (tracked via Payment.creatorEarning)`);
     }
 };
 

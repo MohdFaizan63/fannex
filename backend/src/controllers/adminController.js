@@ -690,25 +690,61 @@ const getCreators = async (req, res, next) => {
         }
 
         const cids = creators.map((c) => c._id);
+        const cidStrings = cids.map((id) => id.toString());
 
-        // Fetch related data in parallel
-        const [profiles, earningsDocs] = await Promise.all([
+        // FIX-6: Use live Payment aggregation for earnings — same source of truth as creator dashboard
+        const { EARNING_TYPES } = require('../services/earningsService');
+
+        const [profiles, earningsAgg, withdrawnDocs, inFlightAgg] = await Promise.all([
             CreatorProfile.find({ userId: { $in: cids } })
                 .select('userId totalSubscribers genre verificationStatus profileImage displayName username')
                 .lean(),
-            Earnings.find({ creatorId: { $in: cids } }).lean(),
+            // Live totalEarned from Payment collection
+            Payment.aggregate([
+                {
+                    $match: {
+                        creatorId: { $in: cids },
+                        status: 'captured',
+                        type: { $in: EARNING_TYPES },
+                    },
+                },
+                { $group: { _id: '$creatorId', totalEarned: { $sum: '$creatorEarning' } } },
+            ]),
+            // withdrawnAmount from Earnings doc (only source of truth for this field)
+            Earnings.find({ creatorId: { $in: cids } }).select('creatorId withdrawnAmount').lean(),
+            // In-flight payouts
+            PayoutRequest.aggregate([
+                {
+                    $match: {
+                        creatorId: { $in: cids },
+                        status: { $in: ['pending', 'approved'] },
+                    },
+                },
+                { $group: { _id: '$creatorId', inFlight: { $sum: '$amount' } } },
+            ]),
         ]);
 
         const profileMap = {};
         profiles.forEach((p) => { profileMap[p.userId.toString()] = p; });
 
-        const earningsMap = {};
-        earningsDocs.forEach((e) => { earningsMap[e.creatorId.toString()] = e; });
+        // Build earnings lookup maps (keyed by creatorId string)
+        const R = (n) => Math.round(n * 100) / 100;
+        const earnedMap = {};
+        earningsAgg.forEach((e) => { earnedMap[e._id.toString()] = R(e.totalEarned ?? 0); });
+
+        const withdrawnMap = {};
+        withdrawnDocs.forEach((e) => { withdrawnMap[e.creatorId.toString()] = R(e.withdrawnAmount ?? 0); });
+
+        const inFlightMap = {};
+        inFlightAgg.forEach((e) => { inFlightMap[e._id.toString()] = R(e.inFlight ?? 0); });
 
         const results = creators.map((creator) => {
             const cid = creator._id.toString();
             const profile = profileMap[cid] ?? {};
-            const earning = earningsMap[cid] ?? { totalEarned: 0, pendingAmount: 0, withdrawnAmount: 0 };
+            const totalEarned     = earnedMap[cid]    ?? 0;
+            const withdrawnAmount = withdrawnMap[cid]  ?? 0;
+            const inFlight        = inFlightMap[cid]   ?? 0;
+            const pendingAmount   = R(Math.max(0, totalEarned - withdrawnAmount - inFlight));
 
             return {
                 _id: creator._id,
@@ -722,9 +758,9 @@ const getCreators = async (req, res, next) => {
                 genre: profile.genre || '',
                 totalSubscribers: profile.totalSubscribers ?? 0,
                 verificationStatus: profile.verificationStatus || 'pending',
-                totalEarned: earning.totalEarned ?? 0,
-                pendingAmount: earning.pendingAmount ?? 0,
-                withdrawnAmount: earning.withdrawnAmount ?? 0,
+                totalEarned,
+                pendingAmount,
+                withdrawnAmount,
             };
         });
 
@@ -759,21 +795,20 @@ const getCreatorDetail = async (req, res, next) => {
         weekEnd.setDate(weekStart.getDate() + 6);
         weekEnd.setHours(23, 59, 59, 999);
 
-        const mongoose = require('mongoose');
         const objectCreatorId = new mongoose.Types.ObjectId(String(creatorId));
+        const { EARNING_TYPES } = require('../services/earningsService');
 
         // BUG-13 Fix: support pagination for payout history
         const payoutPage  = Math.max(1, parseInt(req.query.payoutPage  ?? 1));
         const payoutLimit = Math.min(100, parseInt(req.query.payoutLimit ?? 20));
         const payoutSkip  = (payoutPage - 1) * payoutLimit;
 
-        const [creator, profile, verification, earnings, payoutsResult, weeklyAgg, overviewAgg] = await Promise.all([
+        const [creator, profile, verification, payoutsResult, earningsAgg, withdrawnDoc, inFlightAgg, weeklyAgg, overviewAgg] = await Promise.all([
             User.findById(creatorId, '-password').lean(),
             CreatorProfile.findOne({ userId: creatorId }).lean(),
             CreatorVerification.findOne({ userId: creatorId })
                 .select('userId accountHolderName bankName bankAccountNumber ifscCode bankProofImageUrl status'),
-            Earnings.findOne({ creatorId }).lean(),
-            // BUG-13 Fix: paginated payout history instead of hard-capped 20
+            // BUG-13 Fix: paginated payout history
             Promise.all([
                 PayoutRequest.find({ creatorId })
                     .sort({ requestedAt: -1 })
@@ -782,13 +817,36 @@ const getCreatorDetail = async (req, res, next) => {
                     .lean(),
                 PayoutRequest.countDocuments({ creatorId }),
             ]),
-            // BUG-01 Fix: weekly earnings uses same payment types as getMyEarningsService for consistency
+            // FIX-7: Live totalEarned from Payment collection (source of truth)
             Payment.aggregate([
                 {
                     $match: {
                         creatorId: objectCreatorId,
                         status: 'captured',
-                        type: { $in: ['subscription', 'gift', 'chat_unlock', 'dream_fund'] },
+                        type: { $in: EARNING_TYPES },
+                    },
+                },
+                { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
+            ]),
+            // FIX-7: withdrawnAmount from Earnings doc (only source of truth for this field)
+            Earnings.findOne({ creatorId }).lean(),
+            // FIX-7: In-flight payouts (live)
+            PayoutRequest.aggregate([
+                {
+                    $match: {
+                        creatorId: objectCreatorId,
+                        status: { $in: ['pending', 'approved'] },
+                    },
+                },
+                { $group: { _id: null, total: { $sum: '$amount' } } },
+            ]),
+            // Weekly earnings from Payment collection
+            Payment.aggregate([
+                {
+                    $match: {
+                        creatorId: objectCreatorId,
+                        status: 'captured',
+                        type: { $in: EARNING_TYPES },
                         createdAt: { $gte: weekStart, $lte: weekEnd },
                     },
                 },
@@ -799,7 +857,7 @@ const getCreatorDetail = async (req, res, next) => {
                 Payment.countDocuments({ creatorId: objectCreatorId, status: 'captured' }),
                 PayoutRequest.countDocuments({ creatorId, status: 'paid' }),
                 Subscription.countDocuments({ creatorId, status: 'active' }),
-                Post.countDocuments({ creatorId }),  // BUG-05: live post count instead of stale profile counter
+                Post.countDocuments({ creatorId }),
             ]),
         ]);
 
@@ -809,7 +867,7 @@ const getCreatorDetail = async (req, res, next) => {
 
         const [recentPayouts, payoutTotal] = payoutsResult;
 
-        // Safely build bank details (run Mongoose getter for AES decryption)
+        // Safely build bank details
         let bankDetails = null;
         if (verification) {
             const acctNum = verification.bankAccountNumber || '';
@@ -824,8 +882,14 @@ const getCreatorDetail = async (req, res, next) => {
             };
         }
 
-        const weeklyEarnings = Math.round((weeklyAgg[0]?.total ?? 0) * 100) / 100;
-        // BUG-04/BUG-05 Fix: use live counts exclusively — no stale profile counter fallback
+        // FIX-7: Compute financials from live Payment aggregation — NOT stale Earnings doc
+        const R = (n) => Math.round(n * 100) / 100;
+        const totalEarned     = R(earningsAgg[0]?.total    ?? 0);
+        const withdrawnAmount = R(withdrawnDoc?.withdrawnAmount ?? 0);
+        const inFlight        = R(inFlightAgg[0]?.total    ?? 0);
+        const pendingAmount   = R(Math.max(0, totalEarned - withdrawnAmount - inFlight));
+        const weeklyEarnings  = R(weeklyAgg[0]?.total      ?? 0);
+
         const [totalPayments, totalPaidPayouts, activeSubscribers, liveTotalPosts] = overviewAgg;
 
         res.status(200).json({
@@ -835,17 +899,15 @@ const getCreatorDetail = async (req, res, next) => {
                 profile: profile ?? {},
                 bankDetails,
                 financials: {
-                    totalEarned: earnings?.totalEarned ?? 0,
-                    pendingAmount: earnings?.pendingAmount ?? 0,
-                    withdrawnAmount: earnings?.withdrawnAmount ?? 0,
+                    totalEarned,
+                    pendingAmount,
+                    withdrawnAmount,
                     weeklyEarnings,
                     weekStart: weekStart.toISOString(),
                     weekEnd: weekEnd.toISOString(),
                 },
                 overview: {
-                    // BUG-04: always use live activeSubscribers count (never stale profile counter)
                     totalSubscribers: activeSubscribers,
-                    // BUG-05: always use live post count from Post collection
                     totalPosts: liveTotalPosts,
                     totalPayments,
                     totalPaidPayouts,
@@ -1118,40 +1180,63 @@ const adminToggleBan = async (req, res, next) => {
 };
 
 /**
- * @desc    Admin manually adjusts a creator's financial balances
+ * @desc    Admin adjusts a creator's withdrawnAmount (the only manually-editable field).
+ *          totalEarned and pendingAmount are computed live from Payment collection.
  * @route   PATCH /api/admin/creators/:id/financials
  * @access  Admin
  */
 const adminUpdateCreatorFinancials = async (req, res, next) => {
     try {
-        const Earnings = require('../models/Earnings');
-        const { totalEarned, pendingAmount, withdrawnAmount } = req.body;
-        const updates = {};
-        if (totalEarned    !== undefined && !isNaN(Number(totalEarned)))    updates.totalEarned    = Math.max(0, Number(totalEarned));
-        if (pendingAmount  !== undefined && !isNaN(Number(pendingAmount)))  updates.pendingAmount  = Math.max(0, Number(pendingAmount));
-        if (withdrawnAmount !== undefined && !isNaN(Number(withdrawnAmount))) updates.withdrawnAmount = Math.max(0, Number(withdrawnAmount));
-        if (Object.keys(updates).length === 0)
-            return res.status(400).json({ success: false, message: 'No financial fields to update.' });
+        // FIX-8: totalEarned and pendingAmount are live-computed — only withdrawnAmount is editable
+        const { EARNING_TYPES, toObjectId } = require('../services/earningsService');
+        const { withdrawnAmount } = req.body;
 
-        // BUG-14 Fix: server-side sanity validation — pendingAmount + withdrawnAmount must not exceed totalEarned
-        const finalTotal     = updates.totalEarned     ?? (await Earnings.findOne({ creatorId: req.params.id }))?.totalEarned     ?? 0;
-        const finalPending   = updates.pendingAmount   ?? (await Earnings.findOne({ creatorId: req.params.id }))?.pendingAmount   ?? 0;
-        const finalWithdrawn = updates.withdrawnAmount ?? (await Earnings.findOne({ creatorId: req.params.id }))?.withdrawnAmount ?? 0;
-        const R = (n) => Math.round(n * 100) / 100;
-        if (R(finalPending + finalWithdrawn) > R(finalTotal) + 0.01) {
+        if (withdrawnAmount === undefined || isNaN(Number(withdrawnAmount))) {
             return res.status(400).json({
                 success: false,
-                message: `Invalid financials: Pending (₹${finalPending}) + Withdrawn (₹${finalWithdrawn}) = ₹${R(finalPending + finalWithdrawn)} exceeds Total Earned (₹${finalTotal}). Please correct the values.`,
+                message: 'Only withdrawnAmount can be adjusted. totalEarned and pendingAmount are live-computed from Payment records.',
             });
         }
 
-        const earnings = await Earnings.findOneAndUpdate(
+        const newWithdrawn = Math.max(0, Math.round(Number(withdrawnAmount) * 100) / 100);
+        const R = (n) => Math.round(n * 100) / 100;
+        const creatorObjId = toObjectId(req.params.id);
+
+        // Compute live totalEarned to validate
+        const [earningsAgg, inFlightAgg] = await Promise.all([
+            Payment.aggregate([
+                { $match: { creatorId: creatorObjId, status: 'captured', type: { $in: EARNING_TYPES } } },
+                { $group: { _id: null, total: { $sum: '$creatorEarning' } } },
+            ]),
+            PayoutRequest.aggregate([
+                { $match: { creatorId: creatorObjId, status: { $in: ['pending', 'approved'] } } },
+                { $group: { _id: null, total: { $sum: '$amount' } } },
+            ]),
+        ]);
+
+        const totalEarned = R(earningsAgg[0]?.total ?? 0);
+        const inFlight    = R(inFlightAgg[0]?.total  ?? 0);
+
+        if (newWithdrawn > totalEarned) {
+            return res.status(400).json({
+                success: false,
+                message: `withdrawnAmount (₹${newWithdrawn}) cannot exceed live totalEarned (₹${totalEarned}).`,
+            });
+        }
+
+        const updated = await Earnings.findOneAndUpdate(
             { creatorId: req.params.id },
-            { $set: updates },
-            { returnDocument: 'after', upsert: false, runValidators: true }
+            { $set: { withdrawnAmount: newWithdrawn } },
+            { returnDocument: 'after', upsert: false }
         );
-        if (!earnings) return res.status(404).json({ success: false, message: 'Earnings record not found.' });
-        res.json({ success: true, message: 'Financials updated.', data: earnings });
+        if (!updated) return res.status(404).json({ success: false, message: 'No earnings record found for this creator.' });
+
+        const pendingAmount = R(Math.max(0, totalEarned - newWithdrawn - inFlight));
+        res.json({
+            success: true,
+            message: 'withdrawnAmount updated.',
+            data: { withdrawnAmount: newWithdrawn, totalEarned, pendingAmount },
+        });
     } catch (error) { next(error); }
 };
 
