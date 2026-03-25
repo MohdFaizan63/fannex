@@ -706,6 +706,7 @@ const getCreators = async (req, res, next) => {
                     $match: {
                         creatorId: { $in: cids },
                         status: 'captured',
+                        sideEffectsDone: true,
                         type: { $in: EARNING_TYPES },
                     },
                 },
@@ -824,6 +825,7 @@ const getCreatorDetail = async (req, res, next) => {
                     $match: {
                         creatorId: objectCreatorId,
                         status: 'captured',
+                        sideEffectsDone: true,
                         type: { $in: EARNING_TYPES },
                     },
                 },
@@ -847,6 +849,7 @@ const getCreatorDetail = async (req, res, next) => {
                     $match: {
                         creatorId: objectCreatorId,
                         status: 'captured',
+                        sideEffectsDone: true,
                         type: { $in: EARNING_TYPES },
                         createdAt: { $gte: weekStart, $lte: weekEnd },
                     },
@@ -855,7 +858,7 @@ const getCreatorDetail = async (req, res, next) => {
             ]),
             // BUG-04/BUG-05 Fix: fetch live counts in parallel
             Promise.all([
-                Payment.countDocuments({ creatorId: objectCreatorId, status: 'captured' }),
+                Payment.countDocuments({ creatorId: objectCreatorId, status: 'captured', sideEffectsDone: true }),
                 PayoutRequest.countDocuments({ creatorId, status: 'paid' }),
                 Subscription.countDocuments({ creatorId, status: 'active' }),
                 Post.countDocuments({ creatorId }),

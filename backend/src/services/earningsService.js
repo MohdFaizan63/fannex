@@ -81,11 +81,14 @@ const _computeLiveBalance = async (creatorId, session = null) => {
 
     const [aggResult, earnDoc, inFlightAgg] = await Promise.all([
         // 1. Live sum of all captured creator earnings — Payment is the source of truth
+        // sideEffectsDone:true ensures we only count payments where side effects completed
+        // (i.e. subscriptions activated). Excludes orphan/abandoned Payment docs.
         maybeSession(Payment.aggregate([
             {
                 $match: {
                     creatorId: creatorObjId,   // FIX-1: explicit ObjectId cast
                     status: 'captured',
+                    sideEffectsDone: true,     // FIX: only real completed payments
                     type: { $in: EARNING_TYPES },
                 },
             },

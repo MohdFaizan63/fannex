@@ -272,6 +272,17 @@ const handlePaymentCaptured = async ({ orderId, cfPaymentId, amount, meta }) => 
     const gst = calcGST(base);
 
     // ──────────────────────────────────────────────────────────────────────────
+    // GUARD: If this order was explicitly expired (abandoned order replaced by
+    // a newer one), do NOT resurrect it. Stale Cashfree webhooks may still
+    // fire for old orders — this guard prevents them from creating ghost docs.
+    // ──────────────────────────────────────────────────────────────────────────
+    const expiredDoc = await Payment.findOne({ cfOrderId: orderId, status: 'expired' }).lean();
+    if (expiredDoc) {
+        console.log(`[handlePaymentCaptured] ⛔ Order ${orderId} was expired (abandoned). Ignoring stale webhook.`);
+        return;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // BULLETPROOF IDEMPOTENCY PATTERN
     //
     // Step 1: Try to INSERT a new Payment doc with sideEffectsDone=false.

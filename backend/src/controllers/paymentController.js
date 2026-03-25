@@ -107,6 +107,19 @@ const createOrder = async (req, res, next) => {
         }
 
         // ── Server-side multi-plan pricing (NEVER trust frontend amounts) ────────
+        // First, expire ALL old abandoned 'created' Payment docs for this user+creator+subscription.
+        // This prevents stale webhooks from capturing old orphan orders and creating duplicate earnings.
+        await PaymentModel.updateMany(
+            {
+                userId: user._id,
+                creatorId,
+                type: 'subscription',
+                status: 'created',
+                sideEffectsDone: false,
+            },
+            { $set: { status: 'expired' } }
+        );
+
         const discountPct    = PLAN_DISCOUNTS[planDuration] ?? 0;
         const discountFactor = 1 - (discountPct / 100);
         const baseMonthly    = creatorProfile.subscriptionPrice;         // e.g. ₹199
@@ -490,6 +503,18 @@ async function createGiftOrder(req, res, next) {
         const gst = calcGST(Number(amount));
 
         const orderId = `gift_${user._id.toString().slice(-6)}_${Date.now()}`;
+
+        // Expire any old abandoned gift orders for this user+creator
+        await PaymentModel.updateMany(
+            {
+                userId: user._id,
+                creatorId,
+                type: 'gift',
+                status: 'created',
+                sideEffectsDone: false,
+            },
+            { $set: { status: 'expired' } }
+        );
 
         const order = await paymentService.createOrder({
             amount: gst.totalPaid,    // fan pays base + 18% GST
