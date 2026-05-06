@@ -169,7 +169,6 @@ const router = createBrowserRouter([
         children: [
             // Public
             { path: '/', element: wrap(Home) },
-            { path: '/explore', element: wrap(Explore) },
             { path: '/creator/:id', element: wrap(CreatorProfile) },
             { path: '/unauthorized', element: wrap(Unauthorized) },
             // Legal
@@ -193,6 +192,7 @@ const router = createBrowserRouter([
             {
                 element: <ProtectedRoute />,
                 children: [
+                    { path: '/explore', element: wrap(Explore) },
                     { path: '/profile', element: wrap(UserProfile) },
                     { path: '/creator/verification-status', element: wrap(VerificationStatus) },
                     { path: '/creator/:username/subscribe', element: wrap(SubscribePage) },
