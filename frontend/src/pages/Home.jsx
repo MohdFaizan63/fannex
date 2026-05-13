@@ -69,7 +69,7 @@ const CATEGORIES = [
 ];
 
 // ─── Feature flag: set to true once Paytm gateway is live ───────────────────
-const SHOW_IMAGE_GALLERIES = true;
+const SHOW_IMAGE_GALLERIES = false;
 
 // SVG icon components for features
 const IconSubscribe = () => (
