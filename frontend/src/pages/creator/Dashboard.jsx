@@ -196,14 +196,14 @@ export default function Dashboard() {
                     setMsgPriceInput(String(s.messagePrice ?? 20));
                 } catch (_) { }
 
-                // Load Dream Fund stats
-                try {
-                    const { data: dfData } = await dreamFundService.getMyGoals();
-                    const goals = dfData.data || [];
-                    const activeGoals = goals.filter(g => ['approved', 'completed', 'awaiting_verification', 'verified'].includes(g.status));
-                    const totalRaised = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
-                    setDreamFundStats({ count: goals.length, totalRaised, activeCount: activeGoals.length });
-                } catch (_) { }
+                // Load Dream Fund stats — hidden from creators for now
+                // try {
+                //     const { data: dfData } = await dreamFundService.getMyGoals();
+                //     const goals = dfData.data || [];
+                //     const activeGoals = goals.filter(g => ['approved', 'completed', 'awaiting_verification', 'verified'].includes(g.status));
+                //     const totalRaised = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
+                //     setDreamFundStats({ count: goals.length, totalRaised, activeCount: activeGoals.length });
+                // } catch (_) { }
             } finally {
                 setLoading(false);
             }
@@ -469,7 +469,8 @@ export default function Dashboard() {
                     </div>
                 </Link>
 
-                {/* ── Dream Fund card ──────────────────────────────────────────── */}
+                {/* ── Dream Fund card — hidden from creators for now ── */}
+                {false && (
                 <div
                     className="glass rounded-2xl border border-purple-500/20 p-4 sm:p-5 mb-6 flex items-center gap-3 group hover:border-purple-500/40 transition-all cursor-pointer"
                     onClick={() => setShowDreamFundManager(true)}
@@ -490,6 +491,7 @@ export default function Dashboard() {
                         ✨ <span className="hidden sm:inline">Manage</span><span className="sm:hidden">Open</span>
                     </div>
                 </div>
+                )}
 
                 {/* ── Chat Settings card ────────────────────────────────────── */}
                 <div className="glass rounded-2xl border border-violet-500/20 p-4 sm:p-5 mb-6">
@@ -634,8 +636,8 @@ export default function Dashboard() {
                 />
             )}
 
-            {/* ── Dream Fund Manager Modal ──────────────────────────────── */}
-            {showDreamFundManager && (
+            {/* ── Dream Fund Manager Modal — hidden from creators for now ── */}
+            {false && showDreamFundManager && (
                 <DreamFundManagerModal
                     onClose={() => {
                         setShowDreamFundManager(false);
