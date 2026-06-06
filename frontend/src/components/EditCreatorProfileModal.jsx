@@ -71,7 +71,7 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
     const [bio, setBio] = useState(profile?.bio || '');
     const [instagramUrl, setInstagramUrl] = useState(profile?.instagramUrl || '');
     const [displayName, setDisplay] = useState(profile?.displayName || '');
-    const [subPrice, setSubPrice] = useState(Math.max(0.1, profile?.subscriptionPrice ?? 199));
+    const [subPrice, setSubPrice] = useState(Math.max(1, profile?.subscriptionPrice ?? 199));
     const [profileFile, setProfileFile] = useState(null);
     const [bannerFile, setBannerFile] = useState(null);
     const [profilePreview, setProfilePreview] = useState(null);
@@ -310,9 +310,9 @@ export default function EditCreatorProfileModal({ profile, onClose, onSaved }) {
                                 <input
                                     type="number"
                                     value={subPrice}
-                                    onChange={(e) => setSubPrice(Math.max(0.1, Number(e.target.value)))}
-                                    min={0.1}
-                                    step={0.1}
+                                    onChange={(e) => setSubPrice(Math.max(1, Number(e.target.value)))}
+                                    min={1}
+                                    step={1}
                                     max={99999}
                                     className="input-dark w-full pl-7"
                                     placeholder="Enter price"

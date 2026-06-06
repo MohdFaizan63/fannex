@@ -253,7 +253,7 @@ export default function Dashboard() {
     const stats = [
         { icon: '👥', label: 'Total Subscribers', value: loading ? '—' : (profile?.totalSubscribers ?? 0).toLocaleString('en-IN') },
         { icon: '💰', label: 'Total Earned', value: loading ? '—' : formatCurrency(earnings?.totalEarned ?? 0), accent: true, sub: 'lifetime' },
-        { icon: '⏳', label: 'Pending Payout', value: loading ? '—' : formatCurrency(earnings?.pendingAmount ?? 0), sub: 'withdrawable' },
+        { icon: '✅', label: 'Withdrawn', value: loading ? '—' : formatCurrency(earnings?.withdrawnAmount ?? 0), sub: 'paid out' },
         { icon: '📸', label: 'Total Posts', value: loading ? '—' : (profile?.totalPosts ?? 0).toLocaleString('en-IN') },
     ];
 
