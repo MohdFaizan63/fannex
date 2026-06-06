@@ -118,6 +118,106 @@ function getVideoPoster(url) {
     return url.replace('/upload/', '/upload/f_jpg,so_0/').replace(/\.[^.]+$/, '.jpg');
 }
 
+// ── BANK DETAILS SECTION ──────────────────────────────────────────────────────
+function CopyButton({ text }) {
+    const [copied, setCopied] = useState(false);
+    const copy = () => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+    return (
+        <button
+            onClick={copy}
+            title="Copy to clipboard"
+            className={`ml-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all ${
+                copied
+                    ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                    : 'bg-white/[0.05] border-white/10 text-surface-500 hover:text-white hover:bg-white/[0.08]'
+            }`}
+        >
+            {copied ? '✓ Copied' : '⎘ Copy'}
+        </button>
+    );
+}
+
+function BankDetailsSection({ bank }) {
+    const [showAccNum, setShowAccNum] = useState(true);
+
+    const fullAccNum = bank.accountNumber || (bank.last4 ? `••••${bank.last4}` : '—');
+    const maskedAccNum = bank.accountNumber
+        ? `${'•'.repeat(Math.max(0, bank.accountNumber.length - 4))}${bank.accountNumber.slice(-4)}`
+        : (bank.last4 ? `••••${bank.last4}` : '—');
+
+    return (
+        <div>
+            {/* Admin notice */}
+            <div className="mb-3 px-3 py-2 rounded-xl bg-amber-500/8 border border-amber-500/20 flex items-center gap-2">
+                <span className="text-amber-400 text-xs">🔒</span>
+                <p className="text-xs text-amber-300/80 font-medium">Admin view — full banking details visible for payment processing</p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Account Holder */}
+                <div className="rounded-xl p-3 border border-white/[0.07]" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <p className="text-[10px] font-bold text-surface-600 uppercase tracking-widest mb-1">Account Holder</p>
+                    <p className="text-sm font-bold text-white/85">{bank.accountHolderName || '—'}</p>
+                </div>
+
+                {/* Bank Name */}
+                <div className="rounded-xl p-3 border border-white/[0.07]" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <p className="text-[10px] font-bold text-surface-600 uppercase tracking-widest mb-1">Bank Name</p>
+                    <p className="text-sm font-bold text-white/85">{bank.bankName || '—'}</p>
+                </div>
+
+                {/* Account Number — full, with show/hide toggle */}
+                <div className="rounded-xl p-3 border border-white/[0.07] sm:col-span-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <div className="flex items-center justify-between mb-1">
+                        <p className="text-[10px] font-bold text-surface-600 uppercase tracking-widest">Account No.</p>
+                        <button
+                            onClick={() => setShowAccNum(v => !v)}
+                            className="text-[10px] font-bold text-brand-400 hover:text-brand-300 transition-colors"
+                        >
+                            {showAccNum ? '🙈 Hide' : '👁 Show'}
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <p className="text-sm font-black font-mono tracking-widest text-white">
+                            {showAccNum ? fullAccNum : maskedAccNum}
+                        </p>
+                        {bank.accountNumber && <CopyButton text={bank.accountNumber} />}
+                    </div>
+                </div>
+
+                {/* IFSC Code — fully visible */}
+                <div className="rounded-xl p-3 border border-white/[0.07] sm:col-span-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <p className="text-[10px] font-bold text-surface-600 uppercase tracking-widest mb-1">IFSC Code</p>
+                    <div className="flex items-center gap-1">
+                        <p className="text-sm font-black font-mono tracking-widest text-white uppercase">
+                            {bank.ifscCode || '—'}
+                        </p>
+                        {bank.ifscCode && <CopyButton text={bank.ifscCode} />}
+                    </div>
+                </div>
+            </div>
+
+            {/* KYC status */}
+            {bank.verificationStatus && (
+                <div className="mt-3">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                        bank.verificationStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                        bank.verificationStatus === 'pending'  ? 'bg-amber-500/10  text-amber-400  border-amber-500/20'  :
+                        'bg-red-500/10 text-red-400 border-red-500/20'
+                    }`}>
+                        KYC: {bank.verificationStatus}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 export default function AdminCreatorManage() {
     const { id } = useParams();
@@ -737,32 +837,7 @@ export default function AdminCreatorManage() {
                 ) : !bank ? (
                     <p className="text-surface-600 text-sm italic text-center py-4">No bank details submitted yet.</p>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {[
-                            { label: 'Account Holder', value: bank.accountHolderName || '—' },
-                            { label: 'Bank Name',       value: bank.bankName || '—' },
-                            // BUG-07 Fix: guard against empty last4 — show '—' instead of '••••'
-                            { label: 'Account No.',     value: bank.accountNumber && bank.last4 ? `••••${bank.last4}` : '—', mono: true },
-                            { label: 'IFSC Code',       value: bank.ifscCode || '—', mono: true },
-                        ].map(({ label, value, mono }) => (
-                            <div key={label} className="rounded-xl p-3 border border-white/[0.07]"
-                                style={{ background: 'rgba(255,255,255,0.03)' }}>
-                                <p className="text-[10px] font-bold text-surface-600 uppercase tracking-widest mb-1">{label}</p>
-                                <p className={`text-sm font-bold text-white/85 ${mono ? 'font-mono tracking-wider' : ''}`}>{value}</p>
-                            </div>
-                        ))}
-                        {bank.verificationStatus && (
-                            <div className="col-span-2 sm:col-span-4 mt-1">
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                                    bank.verificationStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                    bank.verificationStatus === 'pending'  ? 'bg-amber-500/10  text-amber-400  border-amber-500/20'  :
-                                    'bg-red-500/10 text-red-400 border-red-500/20'
-                                }`}>
-                                    KYC: {bank.verificationStatus}
-                                </span>
-                            </div>
-                        )}
-                    </div>
+                    <BankDetailsSection bank={bank} />
                 )}
             </Card>
 
