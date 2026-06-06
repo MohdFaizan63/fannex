@@ -214,17 +214,33 @@ function DocButton({ label, url, icon }) {
 }
 
 // ─── KYC Field Row ────────────────────────────────────────────────────────────
+// Detects AES-256-GCM raw ciphertext format (iv:authTag:encryptedHex).
+// If the server-side decrypt getter didn't fire (e.g. .lean() was used or
+// ENCRYPTION_KEY is missing), we show a clear warning instead of raw hex.
+const isRawCiphertext = (val) => {
+    if (!val || typeof val !== 'string') return false;
+    const parts = val.split(':');
+    return parts.length === 3 && parts[0].length === 24 && parts[1].length === 32;
+};
+
 function KycField({ label, value, masked }) {
     const [show, setShow] = useState(false);
-    const display = masked && !show
-        ? (value ? '•'.repeat(Math.min(8, value.length)) : '—')
-        : (value || '—');
+
+    const isCiphertext = isRawCiphertext(value);
+
+    const display = isCiphertext
+        ? '⚠ Encrypted (server decryption failed)'
+        : masked && !show
+            ? (value ? '•'.repeat(Math.min(8, value.length)) : '—')
+            : (value || '—');
 
     return (
         <div className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0">
             <span className="text-xs text-surface-500 w-28 flex-shrink-0 font-medium">{label}</span>
-            <span className="text-sm text-surface-200 flex-1 font-mono tracking-wide">{display}</span>
-            {masked && value && (
+            <span className={`text-sm flex-1 font-mono tracking-wide ${isCiphertext ? 'text-amber-400 text-xs' : 'text-surface-200'}`}>
+                {display}
+            </span>
+            {masked && value && !isCiphertext && (
                 <button
                     onClick={() => setShow((s) => !s)}
                     className="flex-shrink-0 text-[10px] text-surface-500 hover:text-brand-400 transition-colors px-2 py-0.5 rounded-md border border-transparent hover:border-brand-500/20"
@@ -235,6 +251,7 @@ function KycField({ label, value, masked }) {
         </div>
     );
 }
+
 
 // ─── Verification Card ────────────────────────────────────────────────────────
 function VerificationCard({ v, onApprove, onReject, actionLoading }) {

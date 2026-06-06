@@ -442,20 +442,36 @@ const getVerifications = async (req, res, next) => {
         const filter = {};
         if (req.query.status) filter.status = req.query.status;
 
-        const data = await paginate(CreatorVerification, filter, {
-            page: req.query.page,
-            limit: req.query.limit,
-            sort: req.query.sort || '-submittedAt',
-            populate: [
-                { path: 'userId', select: 'name email' },
-                { path: 'approvedBy', select: 'name email' },
-            ],
-        });
+        // ── IMPORTANT: Do NOT use paginate() here. ───────────────────────────
+        // paginate() calls .lean() which bypasses Mongoose virtual getters.
+        // CreatorVerification uses AES-256-GCM encrypted fields (aadhaarNumber,
+        // panNumber, bankAccountNumber) with auto-decrypt getters defined on the
+        // schema. If .lean() is used, those getters never fire → raw ciphertext
+        // (iv:authTag:encryptedHex) is passed to maskVerificationData() and
+        // displayed verbatim in the admin UI instead of the masked real values.
+        // Querying as full Mongoose documents (no .lean()) lets the getters run.
+        const page  = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const skip  = (page - 1) * limit;
+        const sort  = req.query.sort || '-submittedAt';
+
+        const [docs, totalResults] = await Promise.all([
+            CreatorVerification.find(filter)
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .populate({ path: 'userId', select: 'name email' })
+                .populate({ path: 'approvedBy', select: 'name email' }),
+            // countDocuments is fine with lean semantics — no getters needed
+            CreatorVerification.countDocuments(filter),
+        ]);
 
         res.status(200).json({
             success: true,
-            ...data,
-            results: data.results.map(maskVerificationData),
+            results: docs.map(maskVerificationData),
+            page,
+            totalPages: Math.ceil(totalResults / limit),
+            totalResults,
         });
     } catch (error) { next(error); }
 };
