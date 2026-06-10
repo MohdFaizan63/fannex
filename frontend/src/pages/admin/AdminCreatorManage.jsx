@@ -355,12 +355,13 @@ export default function AdminCreatorManage() {
     };
 
     // BUG-02 Fix: saveFinancials now has a two-step confirmation
+    // FIX: only send withdrawnAmount — totalEarned & pendingAmount are live-computed server-side
     const saveFinancials = async () => {
         setSavingFin(true);
         setFinConfirmPending(false);
         try {
-            await adminService.updateCreatorFinancials(id, finForm);
-            flash('Financials updated ✓');
+            await adminService.updateCreatorFinancials(id, { withdrawnAmount: finForm.withdrawnAmount });
+            flash('Paid Out (withdrawnAmount) updated ✓');
             setEditFin(false);
             load();
         } catch (e) { flash(getErrorMessage(e), 'error'); }
@@ -656,24 +657,30 @@ export default function AdminCreatorManage() {
                     </div>
                 ) : editFin ? (
                     <>
+                        {/* Read-only info: totalEarned & pendingAmount are live-computed, cannot be edited */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-                            {[
-                                { key: 'totalEarned',     label: 'Total Earned (₹)',   color: 'text-white' },
-                                { key: 'pendingAmount',   label: 'Pending Amount (₹)', color: 'text-amber-400' },
-                                { key: 'withdrawnAmount', label: 'Paid Out (₹)',       color: 'text-emerald-400' },
-                            ].map(({ key, label, color }) => (
-                                <div key={key}>
-                                    <label className={`${labelCls} ${color}`}>{label}</label>
-                                    <input type="number" min="0" step="0.01" className={inputCls}
-                                        value={finForm[key]}
-                                        onChange={e => { setFinForm(f => ({ ...f, [key]: e.target.value })); setFinConfirmPending(false); }} />
-                                </div>
-                            ))}
+                            <div>
+                                <label className={`${labelCls} text-white`}>Total Earned (₹) — Live</label>
+                                <div className={`${inputCls} opacity-50 cursor-not-allowed select-none`}>{Number(fin.totalEarned ?? 0).toFixed(2)}</div>
+                                <p className="text-[10px] text-surface-600 mt-1">Computed from payments — not editable</p>
+                            </div>
+                            <div>
+                                <label className={`${labelCls} text-amber-400`}>Pending Amount (₹) — Live</label>
+                                <div className={`${inputCls} opacity-50 cursor-not-allowed select-none`}>{Number(fin.pendingAmount ?? 0).toFixed(2)}</div>
+                                <p className="text-[10px] text-surface-600 mt-1">Computed from payments — not editable</p>
+                            </div>
+                            <div>
+                                <label className={`${labelCls} text-emerald-400`}>Paid Out / Withdrawn (₹)</label>
+                                <input type="number" min="0" step="0.01" className={inputCls}
+                                    value={finForm.withdrawnAmount}
+                                    onChange={e => { setFinForm(f => ({ ...f, withdrawnAmount: e.target.value })); setFinConfirmPending(false); }} />
+                                <p className="text-[10px] text-surface-600 mt-1">Only this field can be adjusted</p>
+                            </div>
                         </div>
                         {/* BUG-02 Fix: confirmation banner shows computed values before final save */}
                         {finConfirmPending && (
                             <div className="mb-4 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
-                                ⚠️ You are about to overwrite financial records with: <strong>Total ₹{Number(finForm.totalEarned).toFixed(2)}</strong>, Pending <strong>₹{Number(finForm.pendingAmount).toFixed(2)}</strong>, Paid Out <strong>₹{Number(finForm.withdrawnAmount).toFixed(2)}</strong>. This cannot be undone automatically.
+                                ⚠️ You are about to set <strong>Paid Out</strong> to <strong>₹{Number(finForm.withdrawnAmount).toFixed(2)}</strong>. Only this field will be saved — Total Earned and Pending are computed automatically.
                             </div>
                         )}
                     </>

@@ -1247,7 +1247,7 @@ const adminUpdateCreatorFinancials = async (req, res, next) => {
         const updated = await Earnings.findOneAndUpdate(
             { creatorId: req.params.id },
             { $set: { withdrawnAmount: newWithdrawn } },
-            { returnDocument: 'after', upsert: false }
+            { returnDocument: 'after', upsert: true }
         );
         if (!updated) return res.status(404).json({ success: false, message: 'No earnings record found for this creator.' });
 
