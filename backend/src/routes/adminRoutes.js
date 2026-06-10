@@ -8,6 +8,7 @@ const {
     listAllPayouts, approvePayout, rejectPayout, markPaid,
     getCreators, getCreatorDetail, adminDirectPayout,
     adminUpdateCreatorProfile, adminUpdateCreatorFinancials, adminToggleBan,
+    adminOverrideCreatorStats,
     getCreatorMedia, adminDeleteCreatorPost, deleteCreator,
     repairStats,
     dedupSubscriptions,
@@ -63,6 +64,7 @@ router.put('/creators/:id/ban', adminToggleBan);
 router.put('/creators/:id/unban', adminToggleBan);
 router.get('/creators/:id/media', getCreatorMedia);
 router.delete('/creators/:id/media/:postId', adminDeleteCreatorPost);
+router.patch('/creators/:id/override-stats', adminOverrideCreatorStats);
 router.delete('/creators/:id', deleteCreator);  // Full cascade delete
 
 

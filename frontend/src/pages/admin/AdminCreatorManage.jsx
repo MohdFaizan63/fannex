@@ -259,6 +259,12 @@ export default function AdminCreatorManage() {
     const [deleteTarget,    setDeleteTarget]    = useState(null);
     const [deleteBusy,      setDeleteBusy]      = useState(false);
 
+    // ── Change Things ─────────────────────────────────────────────────────────
+    const [editStats,          setEditStats]          = useState(false);
+    const [statsForm,          setStatsForm]          = useState({ totalSubscribers: '', totalPosts: '' });
+    const [savingStats,        setSavingStats]        = useState(false);
+    const [statsConfirmStep,   setStatsConfirmStep]   = useState(false);
+
     // BUG-10 Fix: mediaRef used to scroll media section into view on pagination
     const mediaRef = useRef(null);
 
@@ -290,6 +296,10 @@ export default function AdminCreatorManage() {
             totalEarned:     d.financials?.totalEarned    ?? 0,
             pendingAmount:   d.financials?.pendingAmount  ?? 0,
             withdrawnAmount: d.financials?.withdrawnAmount ?? 0,
+        });
+        setStatsForm({
+            totalSubscribers: d.profile?.totalSubscribers ?? d.overview?.activeSubscribers ?? '',
+            totalPosts:       d.profile?.totalPosts       ?? d.overview?.totalPosts       ?? '',
         });
     };
 
@@ -372,6 +382,45 @@ export default function AdminCreatorManage() {
             setData(prev => prev ? { ...prev, user: { ...prev.user, isBanned: wasBanned } } : prev);
             flash(getErrorMessage(e), 'error');
         } finally { setBanBusy(false); }
+    };
+
+    // ── Change Things: override subscriber / post counts ──────────────────────
+    const saveStats = async () => {
+        setSavingStats(true);
+        setStatsConfirmStep(false);
+        try {
+            const payload = {};
+            const sub = Number(statsForm.totalSubscribers);
+            const pst = Number(statsForm.totalPosts);
+            if (!isNaN(sub) && String(statsForm.totalSubscribers).trim() !== '') payload.totalSubscribers = sub;
+            if (!isNaN(pst) && String(statsForm.totalPosts).trim() !== '')       payload.totalPosts = pst;
+            if (Object.keys(payload).length === 0) {
+                flash('Enter at least one value to update.', 'error');
+                return;
+            }
+            const { data: res } = await adminService.overrideCreatorStats(id, payload);
+            flash('Stats updated ✓ — changes are live on creator page');
+            setEditStats(false);
+            // Optimistic update so overview cards reflect the change immediately
+            setData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    profile: {
+                        ...prev.profile,
+                        totalSubscribers: res.data?.totalSubscribers ?? prev.profile?.totalSubscribers,
+                        totalPosts:       res.data?.totalPosts       ?? prev.profile?.totalPosts,
+                    },
+                    overview: {
+                        ...prev.overview,
+                        totalSubscribers:  res.data?.totalSubscribers ?? prev.overview?.totalSubscribers,
+                        activeSubscribers: res.data?.totalSubscribers ?? prev.overview?.activeSubscribers,
+                        totalPosts:        res.data?.totalPosts       ?? prev.overview?.totalPosts,
+                    },
+                };
+            });
+        } catch (e) { flash(getErrorMessage(e), 'error'); }
+        finally { setSavingStats(false); }
     };
 
     const confirmDelete = async () => {
@@ -829,7 +878,118 @@ export default function AdminCreatorManage() {
             </Card>
 
             {/* ══════════════════════════════════════════════════════════
-                6. BANK DETAILS
+                6b. CHANGE THINGS
+            ══════════════════════════════════════════════════════════ */}
+            <Card icon="🎛️" title="Change Things" className="mb-4" action={
+                !loading && (editStats ? (
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => { setEditStats(false); setStatsConfirmStep(false); setStatsForm({ totalSubscribers: data?.profile?.totalSubscribers ?? '', totalPosts: data?.profile?.totalPosts ?? '' }); }}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-surface-400 hover:text-white transition-all"
+                        >Cancel</button>
+                        {!statsConfirmStep ? (
+                            <button onClick={() => setStatsConfirmStep(true)} className="btn-brand text-xs px-4 py-1.5 rounded-lg">
+                                Review &amp; Save
+                            </button>
+                        ) : (
+                            <button onClick={saveStats} disabled={savingStats}
+                                className="text-xs px-4 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold hover:bg-amber-500/30 transition-all disabled:opacity-40"
+                            >
+                                {savingStats ? 'Saving…' : '⚠️ Confirm Save'}
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <button onClick={() => setEditStats(true)} className="text-xs px-3 py-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 transition-all font-semibold">
+                        ✏️ Edit
+                    </button>
+                ))
+            }>
+                {loading ? (
+                    <div className="grid grid-cols-2 gap-3">{[0,1].map(i => <Sk key={i} h="h-20" />)}</div>
+                ) : editStats ? (
+                    <>
+                        {/* Warning banner */}
+                        <div className="mb-4 px-3.5 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20 flex items-start gap-2.5">
+                            <span className="text-amber-400 text-base mt-0.5">⚠️</span>
+                            <div>
+                                <p className="text-amber-300 text-xs font-bold">Direct database override</p>
+                                <p className="text-amber-300/70 text-xs mt-0.5">These numbers are written directly to the creator's profile and will immediately reflect on their public page and dashboard. Use carefully.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            {/* Subscriber count */}
+                            <div>
+                                <label className={labelCls + ' text-brand-400'}>Subscriber Count</label>
+                                <div className="relative">
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500 text-sm">👥</span>
+                                    <input
+                                        id="override-subscribers"
+                                        type="number" min="0" step="1"
+                                        placeholder={`Current: ${(data?.profile?.totalSubscribers ?? overview.activeSubscribers ?? 0).toLocaleString('en-IN')}`}
+                                        className={inputCls + ' pl-9'}
+                                        value={statsForm.totalSubscribers}
+                                        onChange={e => { setStatsForm(f => ({ ...f, totalSubscribers: e.target.value })); setStatsConfirmStep(false); }}
+                                    />
+                                </div>
+                                <p className="text-[10px] text-surface-600 mt-1">Current value: <span className="text-surface-400 font-semibold">{(data?.profile?.totalSubscribers ?? overview.activeSubscribers ?? 0).toLocaleString('en-IN')}</span></p>
+                            </div>
+
+                            {/* Post count */}
+                            <div>
+                                <label className={labelCls + ' text-violet-400'}>Post Count</label>
+                                <div className="relative">
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500 text-sm">📸</span>
+                                    <input
+                                        id="override-posts"
+                                        type="number" min="0" step="1"
+                                        placeholder={`Current: ${(data?.profile?.totalPosts ?? overview.totalPosts ?? 0).toLocaleString('en-IN')}`}
+                                        className={inputCls + ' pl-9'}
+                                        value={statsForm.totalPosts}
+                                        onChange={e => { setStatsForm(f => ({ ...f, totalPosts: e.target.value })); setStatsConfirmStep(false); }}
+                                    />
+                                </div>
+                                <p className="text-[10px] text-surface-600 mt-1">Current value: <span className="text-surface-400 font-semibold">{(data?.profile?.totalPosts ?? overview.totalPosts ?? 0).toLocaleString('en-IN')}</span></p>
+                            </div>
+                        </div>
+
+                        {/* Confirm banner */}
+                        {statsConfirmStep && (
+                            <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
+                                ⚠️ You are about to write directly to the database:
+                                {statsForm.totalSubscribers !== '' && <><br /><strong>Subscriber count → {Number(statsForm.totalSubscribers).toLocaleString('en-IN')}</strong></>}
+                                {statsForm.totalPosts !== '' && <><br /><strong>Post count → {Number(statsForm.totalPosts).toLocaleString('en-IN')}</strong></>}
+                                <br />This immediately affects the public creator page.
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    /* Read-only view */
+                    <>
+                        <p className="text-[10px] font-bold text-surface-600 uppercase tracking-widest mb-3">Denormalised counts stored on creator profile</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div className="rounded-xl p-4 border border-brand-500/20 bg-brand-500/5 flex flex-col gap-1">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500">👥 Subscribers</p>
+                                <p className="text-2xl font-black text-brand-300">{(data?.profile?.totalSubscribers ?? overview.activeSubscribers ?? 0).toLocaleString('en-IN')}</p>
+                                <p className="text-[10px] text-surface-600">stored on profile doc</p>
+                            </div>
+                            <div className="rounded-xl p-4 border border-violet-500/20 bg-violet-500/5 flex flex-col gap-1">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-violet-500">📸 Posts</p>
+                                <p className="text-2xl font-black text-violet-300">{(data?.profile?.totalPosts ?? overview.totalPosts ?? 0).toLocaleString('en-IN')}</p>
+                                <p className="text-[10px] text-surface-600">stored on profile doc</p>
+                            </div>
+                            <div className="rounded-xl p-4 border border-white/[0.07] col-span-2 sm:col-span-1" style={{ background: 'rgba(255,255,255,0.025)' }}>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-surface-600 mb-2">💡 About this section</p>
+                                <p className="text-xs text-surface-500 leading-relaxed">Click <strong className="text-white">Edit</strong> to override the subscriber or post count stored directly in the database. Changes reflect immediately on the creator&apos;s public profile page.</p>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </Card>
+
+            {/* ══════════════════════════════════════════════════════════
+                7. BANK DETAILS
             ══════════════════════════════════════════════════════════ */}
             <Card icon="🏦" title="Bank Details" className="mb-4">
                 {loading ? (

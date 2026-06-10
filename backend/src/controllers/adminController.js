@@ -1260,6 +1260,62 @@ const adminUpdateCreatorFinancials = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+/**
+ * @desc    Admin override of denormalised creator stats (totalSubscribers, totalPosts)
+ *          This directly writes to CreatorProfile so changes are immediately
+ *          reflected on the public creator page and creator dashboard.
+ * @route   PATCH /api/admin/creators/:id/override-stats
+ * @access  Admin
+ */
+const adminOverrideCreatorStats = async (req, res, next) => {
+    try {
+        const { totalSubscribers, totalPosts } = req.body;
+
+        const updates = {};
+
+        if (totalSubscribers !== undefined) {
+            const val = Math.max(0, Math.round(Number(totalSubscribers)));
+            if (isNaN(val)) {
+                return res.status(400).json({ success: false, message: 'totalSubscribers must be a non-negative integer.' });
+            }
+            updates.totalSubscribers = val;
+        }
+
+        if (totalPosts !== undefined) {
+            const val = Math.max(0, Math.round(Number(totalPosts)));
+            if (isNaN(val)) {
+                return res.status(400).json({ success: false, message: 'totalPosts must be a non-negative integer.' });
+            }
+            updates.totalPosts = val;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ success: false, message: 'Provide at least one of: totalSubscribers, totalPosts.' });
+        }
+
+        const profile = await CreatorProfile.findOneAndUpdate(
+            { userId: req.params.id },
+            { $set: updates },
+            { returnDocument: 'after' }
+        );
+
+        if (!profile) {
+            return res.status(404).json({ success: false, message: 'Creator profile not found.' });
+        }
+
+        console.log(`[adminOverrideStats] Creator ${req.params.id} stats overridden by admin ${req.user._id}:`, updates);
+
+        res.json({
+            success: true,
+            message: 'Creator stats overridden successfully.',
+            data: {
+                totalSubscribers: profile.totalSubscribers,
+                totalPosts: profile.totalPosts,
+            },
+        });
+    } catch (error) { next(error); }
+};
+
 // One-time repair: backfill creatorEarning=0 gift Payment docs
 // POST /api/v1/admin/repair-gift-earnings
 const repairGiftEarnings = async (req, res, next) => {
@@ -1333,6 +1389,7 @@ module.exports = {
     adminUpdateCreatorProfile,
     adminUpdateCreatorFinancials,
     adminToggleBan,
+    adminOverrideCreatorStats,
     getCreatorMedia,
     adminDeleteCreatorPost,
     deleteCreator,
