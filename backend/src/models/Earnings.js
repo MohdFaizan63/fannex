@@ -24,8 +24,23 @@ const earningsSchema = new mongoose.Schema(
             default: 0,
             min: 0,
         },
+
+        // ── Admin override fields ──────────────────────────────────────────────
+        // When set by admin, these take precedence over the live Payment aggregation
+        // in getCreatorDetail. Set to null to revert to live computation.
+        overrideTotalEarned: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
+        overridePendingAmount: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
     },
     { timestamps: true }
 );
 
 module.exports = mongoose.model('Earnings', earningsSchema);
+

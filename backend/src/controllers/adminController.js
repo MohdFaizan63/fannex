@@ -903,12 +903,20 @@ const getCreatorDetail = async (req, res, next) => {
         }
 
         // FIX-7: Compute financials from live Payment aggregation — NOT stale Earnings doc
+        // Admin override: if overrideTotalEarned / overridePendingAmount are set on the
+        // Earnings doc, use those values instead of the live Payment aggregation.
         const R = (n) => Math.round(n * 100) / 100;
-        const totalEarned     = R(earningsAgg[0]?.total    ?? 0);
+        const liveTotalEarned = R(earningsAgg[0]?.total ?? 0);
+        const totalEarned     = withdrawnDoc?.overrideTotalEarned  != null
+            ? R(withdrawnDoc.overrideTotalEarned)
+            : liveTotalEarned;
         const withdrawnAmount = R(withdrawnDoc?.withdrawnAmount ?? 0);
-        const inFlight        = R(inFlightAgg[0]?.total    ?? 0);
-        const pendingAmount   = R(Math.max(0, totalEarned - withdrawnAmount - inFlight));
-        const weeklyEarnings  = R(weeklyAgg[0]?.total      ?? 0);
+        const inFlight        = R(inFlightAgg[0]?.total ?? 0);
+        const livePendingAmount = R(Math.max(0, totalEarned - withdrawnAmount - inFlight));
+        const pendingAmount   = withdrawnDoc?.overridePendingAmount != null
+            ? R(withdrawnDoc.overridePendingAmount)
+            : livePendingAmount;
+        const weeklyEarnings  = R(weeklyAgg[0]?.total ?? 0);
 
         const [totalPayments, totalPaidPayouts, activeSubscribers, liveTotalPosts] = overviewAgg;
 
@@ -1318,7 +1326,9 @@ const adminOverrideCreatorStats = async (req, res, next) => {
 
 /**
  * @desc    Admin directly overrides totalEarned and/or pendingAmount on the Earnings doc.
- *          Both fields are written directly — useful for manual corrections.
+ *          Writes to dedicated overrideTotalEarned / overridePendingAmount fields so the
+ *          values persist across page reloads without conflicting with the payment system.
+ *          Set value to -1 (or omit the field) to clear the override and revert to live computation.
  * @route   PATCH /api/admin/creators/:id/override-earnings
  * @access  Admin
  */
@@ -1328,19 +1338,29 @@ const adminOverrideCreatorEarnings = async (req, res, next) => {
         const updates = {};
 
         if (totalEarned !== undefined) {
-            const val = Math.max(0, Math.round(Number(totalEarned) * 100) / 100);
-            if (isNaN(val)) {
-                return res.status(400).json({ success: false, message: 'totalEarned must be a non-negative number.' });
+            if (totalEarned === null || Number(totalEarned) < 0) {
+                // null or negative = clear override, revert to live computation
+                updates.overrideTotalEarned = null;
+            } else {
+                const val = Math.max(0, Math.round(Number(totalEarned) * 100) / 100);
+                if (isNaN(val)) {
+                    return res.status(400).json({ success: false, message: 'totalEarned must be a non-negative number.' });
+                }
+                updates.overrideTotalEarned = val;
             }
-            updates.totalEarned = val;
         }
 
         if (pendingAmount !== undefined) {
-            const val = Math.max(0, Math.round(Number(pendingAmount) * 100) / 100);
-            if (isNaN(val)) {
-                return res.status(400).json({ success: false, message: 'pendingAmount must be a non-negative number.' });
+            if (pendingAmount === null || Number(pendingAmount) < 0) {
+                // null or negative = clear override
+                updates.overridePendingAmount = null;
+            } else {
+                const val = Math.max(0, Math.round(Number(pendingAmount) * 100) / 100);
+                if (isNaN(val)) {
+                    return res.status(400).json({ success: false, message: 'pendingAmount must be a non-negative number.' });
+                }
+                updates.overridePendingAmount = val;
             }
-            updates.pendingAmount = val;
         }
 
         if (Object.keys(updates).length === 0) {
@@ -1357,11 +1377,13 @@ const adminOverrideCreatorEarnings = async (req, res, next) => {
 
         res.json({
             success: true,
-            message: 'Earnings overridden successfully.',
+            message: 'Earnings override saved. Values will persist across page reloads.',
             data: {
-                totalEarned:     updated.totalEarned,
-                pendingAmount:   updated.pendingAmount,
-                withdrawnAmount: updated.withdrawnAmount,
+                overrideTotalEarned:   updated.overrideTotalEarned,
+                overridePendingAmount: updated.overridePendingAmount,
+                // Return the effective display values
+                totalEarned:   updated.overrideTotalEarned   ?? null,
+                pendingAmount: updated.overridePendingAmount ?? null,
             },
         });
     } catch (error) { next(error); }
