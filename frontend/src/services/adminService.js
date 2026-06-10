@@ -33,6 +33,7 @@ export const adminService = {
     // Full cascade account deletion
     deleteCreator: (id) => api.delete(`/admin/creators/${id}`),
     // Override denormalised stats (subscriber count, post count)
-    overrideCreatorStats: (id, data) => api.patch(`/admin/creators/${id}/override-stats`, data),
+    overrideCreatorStats:    (id, data) => api.patch(`/admin/creators/${id}/override-stats`, data),
+    overrideCreatorEarnings: (id, data) => api.patch(`/admin/creators/${id}/override-earnings`, data),
 };
 

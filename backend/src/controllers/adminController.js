@@ -1316,6 +1316,57 @@ const adminOverrideCreatorStats = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+/**
+ * @desc    Admin directly overrides totalEarned and/or pendingAmount on the Earnings doc.
+ *          Both fields are written directly — useful for manual corrections.
+ * @route   PATCH /api/admin/creators/:id/override-earnings
+ * @access  Admin
+ */
+const adminOverrideCreatorEarnings = async (req, res, next) => {
+    try {
+        const { totalEarned, pendingAmount } = req.body;
+        const updates = {};
+
+        if (totalEarned !== undefined) {
+            const val = Math.max(0, Math.round(Number(totalEarned) * 100) / 100);
+            if (isNaN(val)) {
+                return res.status(400).json({ success: false, message: 'totalEarned must be a non-negative number.' });
+            }
+            updates.totalEarned = val;
+        }
+
+        if (pendingAmount !== undefined) {
+            const val = Math.max(0, Math.round(Number(pendingAmount) * 100) / 100);
+            if (isNaN(val)) {
+                return res.status(400).json({ success: false, message: 'pendingAmount must be a non-negative number.' });
+            }
+            updates.pendingAmount = val;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ success: false, message: 'Provide at least one of: totalEarned, pendingAmount.' });
+        }
+
+        const updated = await Earnings.findOneAndUpdate(
+            { creatorId: req.params.id },
+            { $set: updates },
+            { returnDocument: 'after', upsert: true }
+        );
+
+        console.log(`[adminOverrideEarnings] Creator ${req.params.id} earnings overridden by admin ${req.user._id}:`, updates);
+
+        res.json({
+            success: true,
+            message: 'Earnings overridden successfully.',
+            data: {
+                totalEarned:     updated.totalEarned,
+                pendingAmount:   updated.pendingAmount,
+                withdrawnAmount: updated.withdrawnAmount,
+            },
+        });
+    } catch (error) { next(error); }
+};
+
 // One-time repair: backfill creatorEarning=0 gift Payment docs
 // POST /api/v1/admin/repair-gift-earnings
 const repairGiftEarnings = async (req, res, next) => {
@@ -1390,6 +1441,7 @@ module.exports = {
     adminUpdateCreatorFinancials,
     adminToggleBan,
     adminOverrideCreatorStats,
+    adminOverrideCreatorEarnings,
     getCreatorMedia,
     adminDeleteCreatorPost,
     deleteCreator,
