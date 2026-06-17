@@ -35,5 +35,8 @@ export const adminService = {
     // Override denormalised stats (subscriber count, post count)
     overrideCreatorStats:    (id, data) => api.patch(`/admin/creators/${id}/override-stats`, data),
     overrideCreatorEarnings: (id, data) => api.patch(`/admin/creators/${id}/override-earnings`, data),
+    // Explore page visibility (hide / unhide a creator)
+    toggleExploreVisibility:     (id, hidden) => api.patch(`/admin/creators/${id}/explore-visibility`, { hidden }),
+    bulkToggleExploreVisibility: (ids, hidden) => api.patch('/admin/creators/bulk-explore-visibility', { ids, hidden }),
 };
 

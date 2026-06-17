@@ -674,7 +674,7 @@ const getCreators = async (req, res, next) => {
         // Build user filter
         const userFilter = { role: 'creator' };
         if (status === 'suspended') userFilter.isBanned = true;
-        if (status === 'active') userFilter.isBanned = false;
+        if (status === 'active')    userFilter.isBanned = false;
 
         // Search by name or email
         let userIds = null;
@@ -709,12 +709,18 @@ const getCreators = async (req, res, next) => {
         const cids = creators.map((c) => c._id);
         const cidStrings = cids.map((id) => id.toString());
 
+        // ── For 'hidden' status tab: filter by hiddenFromExplore ─────────────
+        let profileFilter = { userId: { $in: cids } };
+        if (status === 'hidden') {
+            profileFilter.hiddenFromExplore = true;
+        }
+
         // FIX-6: Use live Payment aggregation for earnings — same source of truth as creator dashboard
         const { EARNING_TYPES } = require('../services/earningsService');
 
         const [profiles, earningsAgg, withdrawnDocs, inFlightAgg] = await Promise.all([
-            CreatorProfile.find({ userId: { $in: cids } })
-                .select('userId totalSubscribers genre verificationStatus profileImage displayName username')
+            CreatorProfile.find(profileFilter)
+                .select('userId totalSubscribers genre verificationStatus profileImage displayName username hiddenFromExplore')
                 .lean(),
             // Live totalEarned from Payment collection
             Payment.aggregate([
@@ -776,6 +782,7 @@ const getCreators = async (req, res, next) => {
                 genre: profile.genre || '',
                 totalSubscribers: profile.totalSubscribers ?? 0,
                 verificationStatus: profile.verificationStatus || 'pending',
+                hiddenFromExplore: profile.hiddenFromExplore ?? false,
                 totalEarned,
                 pendingAmount,
                 withdrawnAmount,
@@ -1437,6 +1444,83 @@ const repairGiftEarnings = async (req, res, next) => {
 };
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPLORE VISIBILITY MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @desc    Toggle a single creator's visibility on the public Explore page
+ * @route   PATCH /api/v1/admin/creators/:id/explore-visibility
+ * @access  Admin
+ * @body    { hidden: boolean }
+ */
+const adminToggleExploreVisibility = async (req, res, next) => {
+    try {
+        const { hidden } = req.body;
+        if (typeof hidden !== 'boolean') {
+            return res.status(400).json({ success: false, message: '`hidden` must be a boolean' });
+        }
+
+        const profile = await CreatorProfile.findOneAndUpdate(
+            { userId: req.params.id },
+            { hiddenFromExplore: hidden },
+            { returnDocument: 'after' }
+        );
+
+        if (!profile) {
+            return res.status(404).json({ success: false, message: 'Creator profile not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: hidden
+                ? `Creator @${profile.username || req.params.id} is now hidden from Explore`
+                : `Creator @${profile.username || req.params.id} is now visible on Explore`,
+            data: { _id: req.params.id, hiddenFromExplore: hidden },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Bulk-toggle explore visibility for multiple creators
+ * @route   PATCH /api/v1/admin/creators/bulk-explore-visibility
+ * @access  Admin
+ * @body    { ids: string[], hidden: boolean }
+ */
+const adminBulkToggleExploreVisibility = async (req, res, next) => {
+    try {
+        const { ids, hidden } = req.body;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ success: false, message: '`ids` must be a non-empty array' });
+        }
+        if (typeof hidden !== 'boolean') {
+            return res.status(400).json({ success: false, message: '`hidden` must be a boolean' });
+        }
+        if (ids.length > 100) {
+            return res.status(400).json({ success: false, message: 'Cannot update more than 100 creators at once' });
+        }
+
+        const result = await CreatorProfile.updateMany(
+            { userId: { $in: ids } },
+            { hiddenFromExplore: hidden }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: hidden
+                ? `${result.modifiedCount} creator(s) hidden from Explore`
+                : `${result.modifiedCount} creator(s) made visible on Explore`,
+            data: { modifiedCount: result.modifiedCount, ids, hidden },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 module.exports = {
     getAllUsers,
     getUserById,
@@ -1467,6 +1551,9 @@ module.exports = {
     getCreatorMedia,
     adminDeleteCreatorPost,
     deleteCreator,
+    // Explore visibility
+    adminToggleExploreVisibility,
+    adminBulkToggleExploreVisibility,
     // One-time repairs
     repairStats,
     dedupSubscriptions,

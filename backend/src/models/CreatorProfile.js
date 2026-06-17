@@ -48,6 +48,11 @@ const creatorProfileSchema = new mongoose.Schema(
             enum: ['pending', 'approved', 'rejected'],
             default: 'pending',
         },
+
+        // Admin visibility control — hides the creator from the public Explore page
+        // without banning their account. They can still post, earn, and chat.
+        hiddenFromExplore: { type: Boolean, default: false },
+
         // NOTE: Sensitive KYC data (PAN, Aadhaar, bank account) is stored ONLY in the
         // CreatorVerification model where it is encrypted at rest with AES-256-GCM.
         // The verificationData sub-document has been removed as it stored PII as plain text.

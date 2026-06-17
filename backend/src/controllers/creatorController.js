@@ -116,8 +116,8 @@ const listMyPayouts = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const listCreators = async (req, res, next) => {
     try {
-        // Base filter — only show approved creators on the public page
-        const filter = { verificationStatus: 'approved' };
+        // Base filter — only show approved creators that haven't been hidden by admin
+        const filter = { verificationStatus: 'approved', hiddenFromExplore: { $ne: true } };
 
         // Category filter (frontend sends e.g. category=Gaming)
         if (req.query.category && req.query.category !== 'All') {
@@ -220,7 +220,7 @@ const getCreatorByUsername = async (req, res, next) => {
 const getSuggestedCreators = async (req, res, next) => {
     try {
         const { exclude } = req.query;
-        const match = { verificationStatus: 'approved' };
+        const match = { verificationStatus: 'approved', hiddenFromExplore: { $ne: true } };
         if (exclude) match.username = { $ne: exclude.toLowerCase() };
 
         const creators = await CreatorProfile.aggregate([

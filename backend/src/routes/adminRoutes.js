@@ -10,6 +10,7 @@ const {
     adminUpdateCreatorProfile, adminUpdateCreatorFinancials, adminToggleBan,
     adminOverrideCreatorStats, adminOverrideCreatorEarnings,
     getCreatorMedia, adminDeleteCreatorPost, deleteCreator,
+    adminToggleExploreVisibility, adminBulkToggleExploreVisibility,
     repairStats,
     dedupSubscriptions,
     repairGiftEarnings,
@@ -56,6 +57,10 @@ router.patch('/payouts/:id/mark-paid', markPaid);
 
 // ── Creator Payout Management ──────────────────────────────────────────────────
 router.get('/creators', getCreators);
+
+// ── Explore Visibility (MUST be before /:id routes to avoid param collision) ──
+router.patch('/creators/bulk-explore-visibility', adminBulkToggleExploreVisibility);
+
 router.get('/creators/:id', getCreatorDetail);
 router.post('/creators/:id/payout', adminDirectPayout);
 router.patch('/creators/:id/profile', adminUpdateCreatorProfile);
@@ -66,6 +71,7 @@ router.get('/creators/:id/media', getCreatorMedia);
 router.delete('/creators/:id/media/:postId', adminDeleteCreatorPost);
 router.patch('/creators/:id/override-stats',    adminOverrideCreatorStats);
 router.patch('/creators/:id/override-earnings', adminOverrideCreatorEarnings);
+router.patch('/creators/:id/explore-visibility', adminToggleExploreVisibility);
 router.delete('/creators/:id', deleteCreator);  // Full cascade delete
 
 
