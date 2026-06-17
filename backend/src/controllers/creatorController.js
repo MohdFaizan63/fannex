@@ -126,28 +126,43 @@ const listCreators = async (req, res, next) => {
 
         const hasSearch = !!(req.query.search && req.query.search.trim());
 
-        const data = await paginate(CreatorProfile, filter, {
-            page: req.query.page,
-            limit: req.query.limit,
-            sort: hasSearch ? undefined : (req.query.sort || '-totalSubscribers'),
-            // Use $text index search when query present (much faster than $regex)
-            ...(hasSearch ? {
-                useTextSearch: true,
-                searchQuery: req.query.search,
-            } : {}),
-            populate: { path: 'userId', select: 'name email' },
-            // Only select fields the Explore card UI actually needs
-            select: 'displayName username profileImage coverImage totalSubscribers subscriptionPrice genre userId',
-        });
+        // Fetch explore frequency setting in parallel with paginated query
+        const SiteSetting = require('../models/SiteSetting');
+
+        const [data, freqSetting] = await Promise.all([
+            paginate(CreatorProfile, filter, {
+                page: req.query.page,
+                limit: req.query.limit,
+                sort: hasSearch ? undefined : (req.query.sort || '-totalSubscribers'),
+                // Use $text index search when query present (much faster than $regex)
+                ...(hasSearch ? {
+                    useTextSearch: true,
+                    searchQuery: req.query.search,
+                } : {}),
+                populate: { path: 'userId', select: 'name email' },
+                // Only select fields the Explore card UI actually needs
+                select: 'displayName username profileImage coverImage totalSubscribers subscriptionPrice genre userId',
+            }),
+            SiteSetting.findOne({ key: 'exploreFrequency' }).lean(),
+        ]);
 
         // Optimise Cloudinary CDN URLs
-        data.results = data.results.map((c) => ({
+        const optimized = data.results.map((c) => ({
             ...c,
             profileImage: optimizeImageUrl(c.profileImage),
             coverImage: optimizeImageUrl(c.coverImage),
         }));
 
-        res.status(200).json({ success: true, ...data });
+        // Apply explore frequency — repeat the result set N times
+        // frequency=1 (default) means no repeat; frequency=2 means list appears twice, etc.
+        const frequency = Math.max(1, Math.min(10, freqSetting?.value ?? 1));
+        const repeated = frequency > 1
+            ? Array.from({ length: frequency }, () => optimized).flat()
+            : optimized;
+
+        data.results = repeated;
+
+        res.status(200).json({ success: true, ...data, exploreFrequency: frequency });
     } catch (error) {
         next(error);
     }

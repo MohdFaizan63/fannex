@@ -1521,6 +1521,51 @@ const adminBulkToggleExploreVisibility = async (req, res, next) => {
 };
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPLORE FREQUENCY (Site Setting)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SiteSetting = require('../models/SiteSetting');
+
+/**
+ * @desc   Get the current Explore page repeat-frequency
+ * @route  GET /api/v1/admin/explore-frequency
+ * @access Admin
+ */
+const getExploreFrequency = async (req, res, next) => {
+    try {
+        const setting = await SiteSetting.findOne({ key: 'exploreFrequency' }).lean();
+        res.json({ success: true, frequency: setting?.value ?? 1 });
+    } catch (err) { next(err); }
+};
+
+/**
+ * @desc   Set the Explore page repeat-frequency (1 = no repeat, 2-10 = repeat N times)
+ * @route  POST /api/v1/admin/explore-frequency
+ * @access Admin
+ * @body   { frequency: number }
+ */
+const setExploreFrequency = async (req, res, next) => {
+    try {
+        const raw = parseInt(req.body.frequency, 10);
+        if (!Number.isFinite(raw) || raw < 1 || raw > 10) {
+            return res.status(400).json({
+                success: false,
+                message: 'frequency must be an integer between 1 and 10.',
+            });
+        }
+
+        await SiteSetting.findOneAndUpdate(
+            { key: 'exploreFrequency' },
+            { value: raw, updatedBy: req.user._id },
+            { upsert: true, setDefaultsOnInsert: true }
+        );
+
+        res.json({ success: true, frequency: raw, message: `Explore frequency set to ${raw}` });
+    } catch (err) { next(err); }
+};
+
+
 module.exports = {
     getAllUsers,
     getUserById,
@@ -1554,6 +1599,9 @@ module.exports = {
     // Explore visibility
     adminToggleExploreVisibility,
     adminBulkToggleExploreVisibility,
+    // Explore frequency (global repeat setting)
+    getExploreFrequency,
+    setExploreFrequency,
     // One-time repairs
     repairStats,
     dedupSubscriptions,

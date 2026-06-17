@@ -118,6 +118,181 @@ function EyeIcon({ crossed }) {
     );
 }
 
+// ── Explore Frequency Panel ───────────────────────────────────────────────────
+function ExploreFrequencyPanel() {
+    const [current, setCurrent]   = useState(1);
+    const [selected, setSelected] = useState(1);
+    const [saving, setSaving]     = useState(false);
+    const [status, setStatus]     = useState('');
+    const timerRef                = useRef();
+
+    useEffect(() => {
+        adminService.getExploreFrequency()
+            .then(({ data }) => {
+                const freq = data?.frequency ?? 1;
+                setCurrent(freq);
+                setSelected(freq);
+            })
+            .catch(() => {});
+    }, []);
+
+    const handleSave = async () => {
+        setSaving(true);
+        setStatus('');
+        try {
+            await adminService.setExploreFrequency(selected);
+            setCurrent(selected);
+            setStatus('saved');
+        } catch {
+            setStatus('error');
+        } finally {
+            setSaving(false);
+            clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => setStatus(''), 3500);
+        }
+    };
+
+    useEffect(() => () => clearTimeout(timerRef.current), []);
+
+    const isDirty = selected !== current;
+
+    return (
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(204,82,184,0.08) 100%)',
+            border: '1px solid rgba(124,58,237,0.2)',
+            borderRadius: 16,
+            padding: '20px 24px',
+            marginBottom: 28,
+        }}>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span style={{
+                            fontSize: 18,
+                            background: 'linear-gradient(135deg,#7c3aed,#cc52b8)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                        }}>⟳</span>
+                        <h2 className="text-white font-black text-base">Explore Frequency</h2>
+                        {current > 1 && (
+                            <span style={{
+                                background: 'linear-gradient(135deg,#7c3aed,#cc52b8)',
+                                color: '#fff',
+                                fontSize: 10, fontWeight: 800,
+                                padding: '2px 8px', borderRadius: 999,
+                                letterSpacing: '0.05em',
+                            }}>ACTIVE ×{current}</span>
+                        )}
+                    </div>
+                    <p className="text-surface-400 text-xs">
+                        Repeat the entire creator list on the public Explore page.
+                        &nbsp;<span className="text-surface-500">×1 = no repeat &nbsp;·&nbsp; ×2 = list appears twice, etc.</span>
+                    </p>
+                </div>
+                <button
+                    onClick={handleSave}
+                    disabled={saving || !isDirty}
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all"
+                    style={{
+                        background: isDirty
+                            ? 'linear-gradient(135deg,#7c3aed,#cc52b8)'
+                            : 'rgba(255,255,255,0.05)',
+                        color: isDirty ? '#fff' : 'rgba(255,255,255,0.3)',
+                        border: isDirty ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                        cursor: isDirty && !saving ? 'pointer' : 'not-allowed',
+                        minWidth: 100,
+                        justifyContent: 'center',
+                    }}
+                >
+                    {saving ? (
+                        <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</>
+                    ) : status === 'saved' ? (
+                        <><span>✓</span> Saved</>
+                    ) : status === 'error' ? (
+                        <><span>✗</span> Error</>
+                    ) : 'Save'}
+                </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-4">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+                    const isActive  = selected === n;
+                    const isCurrent = current  === n;
+                    return (
+                        <button
+                            key={n}
+                            onClick={() => setSelected(n)}
+                            title={n === 1 ? 'No repeat (default)' : `Repeat list ${n} times`}
+                            style={{
+                                width: 44, height: 44,
+                                borderRadius: 12,
+                                border: isActive
+                                    ? '2px solid transparent'
+                                    : isCurrent
+                                        ? '2px solid rgba(124,58,237,0.5)'
+                                        : '1px solid rgba(255,255,255,0.08)',
+                                background: isActive
+                                    ? 'linear-gradient(135deg,#7c3aed,#cc52b8)'
+                                    : isCurrent
+                                        ? 'rgba(124,58,237,0.12)'
+                                        : 'rgba(255,255,255,0.03)',
+                                color: isActive ? '#fff' : isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.45)',
+                                fontWeight: isActive || isCurrent ? 800 : 500,
+                                fontSize: 14,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0,
+                                position: 'relative',
+                            }}
+                        >
+                            ×{n}
+                            {isCurrent && !isActive && (
+                                <span style={{
+                                    position: 'absolute', bottom: 4, left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    width: 4, height: 4, borderRadius: '50%',
+                                    background: '#7c3aed',
+                                }} />
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+            <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
+                <span className="text-surface-500 text-xs whitespace-nowrap flex-shrink-0">Preview:</span>
+                <div className="flex gap-1.5 flex-wrap">
+                    {Array.from({ length: selected }, (_, rep) =>
+                        ['A', 'B', 'C'].map((label) => (
+                            <span
+                                key={`${rep}-${label}`}
+                                style={{
+                                    width: 28, height: 28,
+                                    borderRadius: 8,
+                                    background: rep % 2 === 0
+                                        ? 'linear-gradient(135deg,rgba(124,58,237,0.4),rgba(204,82,184,0.4))'
+                                        : 'rgba(255,255,255,0.06)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 10, fontWeight: 700,
+                                    color: rep % 2 === 0 ? '#c4b5fd' : 'rgba(255,255,255,0.35)',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {label}
+                            </span>
+                        ))
+                    )}
+                </div>
+                {selected > 1 && (
+                    <span className="text-surface-600 text-xs whitespace-nowrap flex-shrink-0">
+                        ({['A','B','C'].length} creators × {selected} = {['A','B','C'].length * selected} cards)
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ── Confirm Delete Modal ───────────────────────────────────────────────────────
 function DeleteConfirmModal({ creator, onConfirm, onCancel, busy }) {
     const [countdown, setCountdown] = useState(5);
@@ -562,6 +737,9 @@ export default function AdminCreators() {
                     <span>{toast.type === 'error' ? '✗' : '✓'}</span>{toast.msg}
                 </div>
             )}
+
+            {/* ── Explore Frequency Panel ─────────────────────────────────── */}
+            <ExploreFrequencyPanel />
 
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div className="mb-8">

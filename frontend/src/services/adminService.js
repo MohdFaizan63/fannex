@@ -38,5 +38,8 @@ export const adminService = {
     // Explore page visibility (hide / unhide a creator)
     toggleExploreVisibility:     (id, hidden) => api.patch(`/admin/creators/${id}/explore-visibility`, { hidden }),
     bulkToggleExploreVisibility: (ids, hidden) => api.patch('/admin/creators/bulk-explore-visibility', { ids, hidden }),
+    // Explore frequency (repeat multiplier for the public Explore grid)
+    getExploreFrequency: ()              => api.get('/admin/explore-frequency'),
+    setExploreFrequency: (frequency)     => api.post('/admin/explore-frequency', { frequency }),
 };
 

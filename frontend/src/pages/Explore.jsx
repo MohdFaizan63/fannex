@@ -140,6 +140,7 @@ export default function Explore() {
     const [error, setError] = useState('');
     const [totalPages, setTotalPages] = useState(1);
     const [totalResults, setTotalResults] = useState(0);
+    const [exploreFrequency, setExploreFrequency] = useState(1);
 
     // Derive state from URL search params (single source of truth)
     const search = searchParams.get('search') || '';
@@ -160,7 +161,14 @@ export default function Explore() {
                 ...(category !== 'All' ? { category } : {}),
             };
             const { data } = await creatorService.list(params);
-            setCreators(data.results ?? []);
+            const freq = Math.max(1, data.exploreFrequency ?? 1);
+            setExploreFrequency(freq);
+            const baseResults = data.results ?? [];
+            // Repeat the list client-side according to the admin-set frequency
+            const repeated = freq > 1
+                ? Array.from({ length: freq }, () => baseResults).flat()
+                : baseResults;
+            setCreators(repeated);
             setTotalPages(data.totalPages ?? 1);
             setTotalResults(data.totalResults ?? 0);
         } catch {
@@ -205,6 +213,17 @@ export default function Explore() {
             <div className="mb-8">
                 <h1 className="text-4xl font-black text-white mb-1">
                     Explore <span className="gradient-text">Creators</span>
+                    {exploreFrequency > 1 && (
+                        <span style={{
+                            marginLeft: 10,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            background: 'linear-gradient(135deg,#7c3aed,#cc52b8)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            verticalAlign: 'middle',
+                        }}>×{exploreFrequency}</span>
+                    )}
                 </h1>
                 <p className="text-surface-400">
                     {totalResults > 0 && !loading
@@ -272,7 +291,7 @@ export default function Explore() {
                                 )}
                             </div>
                         )
-                        : creators.map((c) => <CreatorCard key={c._id} creator={c} />)
+                        : creators.map((c, idx) => <CreatorCard key={`${c._id}-${idx}`} creator={c} />)
                 }
             </div>
 

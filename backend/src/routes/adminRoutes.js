@@ -11,6 +11,7 @@ const {
     adminOverrideCreatorStats, adminOverrideCreatorEarnings,
     getCreatorMedia, adminDeleteCreatorPost, deleteCreator,
     adminToggleExploreVisibility, adminBulkToggleExploreVisibility,
+    getExploreFrequency, setExploreFrequency,
     repairStats,
     dedupSubscriptions,
     repairGiftEarnings,
@@ -84,6 +85,10 @@ router.post('/repair-stats', repairStats);
 router.post('/dedup-subscriptions', dedupSubscriptions);
 // POST /api/admin/repair-gift-earnings — backfills creatorEarning=0 gift Payment docs
 router.post('/repair-gift-earnings', repairGiftEarnings);
+
+// ── Explore Frequency ──────────────────────────────────────────────────────────────────
+router.get('/explore-frequency', getExploreFrequency);
+router.post('/explore-frequency', setExploreFrequency);
 
 // ── Dream Fund Management ─────────────────────────────────────────────────────
 router.get('/dream-funds', adminListDreamFunds);
