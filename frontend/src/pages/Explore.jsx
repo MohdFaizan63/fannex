@@ -163,16 +163,19 @@ export default function Explore() {
             const { data } = await creatorService.list(params);
             const freq = Math.max(1, data.exploreFrequency ?? 1);
             setExploreFrequency(freq);
-            const baseResults = data.results ?? [];
-            // Repeat the list client-side according to the admin-set frequency
+            const baseResults = [...(data.results ?? [])];
+
+            // Fisher-Yates shuffle the BASE list first
+            for (let i = baseResults.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [baseResults[i], baseResults[j]] = [baseResults[j], baseResults[i]];
+            }
+
+            // Then repeat the already-shuffled list — duplicates follow the same order
             const repeated = freq > 1
                 ? Array.from({ length: freq }, () => baseResults).flat()
                 : baseResults;
-            // Fisher-Yates shuffle — randomise order on every fetch/refresh
-            for (let i = repeated.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [repeated[i], repeated[j]] = [repeated[j], repeated[i]];
-            }
+
             setCreators(repeated);
             setTotalPages(data.totalPages ?? 1);
             setTotalResults(data.totalResults ?? 0);
