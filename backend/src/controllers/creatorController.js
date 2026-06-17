@@ -147,20 +147,15 @@ const listCreators = async (req, res, next) => {
         ]);
 
         // Optimise Cloudinary CDN URLs
-        const optimized = data.results.map((c) => ({
+        data.results = data.results.map((c) => ({
             ...c,
             profileImage: optimizeImageUrl(c.profileImage),
             coverImage: optimizeImageUrl(c.coverImage),
         }));
 
-        // Apply explore frequency — repeat the result set N times
-        // frequency=1 (default) means no repeat; frequency=2 means list appears twice, etc.
+        // Send frequency as metadata only — the frontend handles the actual repetition
+        // to avoid double-repeating (backend × frontend = N² cards)
         const frequency = Math.max(1, Math.min(10, freqSetting?.value ?? 1));
-        const repeated = frequency > 1
-            ? Array.from({ length: frequency }, () => optimized).flat()
-            : optimized;
-
-        data.results = repeated;
 
         res.status(200).json({ success: true, ...data, exploreFrequency: frequency });
     } catch (error) {

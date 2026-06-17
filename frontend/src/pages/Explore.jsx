@@ -225,16 +225,11 @@ export default function Explore() {
                         }}>×{exploreFrequency}</span>
                     )}
                 </h1>
-                <p className="text-surface-400">
-                    {totalResults > 0 && !loading
-                        ? `${totalResults.toLocaleString('en-IN')} creator${totalResults !== 1 ? 's' : ''} found`
-                        : 'Discover exclusive content from the best creators.'}
-                </p>
             </div>
 
-            {/* ── Controls ──────────────────────────────────────────────────────── */}
+            {/* Search bar hidden */}
+            {/*
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                {/* Search */}
                 <form onSubmit={handleSearch} className="flex gap-2 flex-1 max-w-md">
                     <div className="relative flex-1">
                         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none"
@@ -250,6 +245,7 @@ export default function Explore() {
                     <button type="submit" className="btn-brand px-5 py-2.5 rounded-xl">Search</button>
                 </form>
             </div>
+            */}
 
             {/* Category filters hidden for now */}
             {/*
