@@ -168,6 +168,11 @@ export default function Explore() {
             const repeated = freq > 1
                 ? Array.from({ length: freq }, () => baseResults).flat()
                 : baseResults;
+            // Fisher-Yates shuffle — randomise order on every fetch/refresh
+            for (let i = repeated.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [repeated[i], repeated[j]] = [repeated[j], repeated[i]];
+            }
             setCreators(repeated);
             setTotalPages(data.totalPages ?? 1);
             setTotalResults(data.totalResults ?? 0);
@@ -213,17 +218,6 @@ export default function Explore() {
             <div className="mb-8">
                 <h1 className="text-4xl font-black text-white mb-1">
                     Explore <span className="gradient-text">Creators</span>
-                    {exploreFrequency > 1 && (
-                        <span style={{
-                            marginLeft: 10,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            background: 'linear-gradient(135deg,#7c3aed,#cc52b8)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            verticalAlign: 'middle',
-                        }}>×{exploreFrequency}</span>
-                    )}
                 </h1>
             </div>
 
