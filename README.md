@@ -10,6 +10,8 @@
 
 ---
 
+## Website - www.fannex.in
+
 ## 📖 About
 
 **Fannex** is a modern web application designed with a scalable architecture, responsive UI, and secure backend services. It combines a clean frontend with a powerful backend API to provide users with a smooth and efficient experience.
