@@ -229,8 +229,8 @@ This project is licensed under the MIT License.
 
 **Mohd Faizan**
 
-- GitHub: https://github.com/your-username
-- LinkedIn: https://linkedin.com/in/your-profile
+- GitHub: https://github.com/MohdFaizan63
+- LinkedIn: https://linkedin.com/in/mohdfaizan63
 
 ---
 
